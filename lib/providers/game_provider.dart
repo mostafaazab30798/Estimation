@@ -1,0 +1,487 @@
+// lib/providers/game_provider.dart
+//
+// Central state manager. Bridges networking layer ↔ UI.
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle, AssetManifest;
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/models/game_state.dart';
+import '../core/models/card.dart';
+import '../core/models/bid.dart';
+import '../core/models/player.dart';
+import '../networking/game_server.dart';
+import '../networking/game_client.dart';
+import '../networking/messages.dart';
+import '../features/lobby/data/lobby_repository.dart';
+import '../features/lobby/domain/models/game_room.dart';
+import '../features/lobby/domain/models/room_player.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+enum ConnectionRole { none, host, client }
+
+enum ConnectionStatus { idle, connecting, connected, error }
+
+class GameProvider extends ChangeNotifier {
+  final _uuid = const Uuid();
+  final _lobbyRepo = LobbyRepository();
+
+  GameProvider() {
+    _loadAvailableThemes();
+  }
+
+  GameState? _state;
+  ConnectionRole _role = ConnectionRole.none;
+  ConnectionStatus _status = ConnectionStatus.idle;
+  String _errorMessage = '';
+
+  GameServer? _server;
+  GameClient? _client;
+
+  String? _myPlayerId; // Supabase auth uid
+  String _myName = '';
+  bool _isSearching = false;
+  bool _isTestMode = false;
+  int _expectedPlayers = 4;
+
+  // Supabase Lobby State
+  GameRoom? _currentRoom;
+  List<RoomPlayer> _roomPlayers = [];
+  StreamSubscription? _roomSub;
+  StreamSubscription? _playersSub;
+
+  // ── Getters ───────────────────────────────────────────────────
+
+  GameState? get state => _state;
+  ConnectionRole get role => _role;
+  ConnectionStatus get status => _status;
+  String get errorMessage => _errorMessage;
+  String get myPlayerId => _myPlayerId ?? '';
+  String get myName => _myName;
+  bool get isHost => _role == ConnectionRole.host;
+  bool get isSearching => _isSearching;
+  bool get isTestMode => _isTestMode;
+  int get expectedPlayers => _expectedPlayers;
+
+  /// The room code to share with other players (host only).
+  String? get gameCode => _currentRoom?.roomCode;
+
+  GameRoom? get currentRoom => _currentRoom;
+  List<RoomPlayer> get roomPlayers => _roomPlayers;
+
+  List<String> _availableThemes = ['theme_1', 'theme_2'];
+  List<String> get availableThemes => _availableThemes;
+
+  Future<void> _loadAvailableThemes() async {
+    try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      final assets = manifest.listAssets();
+      
+      final themes = <String>{};
+      for (final path in assets) {
+        if (path.startsWith('assets/theme_')) {
+          final parts = path.split('/');
+          if (parts.length >= 2) {
+            themes.add(parts[1]);
+          }
+        }
+      }
+      
+      if (themes.isNotEmpty) {
+        _availableThemes = themes.toList()..sort();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading themes: $e');
+    }
+  }
+
+  Player? get me =>
+      _state?.players.where((p) => p.id == myPlayerId).firstOrNull;
+
+  GamePhase get phase => _state?.phase ?? GamePhase.lobby;
+
+  bool get isMyTurn {
+    if (_state == null || me == null) return false;
+    switch (_state!.phase) {
+      case GamePhase.auction:
+        return _state!.auctionTurnSeatIndex == me!.seatIndex;
+      case GamePhase.trickTaking:
+        return _state!.currentPlayerSeatIndex == me!.seatIndex;
+      case GamePhase.declarations:
+        return _state!.currentPlayerSeatIndex == me!.seatIndex && me!.declared == null;
+      case GamePhase.voidCheck:
+        return !_state!.voidCheckPassed.contains(myPlayerId);
+      default:
+        return false;
+    }
+  }
+
+  bool get amBidder => _state?.bidderPlayerId == myPlayerId;
+
+  List<PlayingCard> get myHand => me?.hand ?? [];
+
+  // ── Supabase Lobby Streams ─────────────────────────────────────
+
+  void _listenToRoom(String roomId) {
+    _roomSub?.cancel();
+    _roomSub = _lobbyRepo.watchRoom(roomId).listen(
+      (room) {
+        _currentRoom = room;
+        // Automatically start the game if status changed to playing
+        if (room.status == GameRoomStatus.playing) {
+          if (_state == null && !isHost) {
+            _setError('بدأت اللعبة، ولكن لم تكتمل المزامنة مع الخادم. يرجى التحقق من اتصالك بالإنترنت.');
+          }
+        } else if (room.status == GameRoomStatus.cancelled) {
+          _setError('تم إلغاء الغرفة من قبل المضيف');
+        }
+        notifyListeners();
+      },
+      onError: (err) => _setError('حدث خطأ في الغرفة: $err'),
+    );
+
+    _playersSub?.cancel();
+    _playersSub = _lobbyRepo.watchRoomPlayers(roomId).listen(
+      (players) {
+        _roomPlayers = players;
+        notifyListeners();
+      },
+      onError: (err) => _setError('حدث خطأ في اللاعبين: $err'),
+    );
+  }
+
+  // ── Host a game ───────────────────────────────────────────────
+
+  Future<void> hostGame(String name, {int expectedPlayers = 4}) async {
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    _myName = name;
+    _role = ConnectionRole.host;
+    _isTestMode = false;
+    _expectedPlayers = expectedPlayers;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      // 1. Generate 6-char code and create Supabase room
+      String roomCode = '';
+      GameRoom? createdRoom;
+      int retries = 3;
+      while (retries > 0) {
+        roomCode = _generateRoomCode();
+        debugPrint('Attempting to create room with code: $roomCode');
+        try {
+          createdRoom = await _lobbyRepo.createRoom(
+            playerName: name,
+            roomCode: roomCode,
+            hostIp: '127.0.0.1',
+            wsPort: 0,
+          );
+          debugPrint('Successfully created room: ${createdRoom.id}');
+          break;
+        } catch (e) {
+          debugPrint('Failed to create room (retries left: ${retries - 1}): $e');
+          if (e.toString().contains('ROOM_CODE_COLLISION')) {
+            retries--;
+          } else {
+            rethrow;
+          }
+        }
+      }
+
+      if (createdRoom == null) throw Exception('فشل في إنشاء الغرفة');
+
+      // 2. Start local game server via Supabase Broadcast
+      _server = GameServer(
+        onStateUpdate: (state) {
+          _state = state;
+          notifyListeners();
+        },
+      );
+      await _server!.start(name, myPlayerId, createdRoom.id);
+
+      _currentRoom = createdRoom;
+      _listenToRoom(createdRoom.id);
+      await _saveSession(createdRoom.id, roomCode, true);
+
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل تشغيل الخادم: $e');
+    }
+  }
+
+  String _generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random.secure();
+    return List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  // ── Test mode (3 bot players) ─────────────────────────────────
+
+  Future<void> startTestGame(String name) async {
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    _myName = name;
+    _role = ConnectionRole.host;
+    _isTestMode = true;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      _server = GameServer(
+        onStateUpdate: (state) {
+          _state = state;
+          notifyListeners();
+        },
+      );
+      final dummyRoomId = 'test_${_uuid.v4()}';
+      await _server!.start(name, myPlayerId, dummyRoomId);
+      // Add 3 bot players to fill the remaining seats
+      _server!.addBotPlayers(count: 3);
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل تشغيل الخادم: $e');
+    }
+  }
+
+  // ── Join a game ───────────────────────────────────────────────
+
+  Future<void> joinGameWithCode(String name, String code) async {
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    _myName = name;
+    _role = ConnectionRole.client;
+    _isTestMode = false;
+    _status = ConnectionStatus.connecting;
+    _isSearching = true;
+    notifyListeners();
+
+    _client = GameClient(
+      onStateUpdate: (state) {
+        _state = state;
+        notifyListeners();
+      },
+      onError: (err) => _setError(err),
+    );
+
+    try {
+      // 1. Join Supabase room
+      final normalizedCode = code.trim().toUpperCase();
+      debugPrint('Attempting to join room with code: $normalizedCode');
+      final room = await _lobbyRepo.joinRoom(
+        roomCode: normalizedCode,
+        playerName: name,
+      );
+
+      if (_status != ConnectionStatus.connecting) {
+        // User cancelled while we were joining, leave immediately
+        _lobbyRepo.leaveRoom(room.id, myPlayerId).catchError((_) {});
+        return;
+      }
+
+      _currentRoom = room;
+      debugPrint('Successfully joined room: ${room.id}');
+
+      // 2. Connect to Supabase Broadcast Channel
+      _isSearching = false;
+      await _client!.connect(room.id, myPlayerId, name);
+      debugPrint('Connected to Supabase Broadcast for room: ${room.id}');
+
+      // 3. Listen to Supabase room
+      _listenToRoom(room.id);
+      await _saveSession(room.id, normalizedCode, false);
+
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e, st) {
+      _isSearching = false;
+      debugPrint('ERROR in joinGameWithCode: $e\nStacktrace: $st');
+      _setError(_translateJoinError(e.toString()));
+    }
+  }
+
+  // ── Actions → Host ────────────────────────────────────────────
+
+  void _sendAction(String action, [Map<String, dynamic> extra = const {}]) {
+    if (_role == ConnectionRole.host) {
+      _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+    } else {
+      _client!.sendAction(action, myPlayerId, extra);
+    }
+  }
+
+  Future<void> startGame() async {
+    if (_currentRoom != null && isHost) {
+      try {
+        // Sync all Supabase room players into the local game server state
+        // so dealCards has exactly 4 players, regardless of WebSocket timing.
+        if (_server != null && _roomPlayers.isNotEmpty) {
+          _server!.syncPlayersFromRoom(
+            _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
+          );
+          if (_expectedPlayers < 4) {
+            _server!.addBotPlayers(count: 4 - _expectedPlayers);
+          }
+        }
+        await _lobbyRepo.startGame(_currentRoom!.id);
+        _sendAction(ActionType.startGame);
+      } catch (e) {
+        _setError('فشل بدء اللعبة: $e');
+      }
+    } else {
+      _sendAction(ActionType.startGame);
+    }
+  }
+
+  void confirmNoVoid() => _sendAction(ActionType.confirmNoVoid);
+
+  void changeTheme(String theme) {
+    if (isHost) {
+      _sendAction(ActionType.changeTheme, {'theme': theme});
+    }
+  }
+
+  void unready() => _sendAction(ActionType.unready);
+
+
+  void approveRedeal() {
+    _sendAction(ActionType.approveRedeal);
+  }
+
+  void rejectRedeal() {
+    _sendAction(ActionType.rejectRedeal);
+  }
+
+  void submitBid(Bid bid) =>
+      _sendAction(ActionType.submitBid, {'bid': bid.toJson()});
+
+  void passBid() => _sendAction(ActionType.passBid);
+
+  void submitDeclaration(int declared) =>
+      _sendAction(ActionType.submitDeclaration, {'declared': declared});
+
+  void playCard(PlayingCard card) =>
+      _sendAction(ActionType.playCard, {'card': card.toJson()});
+
+  void nextRound() => _sendAction(ActionType.nextRound);
+
+  // ── Helpers ───────────────────────────────────────────────────
+
+  /// Translates raw Supabase/network error strings into user-friendly Arabic.
+  String _translateJoinError(String raw) {
+    if (raw.contains('ROOM_NOT_FOUND')) {
+      return 'الغرفة غير موجودة. تأكد من صحة الكود.';
+    } else if (raw.contains('ROOM_ALREADY_STARTED')) {
+      return 'اللعبة بدأت بالفعل، لا يمكن الانضمام.';
+    } else if (raw.contains('ROOM_NOT_AVAILABLE')) {
+      return 'الغرفة لم تعد متاحة (منتهية أو ملغاة).';
+    } else if (raw.contains('ROOM_NOT_WAITING') || raw.contains('ROOM_FULL')) {
+      return 'الغرفة ممتلئة أو لم تعد في وضع الانتظار.';
+    } else if (raw.contains('NOT_AUTHENTICATED')) {
+      return 'يجب تسجيل الدخول أولاً.';
+    } else if (raw.contains('SocketException') || raw.contains('Connection refused')) {
+      return 'تعذّر الاتصال بخادم اللعبة. تأكد أن المضيف على نفس الشبكة.';
+    }
+    return 'فشل الانضمام: $raw';
+  }
+
+  void _setError(String msg) {
+    _errorMessage = msg;
+    _status = ConnectionStatus.error;
+    _isSearching = false;
+    notifyListeners();
+  }
+
+  void reset() {
+    _clearSession();
+    if (_currentRoom != null && isHost) {
+      _lobbyRepo.cancelRoom(_currentRoom!.id).catchError((_) {});
+    } else if (_currentRoom != null && !isHost) {
+      _lobbyRepo.leaveRoom(_currentRoom!.id, myPlayerId).catchError((_) {});
+    }
+
+    _roomSub?.cancel();
+    _playersSub?.cancel();
+    _server?.stop();
+    _client?.disconnect(myPlayerId);
+    
+    _server = null;
+    _client = null;
+    _state = null;
+    _currentRoom = null;
+    _roomPlayers = [];
+    _role = ConnectionRole.none;
+    _status = ConnectionStatus.idle;
+    _errorMessage = '';
+    _isSearching = false;
+    _isTestMode = false;
+    notifyListeners();
+  }
+
+  // ── Session Recovery ──────────────────────────────────────────
+
+  Future<void> _saveSession(String roomId, String roomCode, bool isHost) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('active_room_id', roomId);
+    await prefs.setString('active_room_code', roomCode);
+    await prefs.setBool('active_room_is_host', isHost);
+  }
+
+  Future<void> _clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('active_room_id');
+    await prefs.remove('active_room_code');
+    await prefs.remove('active_room_is_host');
+  }
+
+  Future<bool> recoverSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final roomId = prefs.getString('active_room_id');
+    final roomCode = prefs.getString('active_room_code');
+    final savedName = prefs.getString('player_name') ?? 'Player';
+
+    if (roomId == null || roomCode == null) return false;
+
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      final room = await _lobbyRepo.getRoom(roomId);
+      if (room.status == GameRoomStatus.cancelled || room.status == GameRoomStatus.finished) {
+        await _clearSession();
+        _status = ConnectionStatus.idle;
+        notifyListeners();
+        return false;
+      }
+
+      // If we were the host, the local GameServer was destroyed when the app crashed.
+      // A full host recovery requires persisting the entire GameState to a DB and reloading it,
+      // which is beyond simple session recovery. For now, if we are the host, we can't easily
+      // resume the server. We will try to rejoin as a client to see if the server is somehow still alive 
+      // (e.g. app was just in background and didn't fully die, or we are testing).
+      // In a real production scenario, the host needs a dedicated backend server or persistent state.
+      
+      await joinGameWithCode(savedName, roomCode);
+      return _status == ConnectionStatus.connected;
+    } catch (e) {
+      await _clearSession();
+      _status = ConnectionStatus.idle;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _roomSub?.cancel();
+    _playersSub?.cancel();
+    _server?.stop();
+    _client?.disconnect(myPlayerId);
+    super.dispose();
+  }
+}
