@@ -3,7 +3,6 @@
 // Central state manager. Bridges networking layer ↔ UI.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -21,7 +20,8 @@ import '../networking/messages.dart';
 import '../features/lobby/data/lobby_repository.dart';
 import '../features/lobby/domain/models/game_room.dart';
 import '../features/lobby/domain/models/room_player.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/session_storage_service.dart';
+import '../services/profile_service.dart';
 
 enum ConnectionRole { none, host, client }
 
@@ -30,6 +30,7 @@ enum ConnectionStatus { idle, connecting, connected, error }
 class GameProvider extends ChangeNotifier {
   final _uuid = const Uuid();
   final _lobbyRepo = LobbyRepository();
+  final _sessionService = SessionStorageService();
 
   GameProvider() {
     _loadAvailableThemes();
@@ -203,11 +204,18 @@ class GameProvider extends ChangeNotifier {
           notifyListeners();
         },
       );
-      await _server!.start(name, myPlayerId, createdRoom.id);
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _server!.start(name, myPlayerId, createdRoom.id, myPhoto);
 
       _currentRoom = createdRoom;
       _listenToRoom(createdRoom.id);
-      await _saveSession(createdRoom.id, roomCode, true);
+      await _sessionService.saveActiveRoomSession(
+        roomId:     createdRoom.id,
+        roomCode:   roomCode,
+        playerId:   myPlayerId,
+        playerName: _myName,
+        isHost:     true,
+      );
 
       _status = ConnectionStatus.connected;
       notifyListeners();
@@ -240,7 +248,8 @@ class GameProvider extends ChangeNotifier {
         },
       );
       final dummyRoomId = 'test_${_uuid.v4()}';
-      await _server!.start(name, myPlayerId, dummyRoomId);
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _server!.start(name, myPlayerId, dummyRoomId, myPhoto);
       // Add 3 bot players to fill the remaining seats
       _server!.addBotPlayers(count: 3);
       _status = ConnectionStatus.connected;
@@ -289,12 +298,19 @@ class GameProvider extends ChangeNotifier {
 
       // 2. Connect to Supabase Broadcast Channel
       _isSearching = false;
-      await _client!.connect(room.id, myPlayerId, name);
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _client!.connect(room.id, myPlayerId, name, myPhoto);
       debugPrint('Connected to Supabase Broadcast for room: ${room.id}');
 
       // 3. Listen to Supabase room
       _listenToRoom(room.id);
-      await _saveSession(room.id, normalizedCode, false);
+      await _sessionService.saveActiveRoomSession(
+        roomId:     room.id,
+        roomCode:   normalizedCode,
+        playerId:   myPlayerId,
+        playerName: _myName,
+        isHost:     false,
+      );
 
       _status = ConnectionStatus.connected;
       notifyListeners();
@@ -368,6 +384,8 @@ class GameProvider extends ChangeNotifier {
   void playCard(PlayingCard card) =>
       _sendAction(ActionType.playCard, {'card': card.toJson()});
 
+  void requestStateSync() => _sendAction(ActionType.requestStateSync);
+
   void nextRound() => _sendAction(ActionType.nextRound);
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -398,7 +416,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   void reset() {
-    _clearSession();
+    _sessionService.clearSession();
     if (_currentRoom != null && isHost) {
       _lobbyRepo.cancelRoom(_currentRoom!.id).catchError((_) {});
     } else if (_currentRoom != null && !isHost) {
@@ -424,54 +442,181 @@ class GameProvider extends ChangeNotifier {
   }
 
   // ── Session Recovery ──────────────────────────────────────────
+  //
+  // The _saveSession / _clearSession stubs have been replaced by
+  // SessionStorageService. recoverSession() is now a thin wrapper kept
+  // for backwards-compatibility with HomeScreen; full recovery logic
+  // lives in ReconnectionManager (Phase 3).
 
-  Future<void> _saveSession(String roomId, String roomCode, bool isHost) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('active_room_id', roomId);
-    await prefs.setString('active_room_code', roomCode);
-    await prefs.setBool('active_room_is_host', isHost);
-  }
-
-  Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('active_room_id');
-    await prefs.remove('active_room_code');
-    await prefs.remove('active_room_is_host');
-  }
-
+  /// Lightweight recovery check called once on cold-start from HomeScreen.
+  /// Returns true if a valid session was found AND a reconnect attempt succeeded.
   Future<bool> recoverSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final roomId = prefs.getString('active_room_id');
-    final roomCode = prefs.getString('active_room_code');
-    final savedName = prefs.getString('player_name') ?? 'Player';
-
-    if (roomId == null || roomCode == null) return false;
+    final session = await _sessionService.getActiveRoomSession();
+    if (session == null) return false;
 
     _status = ConnectionStatus.connecting;
     notifyListeners();
 
     try {
-      final room = await _lobbyRepo.getRoom(roomId);
-      if (room.status == GameRoomStatus.cancelled || room.status == GameRoomStatus.finished) {
-        await _clearSession();
+      final room = await _lobbyRepo.getRoom(session.roomId);
+
+      // Room is no longer active — wipe the stale session.
+      if (room.status == GameRoomStatus.cancelled ||
+          room.status == GameRoomStatus.finished) {
+        await _sessionService.clearSession();
         _status = ConnectionStatus.idle;
         notifyListeners();
         return false;
       }
 
-      // If we were the host, the local GameServer was destroyed when the app crashed.
-      // A full host recovery requires persisting the entire GameState to a DB and reloading it,
-      // which is beyond simple session recovery. For now, if we are the host, we can't easily
-      // resume the server. We will try to rejoin as a client to see if the server is somehow still alive 
-      // (e.g. app was just in background and didn't fully die, or we are testing).
-      // In a real production scenario, the host needs a dedicated backend server or persistent state.
-      
-      await joinGameWithCode(savedName, roomCode);
+      // Attempt reconnect as client (Phase 3 will handle full host promotion).
+      // Ensure myPlayerId and myName are restored from the session before
+      // joinGameWithCode sets them again.
+      _myPlayerId = session.playerId;
+      _myName     = session.playerName;
+
+      await joinGameWithCode(session.playerName, session.roomCode);
       return _status == ConnectionStatus.connected;
     } catch (e) {
-      await _clearSession();
+      await _sessionService.clearSession();
       _status = ConnectionStatus.idle;
       notifyListeners();
+      return false;
+    }
+  }
+
+  /// Expose the session service so ReconnectionManager can update the
+  /// isHost flag after a host-promotion event.
+  SessionStorageService get sessionService => _sessionService;
+
+  // ── Identity restoration (no network call) ────────────────────────────────
+
+  /// Set player identity from a persisted session before making network calls.
+  /// Must be called before [rehydrateGameState] so [myPlayerId] is populated.
+  void restoreIdentity({
+    required String playerId,
+    required String playerName,
+  }) {
+    _myPlayerId = playerId;
+    _myName     = playerName;
+  }
+
+  // ── State re-hydration (client reconnect) ─────────────────────────────────
+
+  /// Fetch the persisted GameState snapshot, restore local state, recover
+  /// the player's private hand, and re-subscribe to the Realtime channel.
+  ///
+  /// Returns true on success; false if the snapshot is missing or any
+  /// network step fails.
+  Future<bool> rehydrateGameState(String roomId) async {
+    try {
+      debugPrint('[Provider] Rehydrating state for room $roomId…');
+
+      // 1. Fetch the phase-transition snapshot from Supabase.
+      final snapshot = await _lobbyRepo.getGameStateSnapshot(roomId);
+      if (snapshot == null) {
+        debugPrint('[Provider] No snapshot found — cannot rehydrate');
+        return false;
+      }
+
+      _state = GameState.fromJson(snapshot);
+
+      // 2. Recover the player's own hand cards (private, per-player row).
+      if (myPlayerId.isNotEmpty) {
+        try {
+          final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
+          if (myHand.isNotEmpty) {
+            final idx = _state!.players.indexWhere((p) => p.id == myPlayerId);
+            if (idx != -1) _state!.players[idx].hand = myHand;
+          }
+        } catch (e) {
+          // Non-fatal: the host's next broadcast will overwrite with full state.
+          debugPrint('[Provider] Hand recovery skipped: $e');
+        }
+      }
+
+      // 3. Clean up any stale client connection.
+      _client?.disconnect(myPlayerId);
+
+      // 4. Re-subscribe to the Realtime broadcast channel.
+      _client = GameClient(
+        onStateUpdate: (state) {
+          _state = state;
+          notifyListeners();
+        },
+        onError: (err) => _setError(err),
+      );
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _client!.connect(roomId, myPlayerId, myName, myPhoto);
+
+      // 5. Re-subscribe to Supabase room stream.
+      _listenToRoom(roomId);
+      _currentRoom = await _lobbyRepo.getRoom(roomId);
+
+      _role   = ConnectionRole.client;
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+
+      debugPrint('[Provider] Rehydration complete — phase: ${_state!.phase.name}');
+      return true;
+    } catch (e) {
+      debugPrint('[Provider] rehydrateGameState failed: $e');
+      return false;
+    }
+  }
+
+  // ── Host promotion ────────────────────────────────────────────────────────
+
+  /// Called when the ReconnectionManager determines this client has been
+  /// promoted to host (the previous host exceeded the grace window).
+  ///
+  /// Loads the persisted GameState, starts a [GameServer] with that state,
+  /// and takes over broadcasting to all remaining clients.
+  Future<bool> becomeHost(ActiveRoomSession session) async {
+    try {
+      debugPrint('[Provider] Taking over as host for room ${session.roomId}…');
+
+      // 1. Fetch persisted state.
+      final snapshot = await _lobbyRepo.getGameStateSnapshot(session.roomId);
+      if (snapshot == null) {
+        debugPrint('[Provider] No snapshot — cannot become host');
+        return false;
+      }
+      final restoredState = GameState.fromJson(snapshot);
+
+      // 2. Clean up any existing connections.
+      _client?.disconnect(myPlayerId);
+      await _server?.stop();
+      _client = null;
+
+      // 3. Start GameServer with the restored state.
+      _server = GameServer(
+        onStateUpdate: (state) {
+          _state = state;
+          notifyListeners();
+        },
+      );
+      await _server!.restoreFromState(
+        state:        restoredState,
+        hostPlayerId: session.playerId,
+        hostName:     session.playerName,
+        roomId:       session.roomId,
+      );
+
+      // 4. Restore local identity & room reference.
+      _myPlayerId  = session.playerId;
+      _myName      = session.playerName;
+      _role        = ConnectionRole.host;
+      _currentRoom = await _lobbyRepo.getRoom(session.roomId);
+      _listenToRoom(session.roomId);
+
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+
+      debugPrint('[Provider] Host takeover complete');
+      return true;
+    } catch (e) {
+      debugPrint('[Provider] becomeHost failed: $e');
       return false;
     }
   }
@@ -485,3 +630,4 @@ class GameProvider extends ChangeNotifier {
     super.dispose();
   }
 }
+

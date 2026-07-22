@@ -5,6 +5,7 @@ class Player {
   final String id;
   String name;
   final int seatIndex; // 0–3
+  final String? photo; // user's selected profile picture
 
   List<PlayingCard> hand;
   List<List<TrickCard>> takenTricks;
@@ -19,6 +20,7 @@ class Player {
     required this.id,
     required this.name,
     required this.seatIndex,
+    this.photo,
     List<PlayingCard>? hand,
     List<List<TrickCard>>? takenTricks,
     this.declared,
@@ -40,6 +42,7 @@ class Player {
         'id': id,
         'name': name,
         'seatIndex': seatIndex,
+        'photo': photo,
         'hand': hand.map((c) => c.toJson()).toList(),
         'takenTricks': takenTricks
             .map((trick) => trick.map((tc) => tc.toJson()).toList())
@@ -55,6 +58,7 @@ class Player {
       id: json['id'] as String,
       name: json['name'] as String,
       seatIndex: json['seatIndex'] as int,
+      photo: json['photo'] as String?,
       declared: json['declared'] as int?,
       actual: json['actual'] as int,
       hasPassed: json['hasPassed'] as bool,
@@ -79,6 +83,7 @@ class Player {
     String? id,
     String? name,
     int? seatIndex,
+    String? photo,
     List<PlayingCard>? hand,
     List<List<TrickCard>>? takenTricks,
     int? declared,
@@ -90,6 +95,7 @@ class Player {
       id: id ?? this.id,
       name: name ?? this.name,
       seatIndex: seatIndex ?? this.seatIndex,
+      photo: photo ?? this.photo,
       declared: declared ?? this.declared,
       actual: actual ?? this.actual,
       hasPassed: hasPassed ?? this.hasPassed,

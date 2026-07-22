@@ -18,6 +18,8 @@ dependencies:
   toastification: ^3.2.0
   heroine: ^0.7.2
   flutter_animate: ^4.5.2
+  audioplayers: ^6.1.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -32,6 +34,7 @@ flutter:
     - assets/cards.png
     - assets/back-maroon.png
     - assets/poker.png
+    - assets/audio/
     - assets/theme_1/
     - assets/theme_2/
 

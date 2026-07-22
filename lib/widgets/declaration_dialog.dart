@@ -27,9 +27,13 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
   @override
   void initState() {
     super.initState();
-    int initial = widget.minDeclaration ?? 0;
+    int initial = (widget.minDeclaration ?? 0).clamp(0, 13);
     if (initial == widget.forbiddenDeclaration) {
-      initial++;
+      if (initial < 13) {
+        initial++;
+      } else if (initial > 0) {
+        initial--;
+      }
     }
     _declared = initial;
   }

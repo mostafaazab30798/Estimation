@@ -8,6 +8,7 @@ import '../core/models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
+import '../core/widgets/player_avatar.dart';
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
@@ -170,18 +171,96 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
           );
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // ── Top bar ──────────────────────────────────────
-              _buildTopBar(context, provider),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit(context, provider);
+      },
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // ── Top bar ──────────────────────────────────────
+                _buildTopBar(context, provider),
 
-              Expanded(child: contentWidget),
+                Expanded(child: contentWidget),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmExit(BuildContext context, GameProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.navyDark,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+        ),
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.exit_to_app_rounded, color: AppTheme.errorRed, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                provider.isHost ? 'إلغاء الغرفة' : 'مغادرة الغرفة',
+                style: Theme.of(context).textTheme.headlineMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                provider.isHost
+                    ? 'هل أنت متأكد أنك تريد إلغاء الغرفة والعودة للرئيسية؟'
+                    : 'هل أنت متأكد أنك تريد مغادرة الغرفة والعودة للرئيسية؟',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Colors.white24, width: 2),
+                        foregroundColor: AppTheme.textPrimary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text('إلغاء', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        provider.reset();
+                        Navigator.pushReplacementNamed(context, '/');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: AppTheme.errorRed,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text('مغادرة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -208,10 +287,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               child: const Icon(Icons.close_rounded, color: AppTheme.accentLight, size: 20),
             ),
             tooltip: provider.isHost ? 'إلغاء الغرفة' : 'مغادرة الغرفة',
-            onPressed: () {
-              provider.reset();
-              Navigator.pushReplacementNamed(context, '/');
-            },
+            onPressed: () => _confirmExit(context, provider),
           ),
           Expanded(
             child: Text(
@@ -402,40 +478,38 @@ class _LobbyScreenState extends State<LobbyScreen> {
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: occupied
-                    ? LinearGradient(
-                        colors: [
-                          seatColor.withValues(alpha: 0.8),
-                          seatColor.withValues(alpha: 0.2),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: occupied ? null : Colors.white.withValues(alpha: 0.05),
-                border: Border.all(
-                  color: occupied ? seatColor : Colors.white.withValues(alpha: 0.2),
-                  width: occupied ? 3 : 2,
-                ),
-                boxShadow: occupied ? [
+            if (occupied && player.photo != null)
+              PlayerAvatar(
+                photoData: player.photo!,
+                size: 72,
+                borderColor: seatColor,
+                borderWidth: 3,
+                boxShadow: [
                   BoxShadow(color: seatColor.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 2),
-                ] : null,
-              ),
-              child: Center(
-                child: Text(
-                  _seatEmojis[i],
-                  style: TextStyle(
-                    fontSize: 32,
-                    color: occupied ? Colors.white : Colors.white.withValues(alpha: 0.3),
+                ],
+              )
+            else
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.05),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    _seatEmojis[i],
+                    style: TextStyle(
+                      fontSize: 32,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
                   ),
                 ),
               ),
-            ),
             if (isMe)
               Positioned(
                 bottom: -6,

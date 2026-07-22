@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
+import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import 'playing_card_widget.dart';
 
@@ -82,7 +83,10 @@ class _TrickAreaState extends State<TrickArea>
       // Reset and start the Phase 3 controller after Phase 1 finishes (200 ms).
       _sweepCtrl.reset();
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) _sweepCtrl.forward();
+        if (mounted) {
+          AudioService.instance.playCollection();
+          _sweepCtrl.forward();
+        }
       });
 
       // Clear sweep state after the full animation.
@@ -369,6 +373,9 @@ class _AnimatedCard extends StatelessWidget {
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
+      onEnd: () {
+        AudioService.instance.playCard();
+      },
       builder: (context, val, child) {
         double dx = 0;
         double dy = 0;

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/models/game_state.dart';
+import 'messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
 typedef ErrorCallback = void Function(String error);
@@ -20,7 +21,7 @@ class GameClient {
 
   // ── Connection ────────────────────────────────────────────────
 
-  Future<void> connect(String roomId, String playerId, String playerName) async {
+  Future<void> connect(String roomId, String playerId, String playerName, String playerPhoto) async {
     _channel = Supabase.instance.client.channel('room_$roomId');
 
     _channel!.onBroadcast(
@@ -54,8 +55,12 @@ class GameClient {
             payload: {
               'playerId': playerId,
               'name': playerName,
+              'photo': playerPhoto,
             },
           );
+
+          // Request live state sync immediately from host
+          sendAction(ActionType.requestStateSync, playerId);
         } else if (status == RealtimeSubscribeStatus.closed) {
           onError('انقطع الاتصال بالمضيف');
         } else if (status == RealtimeSubscribeStatus.channelError) {

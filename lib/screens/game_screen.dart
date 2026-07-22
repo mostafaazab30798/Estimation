@@ -19,6 +19,8 @@ import '../widgets/player_info.dart';
 import '../widgets/bid_dialog.dart';
 import '../widgets/declaration_dialog.dart';
 import '../widgets/tricks_dialog.dart';
+import '../widgets/reconnection_banner.dart';
+import '../services/reconnection_manager.dart';
 import 'scoring_screen.dart';
 import 'match_end_screen.dart';
 
@@ -102,7 +104,13 @@ class _GameScreenState extends State<GameScreen> {
         ? (minDim * 0.52).clamp(140.0, 250.0)
         : (media.size.height * 0.44).clamp(160.0, 290.0);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit(context, provider);
+      },
+      child: Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -305,12 +313,30 @@ class _GameScreenState extends State<GameScreen> {
                 builder: (ctx, prov, _) =>
                     _buildPhaseOverlay(ctx, prov.state!, prov),
               ),
+
+              // ── Reconnection banner overlay ───────────────────────────────
+              // Transparent (SizedBox.shrink) when healthy; shows a slim top
+              // spinner while reconnecting, or a full-screen modal on failure.
+              Consumer<ReconnectionManager>(
+                builder: (ctx, reconnect, _) => ReconnectionBanner(
+                  reconnectionState: reconnect.reconnectionState,
+                  onRetry: reconnect.retry,
+                  onGoHome: () async {
+                    await reconnect.dismissAndGoHome();
+                    if (ctx.mounted) {
+                      ctx.read<GameProvider>().reset();
+                      Navigator.pushReplacementNamed(ctx, '/');
+                    }
+                  },
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── Top bar ────────────────────────────────────────────────────────────────
 
@@ -587,6 +613,13 @@ class _GameScreenState extends State<GameScreen> {
 
   // ── Opponent strips ─────────────────────────────────────────────────────────
 
+  bool _isTurn(GameState state, int seatIndex) {
+    if (state.phase == GamePhase.auction) {
+      return state.auctionTurnSeatIndex == seatIndex;
+    }
+    return state.currentPlayerSeatIndex == seatIndex;
+  }
+
   Widget _buildOpponentStrip(
       GameState state, int seatIndex, GameProvider provider) {
     final player = state.playerBySeat(seatIndex);
@@ -597,7 +630,7 @@ class _GameScreenState extends State<GameScreen> {
           key: _playerKeys[seatIndex],
           player: player,
           state: state,
-          isCurrentTurn: state.currentPlayerSeatIndex == seatIndex,
+          isCurrentTurn: _isTurn(state, seatIndex),
           isBidder: state.bidderPlayerId == player.id,
           compact: true,
         ),
@@ -629,7 +662,7 @@ class _GameScreenState extends State<GameScreen> {
           key: _playerKeys[seatIndex],
           player: player,
           state: state,
-          isCurrentTurn: state.currentPlayerSeatIndex == seatIndex,
+          isCurrentTurn: _isTurn(state, seatIndex),
           isBidder: state.bidderPlayerId == player.id,
           compact: true,
         ),

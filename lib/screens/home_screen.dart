@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/game_provider.dart';
+import '../services/reconnection_manager.dart';
+import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
+import '../core/widgets/player_avatar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,13 +20,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  final _nameController = TextEditingController();
+  String _playerName = '';
   final _codeController = TextEditingController();
   late AnimationController _animController;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideIn;
 
   String? _pendingMode;
+  String _profilePhoto = ProfileService.presetAvatars.first.id;
 
   @override
   void initState() {
@@ -39,53 +42,49 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadSavedName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedName = prefs.getString('player_name');
-    if (savedName != null && savedName.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _nameController.text = savedName;
-        });
-      }
-    }
-
-    // Attempt session recovery
+    final savedName = await ProfileService.getProfileName();
+    final savedPhoto = await ProfileService.getProfilePhoto();
     if (mounted) {
-      final provider = context.read<GameProvider>();
-      final recovered = await provider.recoverSession();
-      if (recovered && mounted) {
-        Navigator.pushReplacementNamed(context, '/lobby');
-      }
+      setState(() {
+        _playerName = savedName;
+        _profilePhoto = savedPhoto;
+      });
     }
-  }
 
-  Future<void> _saveName(String name) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('player_name', name);
+    // Attempt session recovery via ReconnectionManager.
+    if (!mounted) return;
+    final reconnect = context.read<ReconnectionManager>();
+    final result = await reconnect.checkOnStartup();
+
+    if (!mounted) return;
+    if (result == ReconnectionState.reconnected) {
+      final provider = context.read<GameProvider>();
+      // Navigate to game if already in an active game, lobby if still waiting.
+      final route = (provider.currentRoom?.status.name == 'playing')
+          ? '/game'
+          : '/lobby';
+      Navigator.pushReplacementNamed(context, route);
+    }
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _codeController.dispose();
     _animController.dispose();
     super.dispose();
   }
 
   String? _validateName() {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return 'أدخل اسمك أولاً';
+    if (_playerName.trim().isEmpty) return 'يرجى تعيين اسمك في الملف الشخصي أولاً';
     return null;
   }
 
   Future<void> _host(BuildContext context, int expectedPlayers) async {
     final err = _validateName();
     if (err != null) { _snack(context, err); return; }
-    final name = _nameController.text.trim();
-    await _saveName(name);
     
     final provider = context.read<GameProvider>();
-    await provider.hostGame(name, expectedPlayers: expectedPlayers);
+    await provider.hostGame(_playerName, expectedPlayers: expectedPlayers);
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -101,11 +100,9 @@ class _HomeScreenState extends State<HomeScreen>
       _snack(context, 'أدخل كود مكوّن من 6 أحرف');
       return;
     }
-    final name = _nameController.text.trim();
-    await _saveName(name);
     
     final provider = context.read<GameProvider>();
-    await provider.joinGameWithCode(name, code);
+    await provider.joinGameWithCode(_playerName, code);
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -116,11 +113,9 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _testMode(BuildContext context) async {
     final err = _validateName();
     if (err != null) { _snack(context, err); return; }
-    final name = _nameController.text.trim();
-    await _saveName(name);
     
     final provider = context.read<GameProvider>();
-    await provider.startTestGame(name);
+    await provider.startTestGame(_playerName);
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -133,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<GameProvider>();
     final isLoading = provider.status == ConnectionStatus.connecting ||
@@ -142,23 +138,19 @@ class _HomeScreenState extends State<HomeScreen>
     final contentWidget = isPortrait
         ? SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Column(
               children: [
+                _buildTopAppBar(context),
+                const SizedBox(height: 12),
                 _buildBrand(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildSuitRow(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 _buildCard(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildTextField(
-                        controller: _nameController,
-                        hint: 'اسمك في اللعبة',
-                        icon: Icons.person_outline_rounded,
-                      ),
-                      const SizedBox(height: 20),
                       if (isLoading)
                         _buildLoading(context, provider)
                       else
@@ -169,76 +161,155 @@ class _HomeScreenState extends State<HomeScreen>
               ],
             ),
           )
-        : Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-              child: Row(
-                children: [
-                  // ── Left Side: Brand ───────────────────────────
-                  Expanded(
-                    flex: 5,
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildBrand(),
-                          const SizedBox(height: 32),
-                          _buildSuitRow(),
-                        ],
-                      ),
+        : Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: _buildTopAppBar(context),
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 8),
+                    child: Row(
+                      children: [
+                        // ── Left Side: Brand ───────────────────────────
+                        Expanded(
+                          flex: 5,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _buildBrand(),
+                                const SizedBox(height: 24),
+                                _buildSuitRow(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        
+                        // Divider
+                        Container(
+                          width: 1,
+                          height: double.infinity,
+                          margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          color: Colors.white12,
+                        ),
+                        
+                        // ── Right Side: Interactive Card ────────────────
+                        Expanded(
+                          flex: 6,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: _buildCard(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (isLoading)
+                                    _buildLoading(context, provider)
+                                  else
+                                    _buildButtons(context, isPortrait: isPortrait),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  
-                  // Divider
-                  Container(
-                    width: 1,
-                    height: double.infinity,
-                    margin: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-                    color: Colors.white12,
-                  ),
-                  
-                  // ── Right Side: Interactive Card ────────────────
+                ),
+              ),
+            ],
+          );
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExitApp(context);
+      },
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+          child: SafeArea(
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: SlideTransition(
+                position: _slideIn,
+                child: contentWidget,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmExitApp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.navyDark,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+        ),
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.exit_to_app_rounded, color: AppTheme.errorRed, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'الخروج من التطبيق',
+                style: Theme.of(context).textTheme.headlineMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'هل أنت متأكد أنك تريد الخروج من لعبة كوتشينة؟',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
                   Expanded(
-                    flex: 6,
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: _buildCard(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildTextField(
-                              controller: _nameController,
-                              hint: 'اسمك في اللعبة',
-                              icon: Icons.person_outline_rounded,
-                            ),
-                            const SizedBox(height: 20),
-                            if (isLoading)
-                              _buildLoading(context, provider)
-                            else
-                              _buildButtons(context, isPortrait: isPortrait),
-                          ],
-                        ),
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: const BorderSide(color: Colors.white24, width: 2),
+                        foregroundColor: AppTheme.textPrimary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
+                      child: Text('إلغاء', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        SystemNavigator.pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: AppTheme.errorRed,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text('خروج', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
                   ),
                 ],
               ),
-            ),
-          );
-
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeIn,
-            child: SlideTransition(
-              position: _slideIn,
-              child: contentWidget,
-            ),
+            ],
           ),
         ),
       ),
@@ -408,50 +479,16 @@ class _HomeScreenState extends State<HomeScreen>
 
         const SizedBox(height: 16),
 
-        // ── Bottom Row ──────────────────────────────
-        if (isPortrait) ...[
-          _secondaryBtn(
-            label: 'تجربة ضد البوتات',
-            icon: Icons.smart_toy_rounded,
-            onTap: () {
-              setState(() => _pendingMode = null);
-              _testMode(context);
-            },
-            dimmed: true,
-          ),
-          const SizedBox(height: 12),
-          _secondaryBtn(
-            label: 'سجل المباريات',
-            icon: Icons.history_rounded,
-            onTap: () => Navigator.pushNamed(context, '/history'),
-            dimmed: true,
-          ),
-        ] else ...[
-          Row(
-            children: [
-              Expanded(
-                child: _secondaryBtn(
-                  label: 'تجربة ضد البوتات',
-                  icon: Icons.smart_toy_rounded,
-                  onTap: () {
-                    setState(() => _pendingMode = null);
-                    _testMode(context);
-                  },
-                  dimmed: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _secondaryBtn(
-                  label: 'سجل المباريات',
-                  icon: Icons.history_rounded,
-                  onTap: () => Navigator.pushNamed(context, '/history'),
-                  dimmed: true,
-                ),
-              ),
-            ],
-          ),
-        ],
+        // ── Bottom Practice Mode ────────────────────
+        _secondaryBtn(
+          label: 'تجربة ضد البوتات',
+          icon: Icons.smart_toy_rounded,
+          onTap: () {
+            setState(() => _pendingMode = null);
+            _testMode(context);
+          },
+          dimmed: true,
+        ),
       ],
     );
   }
@@ -678,4 +715,44 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
+
+  Widget _buildTopAppBar(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Profile Avatar Chip
+        InkWell(
+          onTap: () => Navigator.pushNamed(context, '/profile').then((_) => _loadSavedName()),
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.navyDark.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.4)),
+              boxShadow: AppTheme.glowShadow,
+            ),
+            child: Row(
+              children: [
+                PlayerAvatar(photoData: _profilePhoto, size: 34, borderWidth: 1.5),
+                const SizedBox(width: 8),
+                Text(
+                  _playerName.isNotEmpty ? _playerName : 'إعداد الملف الشخصي',
+                  style: GoogleFonts.cairo(
+                    color: AppTheme.mintSoft,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.tune_rounded, color: AppTheme.accentLight, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+
 }

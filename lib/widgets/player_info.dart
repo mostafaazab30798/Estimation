@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../core/models/player.dart';
 import '../core/models/game_state.dart';
 import '../theme/app_theme.dart';
+import '../core/widgets/player_avatar.dart';
 
 // Fix #14: Static const decorations — never re-allocated.
 const _kBorderRadius = BorderRadius.all(Radius.circular(24));
@@ -85,6 +86,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     const rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
     final rankText =
         rankIndex >= 0 && rankIndex < 4 ? ' - ${rankTitles[rankIndex]}' : '';
+    final statusHint = _buildPhaseStatusHint();
 
     return ClipRRect(
       borderRadius: _kBorderRadius,
@@ -115,16 +117,12 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // Avatar
-              Container(
-                width: widget.compact ? 24 : 40,
-                height: widget.compact ? 24 : 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.navyDark,
-                  border: Border.all(
-                    color: widget.isCurrentTurn ? AppTheme.gold : Colors.white24,
-                    width: widget.isCurrentTurn ? 2.0 : 1.0,
-                  ),
+              if (widget.player.photo != null)
+                PlayerAvatar(
+                  photoData: widget.player.photo!,
+                  size: widget.compact ? 24 : 40,
+                  borderColor: widget.isCurrentTurn ? AppTheme.gold : Colors.white24,
+                  borderWidth: widget.isCurrentTurn ? 2.0 : 1.0,
                   boxShadow: widget.isCurrentTurn
                       ? [
                           BoxShadow(
@@ -133,17 +131,37 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                           )
                         ]
                       : [],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  widget.player.name.isNotEmpty ? widget.player.name[0].toUpperCase() : '?',
-                  style: TextStyle(
-                    fontSize: widget.compact ? 12 : 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
+                )
+              else
+                Container(
+                  width: widget.compact ? 24 : 40,
+                  height: widget.compact ? 24 : 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.navyDark,
+                    border: Border.all(
+                      color: widget.isCurrentTurn ? AppTheme.gold : Colors.white24,
+                      width: widget.isCurrentTurn ? 2.0 : 1.0,
+                    ),
+                    boxShadow: widget.isCurrentTurn
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.gold.withValues(alpha: 0.8),
+                              blurRadius: 12,
+                            )
+                          ]
+                        : [],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.player.name.isNotEmpty ? widget.player.name[0].toUpperCase() : '?',
+                    style: TextStyle(
+                      fontSize: widget.compact ? 12 : 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ),
-              ),
               SizedBox(width: widget.compact ? 6 : 10),
               // Info
               Column(
@@ -184,9 +202,9 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                       ],
                     ],
                   ),
-                  if (widget.state.phase == GamePhase.voidCheck && !widget.isMe) ...[
-                    const SizedBox(height: 4),
-                    _buildReadyStatus(),
+                  if (statusHint != null) ...[
+                    SizedBox(height: widget.compact ? 2 : 4),
+                    statusHint,
                   ],
                 ],
               ),
@@ -197,15 +215,95 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     );
   }
 
-  Widget _buildReadyStatus() {
-    final isReady = widget.state.voidCheckPassed.contains(widget.player.id);
-    return Text(
-      isReady ? '✅ جاهز' : '⏳ ينتظر...',
-      style: TextStyle(
-        fontSize: 11,
-        color: isReady ? Colors.greenAccent : Colors.white70,
-      ),
-    );
+  Widget? _buildPhaseStatusHint() {
+    switch (widget.state.phase) {
+      case GamePhase.voidCheck:
+        if (widget.isMe) return null;
+        final isReady = widget.state.voidCheckPassed.contains(widget.player.id);
+        return Text(
+          isReady ? '✅ جاهز' : '⏳ ينتظر...',
+          style: TextStyle(
+            fontSize: widget.compact ? 9 : 11,
+            color: isReady ? Colors.greenAccent : Colors.white70,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+
+      case GamePhase.auction:
+        final isTurn = widget.state.auctionTurnSeatIndex == widget.player.seatIndex;
+        final isPassed = widget.player.hasPassed;
+        final isHighBidder = widget.state.currentHighBidderPlayerId == widget.player.id;
+
+        if (isPassed) {
+          return Text(
+            '❌ باس',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: AppTheme.errorRed.withValues(alpha: 0.85),
+              fontWeight: FontWeight.w600,
+            ),
+          );
+        } else if (isTurn) {
+          return Text(
+            '⏳ دور المزايدة',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: AppTheme.gold,
+              fontWeight: FontWeight.bold,
+            ),
+          );
+        } else if (isHighBidder && widget.state.currentHighBid != null) {
+          return Text(
+            '🔥 أعلى: ${widget.state.currentHighBid!.arabicLabel}',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: AppTheme.gold,
+              fontWeight: FontWeight.w600,
+            ),
+          );
+        } else {
+          return Text(
+            '⏳ ينتظر...',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: Colors.white70,
+            ),
+          );
+        }
+
+      case GamePhase.declarations:
+        final isTurn = widget.state.currentPlayerSeatIndex == widget.player.seatIndex;
+        if (widget.player.declared != null) {
+          return Text(
+            '✅ صرّح (${widget.player.declared})',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: Colors.lightBlueAccent,
+              fontWeight: FontWeight.w600,
+            ),
+          );
+        } else if (isTurn) {
+          return Text(
+            '⏳ دور التصريح',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: AppTheme.gold,
+              fontWeight: FontWeight.bold,
+            ),
+          );
+        } else {
+          return Text(
+            '⏳ ينتظر...',
+            style: TextStyle(
+              fontSize: widget.compact ? 9 : 11,
+              color: Colors.white70,
+            ),
+          );
+        }
+
+      default:
+        return null;
+    }
   }
   Widget _pill(String value, Color color, String label) {
     return Container(

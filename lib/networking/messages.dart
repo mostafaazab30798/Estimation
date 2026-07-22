@@ -53,5 +53,7 @@ class ActionType {
   static const String startGame = 'startGame';          // host starts
   static const String nextRound = 'nextRound';
   static const String changeTheme = 'changeTheme';      // host changes card theme
+  static const String requestStateSync = 'requestStateSync'; // client requests immediate full state broadcast
 }
+
 
