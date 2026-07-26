@@ -40,7 +40,7 @@ String _rankCode(game.Rank rank) {
 }
 
 String _getCardAssetPath(game.PlayingCard? card, String theme) {
-  if (card == null) return 'assets/back-maroon.png';
+  if (card == null) return 'assets/back.png';
   return 'assets/$theme/${_rankCode(card.rank)}_${_suitCode(card.suit)}.png';
 }
 
@@ -122,10 +122,10 @@ class PlayingCardWidget extends StatelessWidget {
   }
 
   Widget _buildCardContent(BuildContext context) {
-    final theme = context.watch<GameProvider>().state?.cardTheme ?? 'theme_1';
+    final theme = context.select((GameProvider p) => p.state?.cardTheme ?? 'theme_1');
     final showBack = faceDown || card == null;
     final imagePath =
-        showBack ? 'assets/back-maroon.png' : _getCardAssetPath(card, theme);
+        showBack ? 'assets/back.png' : _getCardAssetPath(card, theme);
 
     // Fix #6: cacheWidth / cacheHeight tells Flutter's image cache to decode
     // the PNG at the widget's actual pixel size, not at the full PNG resolution.

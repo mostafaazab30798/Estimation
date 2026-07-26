@@ -102,6 +102,21 @@ class GameEngine {
   }
 
   static int _getNextChronologicalSeat(GameState state, int currentSeat, bool Function(Player) isValid) {
+    if (state.voidCheckPassed.length == kPlayerCount) {
+      final readyList = state.voidCheckPassed.toList();
+      final currentId = state.playerBySeat(currentSeat).id;
+      final currIdx = readyList.indexOf(currentId);
+      if (currIdx != -1) {
+        for (int i = 1; i < kPlayerCount; i++) {
+          final nextId = readyList[(currIdx + i) % kPlayerCount];
+          final nextPlayer = state.playerById(nextId);
+          if (isValid(nextPlayer)) {
+            return nextPlayer.seatIndex;
+          }
+        }
+      }
+    }
+
     int next = (currentSeat + 1) % kPlayerCount;
     while (next != currentSeat) {
       if (isValid(state.playerBySeat(next))) {

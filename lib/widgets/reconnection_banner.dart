@@ -6,13 +6,12 @@
 //  • reconnecting → slim top banner with spinner (non-blocking)
 //  • failed       → full-screen modal with retry / go-home buttons
 
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
+import 'performance_blur.dart';
 
 class ReconnectionBanner extends StatelessWidget {
   const ReconnectionBanner({
@@ -44,11 +43,11 @@ class ReconnectionBanner extends StatelessWidget {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: ClipRRect(
+          child: PerformanceBlur(
             borderRadius: BorderRadius.circular(14),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(
+            sigmaX: 14,
+            sigmaY: 14,
+            child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16, vertical: 10,
                 ),
@@ -95,9 +94,8 @@ class ReconnectionBanner extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   // ── Full-screen failure modal ─────────────────────────────────────────────
 

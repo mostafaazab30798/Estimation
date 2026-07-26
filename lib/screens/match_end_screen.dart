@@ -26,6 +26,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _scale;
+  bool _hasSaved = false;
 
   @override
   void initState() {
@@ -35,8 +36,12 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _ctrl.forward();
     
-    if (widget.provider.isHost) {
-      HistoryService.saveMatch(widget.state);
+    if (!_hasSaved) {
+      _hasSaved = true;
+      // Only the host (or offline player) saves match to prevent duplicate records from all 4 clients
+      if (widget.provider.role != ConnectionRole.client) {
+        HistoryService.saveMatch(widget.state);
+      }
     }
   }
 
@@ -167,8 +172,8 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                     child: ElevatedButton(
                       onPressed: () {
                         widget.provider.reset();
-                        Navigator.pushNamedAndRemoveUntil(
-                            context, '/', (r) => false);
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamedAndRemoveUntil('/', (r) => false);
                       },
                       child: const Text('العودة للقائمة الرئيسية'),
                     ),

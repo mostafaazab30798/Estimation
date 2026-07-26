@@ -270,6 +270,11 @@ class GameServer {
           _state.voidCheckPassed.add(playerId);
           if (_state.voidCheckPassed.length == kPlayerCount) {
             _state.phase = GamePhase.auction;
+            if (_state.voidCheckPassed.isNotEmpty) {
+              final firstReadyId = _state.voidCheckPassed.first;
+              _state.auctionTurnSeatIndex =
+                  _state.playerById(firstReadyId).seatIndex;
+            }
           }
           _broadcastState();
         }

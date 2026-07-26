@@ -324,10 +324,24 @@ class GameProvider extends ChangeNotifier {
   // ── Actions → Host ────────────────────────────────────────────
 
   void _sendAction(String action, [Map<String, dynamic> extra = const {}]) {
+    if (_status != ConnectionStatus.connected) {
+      debugPrint('Cannot send action "$action": Not connected (status: $_status)');
+      return;
+    }
     if (_role == ConnectionRole.host) {
-      _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+      if (_server != null) {
+        _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+      } else {
+        debugPrint('Cannot send action "$action": Host server is null');
+      }
+    } else if (_role == ConnectionRole.client) {
+      if (_client != null) {
+        _client!.sendAction(action, myPlayerId, extra);
+      } else {
+        debugPrint('Cannot send action "$action": Client is null');
+      }
     } else {
-      _client!.sendAction(action, myPlayerId, extra);
+      debugPrint('Cannot send action "$action": Connection role is $_role');
     }
   }
 

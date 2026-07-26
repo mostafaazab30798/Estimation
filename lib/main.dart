@@ -1,11 +1,12 @@
 // lib/main.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:toastification/toastification.dart';
+
 
 import 'providers/game_provider.dart';
 import 'screens/home_screen.dart';
@@ -14,10 +15,28 @@ import 'screens/game_screen.dart';
 import 'screens/profile_screen.dart';
 import 'services/audio_service.dart';
 import 'services/reconnection_manager.dart';
+import 'services/device_performance_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize device performance hardware detection (e.g. Note 9 / low-spec auto-detection)
+  await DevicePerformanceService.instance.initialize();
+  
+  // Enable full-screen immersive sticky mode to hide status bar & notification panel
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Colors.transparent,
+    ),
+  );
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -27,6 +46,14 @@ void main() async {
 
   // Pre-initialize audio service for card and collection feedback
   AudioService.instance.initialize();
+
+  // Pre-load wallpaper images into Flutter's image codec cache BEFORE runApp
+  // so they are instantly available when the first frame renders, preventing
+  // the blue scaffold flash on HomeScreen and LobbyScreen.
+  await Future.wait([
+    _preloadAsset('assets/wallpapers/w1.jpg'),
+    _preloadAsset('assets/wallpapers/w2.jpg'),
+  ]);
 
   // TODO: Replace with your actual Supabase URL and Anon Key
   await Supabase.initialize(
@@ -47,6 +74,32 @@ void main() async {
   }
 }
 
+/// Preloads an asset image into Flutter's [PaintingBinding.imageCache].
+/// Uses the exact same [AssetImage] + [ImageConfiguration] pipeline that
+/// [Image.asset] uses internally, so subsequent renders get a cache HIT
+/// and display the image synchronously on the very first frame.
+Future<void> _preloadAsset(String assetPath) async {
+  final provider = AssetImage(assetPath);
+  final stream = provider.resolve(ImageConfiguration.empty);
+
+  final completer = Completer<void>();
+  late ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (ImageInfo info, bool sync) {
+      info.dispose();
+      if (!completer.isCompleted) completer.complete();
+    },
+    onError: (Object error, StackTrace? stack) {
+      debugPrint('[Preload] $assetPath failed: $error');
+      if (!completer.isCompleted) completer.complete();
+    },
+  );
+
+  stream.addListener(listener);
+  await completer.future;
+  stream.removeListener(listener);
+}
+
 class KotshinaApp extends StatelessWidget {
   const KotshinaApp({super.key});
 
@@ -55,6 +108,9 @@ class KotshinaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         // ── Core state ──────────────────────────────────────────────────────
+        ChangeNotifierProvider<DevicePerformanceService>.value(
+          value: DevicePerformanceService.instance,
+        ),
         ChangeNotifierProvider<GameProvider>(
           create: (_) => GameProvider(),
         ),
@@ -71,19 +127,18 @@ class KotshinaApp extends StatelessWidget {
           update: (ctx, gameProvider, previous) => previous!,
         ),
       ],
-      child: ToastificationWrapper(
-        child: MaterialApp(
-          title: 'كوتشينة',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.theme,
+      child: MaterialApp(
+        title: 'كوتشينة',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.theme,
 
-          // Force RTL layout for Arabic UI
-          builder: (context, child) {
-            return Directionality(
-              textDirection: TextDirection.rtl,
-              child: child!,
-            );
-          },
+        // Force RTL layout for Arabic UI
+        builder: (context, child) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: child!,
+          );
+        },
 
           initialRoute: '/',
           routes: {
@@ -93,8 +148,7 @@ class KotshinaApp extends StatelessWidget {
             '/profile': (_) => const ProfileScreen(),
           },
         ),
-      ),
-    );
+      );
+    }
   }
-}
 

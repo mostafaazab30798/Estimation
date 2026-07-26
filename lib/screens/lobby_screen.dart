@@ -9,6 +9,7 @@ import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
+import '../widgets/performance_blur.dart';
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
@@ -27,6 +28,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
   ];
 
   List<String> _previousPlayerIds = [];
+  bool _hasNavigatedToGame = false;
+  bool _hasNavigatedHome = false;
+  bool _isStartingGame = false;
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +64,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     // Navigate to game
-    if (state != null && state.phase != GamePhase.lobby) {
+    if (state != null && state.phase != GamePhase.lobby && !_hasNavigatedToGame) {
+      _hasNavigatedToGame = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) Navigator.pushReplacementNamed(context, '/game');
       });
@@ -68,7 +73,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     // Navigate back on error
     final errorMessage = provider.errorMessage;
-    if (provider.status == ConnectionStatus.error) {
+    if (provider.status == ConnectionStatus.error && !_hasNavigatedHome) {
+      _hasNavigatedHome = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
           if (errorMessage.isNotEmpty) {
@@ -79,7 +85,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
             );
           }
           provider.reset();
-          Navigator.pushReplacementNamed(context, '/');
+          Navigator.of(context, rootNavigator: true)
+              .pushNamedAndRemoveUntil('/', (route) => false);
         }
       });
     }
@@ -102,19 +109,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
         
         const SizedBox(height: 24),
         
-        if (provider.isHost) ...[
-          _buildThemeSelector(provider),
-          const SizedBox(height: 16),
-          _buildStartButton(provider, players),
-        ] else
-          _buildWaitingText(context),
-      ],
-    );
-
-    final rightPlayers = Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
         _buildPlayerCount(players, provider),
         const SizedBox(height: 16),
         Wrap(
@@ -123,6 +117,38 @@ class _LobbyScreenState extends State<LobbyScreen> {
           alignment: WrapAlignment.center,
           children: List.generate(4, (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode)),
         ),
+      ],
+    );
+
+    final rightControls = Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (provider.isHost) ...[
+          _buildThemeSelector(provider),
+          if (!isPortrait) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: _buildStartButton(provider, players),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 4,
+                  child: _buildCancelButton(context, provider),
+                ),
+              ],
+            ),
+          ],
+        ] else ...[
+          _buildWaitingText(context),
+          if (!isPortrait) ...[
+            const SizedBox(height: 24),
+            _buildCancelButton(context, provider),
+          ],
+        ],
       ],
     );
 
@@ -138,7 +164,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   children: [
                     leftControls,
                     const SizedBox(height: 32),
-                    rightPlayers,
+                    rightControls,
                   ],
                 ),
               ),
@@ -163,7 +189,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     ),
                     Expanded(
                       flex: 6,
-                      child: rightPlayers,
+                      child: rightControls,
                     ),
                   ],
                 ),
@@ -178,19 +204,78 @@ class _LobbyScreenState extends State<LobbyScreen> {
         _confirmExit(context, provider);
       },
       child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // ── Top bar ──────────────────────────────────────
-                _buildTopBar(context, provider),
+        backgroundColor: Colors.black,
+        body: SizedBox.expand(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Background Wallpaper ─────────────────────────────────────
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/wallpapers/w1.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  width: double.infinity,
+                  height: double.infinity,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+              // Dark Gradient Tint for Legibility & Contrast
+              Positioned.fill(
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppTheme.navyDark.withValues(alpha: 0.5),
+                        AppTheme.navyDark.withValues(alpha: 0.8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // ── Subtle Glass Blur Layer ──────────────────────────────────
+              Positioned.fill(
+                child: PerformanceBlur(
+                  sigmaX: 6,
+                  sigmaY: 6,
+                  fallbackColor: Colors.black.withValues(alpha: 0.15),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              // ── Main Content SafeArea ─────────────────────────────────
+              SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(child: contentWidget),
 
-                Expanded(child: contentWidget),
-              ],
-            ),
+                    if (isPortrait)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                        child: Row(
+                          children: [
+                            if (provider.isHost) ...[
+                              Expanded(
+                                flex: 6,
+                                child: _buildStartButton(provider, players),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Expanded(
+                              flex: 4,
+                              child: _buildCancelButton(context, provider),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -246,9 +331,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(ctx);
                         provider.reset();
-                        Navigator.pushReplacementNamed(context, '/');
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamedAndRemoveUntil('/', (route) => false);
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -268,43 +353,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, GameProvider provider) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 12, 20, 12),
-      decoration: BoxDecoration(
-        color: AppTheme.navyDark.withValues(alpha: 0.6),
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.close_rounded, color: AppTheme.accentLight, size: 20),
-            ),
-            tooltip: provider.isHost ? 'إلغاء الغرفة' : 'مغادرة الغرفة',
-            onPressed: () => _confirmExit(context, provider),
-          ),
-          Expanded(
-            child: Text(
-              'غرفة الانتظار',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
-                color: AppTheme.mintSoft,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
 
   Widget _buildGameCodeCard(BuildContext context, GameProvider provider) {
     final code = provider.gameCode!;
@@ -312,29 +360,39 @@ class _LobbyScreenState extends State<LobbyScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF253070), AppTheme.navyMid],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: AppTheme.navyDark.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppTheme.accentBlue.withValues(alpha: 0.5),
+          width: 1.5,
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.4), width: 1.5),
-        boxShadow: AppTheme.glowShadow,
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentBlue.withValues(alpha: 0.35),
+            blurRadius: 20,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.share_rounded, size: 14, color: AppTheme.accentLight),
-              const SizedBox(width: 6),
+              const Icon(Icons.share_rounded, size: 16, color: AppTheme.accentLight),
+              const SizedBox(width: 8),
               Text(
                 'كود الغرفة — شاركه مع أصدقائك',
-                style: GoogleFonts.cairo(color: AppTheme.accentLight, fontSize: 13),
+                style: GoogleFonts.cairo(
+                  color: AppTheme.mintSoft,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           // Large code display
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -346,13 +404,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   width: 44,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: AppTheme.navyDark,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.navyMid.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: AppTheme.accentBlue, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                        blurRadius: 8,
+                        color: AppTheme.accentBlue.withValues(alpha: 0.3),
+                        blurRadius: 10,
                       ),
                     ],
                   ),
@@ -360,7 +418,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   child: Text(
                     char,
                     style: GoogleFonts.cairo(
-                      color: AppTheme.mintSoft,
+                      color: AppTheme.white,
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
                       height: 1,
@@ -369,29 +427,37 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 14),
-          GestureDetector(
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: code));
-              SnackbarHelper.showSuccess(context, 'تم نسخ الكود بنجاح! 📋', title: 'نسخ');
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.accentBlue.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.copy_rounded, size: 14, color: AppTheme.accentLight),
-                  const SizedBox(width: 6),
-                  Text(
-                    'اضغط لنسخ الكود',
-                    style: GoogleFonts.cairo(color: AppTheme.accentLight, fontSize: 13),
-                  ),
-                ],
+          const SizedBox(height: 16),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: code));
+                SnackbarHelper.showSuccess(context, 'تم نسخ الكود بنجاح! 📋', title: 'نسخ');
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentBlue.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.copy_rounded, size: 16, color: AppTheme.mintSoft),
+                    const SizedBox(width: 8),
+                    Text(
+                      'اضغط لنسخ الكود',
+                      style: GoogleFonts.cairo(
+                        color: AppTheme.mintSoft,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -404,17 +470,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.greenAccent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
+        color: Colors.greenAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 18),
-          const SizedBox(width: 8),
+          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
+          const SizedBox(width: 10),
           Text('متصل بالغرفة بنجاح ✓',
-              style: GoogleFonts.cairo(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.w600)),
+              style: GoogleFonts.cairo(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -424,17 +490,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.accentLight.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.accentLight.withValues(alpha: 0.25)),
+        color: AppTheme.accentLight.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.accentLight.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.smart_toy_outlined, size: 16, color: AppTheme.accentLight),
-          const SizedBox(width: 6),
+          const Icon(Icons.smart_toy_outlined, size: 18, color: AppTheme.mintSoft),
+          const SizedBox(width: 8),
           Text('وضع التجربة — البوتات تلعب عنك',
-              style: GoogleFonts.cairo(color: AppTheme.accentLight, fontSize: 13)),
+              style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -446,18 +512,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
       children: [
         Text(
           'اللاعبون',
-          style: GoogleFonts.cairo(color: AppTheme.accentLight, fontSize: 14, fontWeight: FontWeight.w600),
+          style: GoogleFonts.cairo(color: AppTheme.white, fontSize: 15, fontWeight: FontWeight.bold),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.accentBlue.withValues(alpha: 0.2),
+            color: AppTheme.accentBlue.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.4)),
+            border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.5)),
           ),
           child: Text(
             '${players.length} / ${provider.expectedPlayers}',
-            style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 14, fontWeight: FontWeight.w700),
+            style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -485,7 +551,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 borderColor: seatColor,
                 borderWidth: 3,
                 boxShadow: [
-                  BoxShadow(color: seatColor.withValues(alpha: 0.3), blurRadius: 10, spreadRadius: 2),
+                  BoxShadow(color: seatColor.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: 2),
                 ],
               )
             else
@@ -494,10 +560,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: AppTheme.navyDark.withValues(alpha: 0.6),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 2,
+                    color: seatColor.withValues(alpha: 0.4),
+                    width: 2.5,
                   ),
                 ),
                 child: Center(
@@ -505,7 +571,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     _seatEmojis[i],
                     style: TextStyle(
                       fontSize: 32,
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: seatColor.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -525,18 +591,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 bottom: 0,
                 right: 0,
                 child: Container(
+                  padding: const EdgeInsets.all(2),
                   decoration: const BoxDecoration(
                     color: Colors.greenAccent,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: AppTheme.navyDark, size: 16),
+                  child: const Icon(Icons.check, color: AppTheme.navyDark, size: 14),
                 ),
               )
           ],
         ),
         const SizedBox(height: 16),
         SizedBox(
-          width: 72,
+          width: 76,
           child: Text(
             occupied ? player.name : 'انتظار...',
             textAlign: TextAlign.center,
@@ -545,7 +612,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             style: GoogleFonts.cairo(
               fontSize: 14,
               fontWeight: occupied ? FontWeight.w700 : FontWeight.w500,
-              color: occupied ? AppTheme.mintSoft : AppTheme.accentLight.withValues(alpha: 0.5),
+              color: occupied ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -555,34 +622,69 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _buildStartButton(GameProvider provider, List<dynamic> players) {
     final canStart = players.length >= provider.expectedPlayers;
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 56,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: canStart ? AppTheme.accentGradient : null,
-          color: canStart ? null : AppTheme.navyMid,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: canStart ? AppTheme.glowShadow : [],
+      height: 58,
+      decoration: BoxDecoration(
+        gradient: canStart
+            ? const LinearGradient(
+                colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: canStart ? null : AppTheme.navyDark.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: canStart
+              ? Colors.greenAccent.withValues(alpha: 0.5)
+              : Colors.white.withValues(alpha: 0.1),
+          width: 1.5,
         ),
-        child: ElevatedButton(
-          onPressed: canStart ? () => provider.startGame() : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
-            foregroundColor: canStart ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-          ),
+        boxShadow: canStart
+            ? [
+                BoxShadow(
+                  color: Colors.greenAccent.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : [],
+      ),
+      child: ElevatedButton(
+        onPressed: (canStart && !_isStartingGame)
+            ? () {
+                setState(() {
+                  _isStartingGame = true;
+                });
+                provider.startGame();
+              }
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          foregroundColor: canStart ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                canStart ? 'ابدأ اللعبة! 🃏' : 'في انتظار اللاعبين (${players.length}/${provider.expectedPlayers})...',
-                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                canStart ? 'ابدأ اللعبة الان' : 'في انتظار اللاعبين (${players.length}/${provider.expectedPlayers})...',
+                style: GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
-              Icon(canStart ? Icons.play_arrow_rounded : Icons.hourglass_bottom_rounded, size: 28),
+              const SizedBox(width: 12),
+              Icon(canStart ? Icons.play_circle_fill_rounded : Icons.hourglass_bottom_rounded, size: 28),
             ],
           ),
         ),
@@ -593,45 +695,179 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _buildThemeSelector(GameProvider provider) {
     final currentTheme = provider.state?.cardTheme ?? 'theme_1';
     
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.navyMid,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.style_rounded, color: AppTheme.accentLight),
-          const SizedBox(width: 12),
-          Text(
-            'شكل البطاقات:',
-            style: GoogleFonts.cairo(
-              color: AppTheme.accentLight,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8.0, bottom: 12.0),
+          child: Row(
+            children: [
+              const Icon(Icons.style_rounded, color: AppTheme.mintSoft, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'شكل البطاقات:',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: currentTheme,
-              dropdownColor: AppTheme.navyDark,
-              icon: const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.accentBlue),
-              style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 15, fontWeight: FontWeight.bold),
-              items: provider.availableThemes.map((theme) {
-                // Extract number to show something like 'التصميم 1'
-                final name = theme.replaceAll('theme_', 'التصميم ');
-                return DropdownMenuItem(value: theme, child: Text(name));
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  provider.changeTheme(val);
-                }
-              },
-            ),
+        ),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: provider.availableThemes.length,
+            itemBuilder: (context, index) {
+              final themeId = provider.availableThemes[index];
+              final isSelected = themeId == currentTheme;
+              final name = themeId.replaceAll('theme_', 'التصميم ');
+              
+              return GestureDetector(
+                onTap: () {
+                  provider.changeTheme(themeId);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: EdgeInsets.only(
+                    right: index == 0 ? 0 : 12,
+                    left: index == provider.availableThemes.length - 1 ? 0 : 12,
+                  ),
+                  width: 95,
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? AppTheme.gold.withValues(alpha: 0.15) 
+                        : AppTheme.navyDark.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected 
+                          ? AppTheme.gold 
+                          : Colors.white.withValues(alpha: 0.1),
+                      width: isSelected ? 2.5 : 1,
+                    ),
+                    boxShadow: isSelected 
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.gold.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            )
+                          ] 
+                        : [],
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 56,
+                              width: 40,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.4),
+                                    blurRadius: 4,
+                                    offset: const Offset(2, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.asset(
+                                  'assets/$themeId/A_S.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => 
+                                      Icon(Icons.style, color: AppTheme.accentLight.withValues(alpha: 0.5)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              name,
+                              style: GoogleFonts.cairo(
+                                color: isSelected ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.7),
+                                fontSize: 13,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isSelected)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.gold,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              color: AppTheme.deepNavy,
+                              size: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCancelButton(BuildContext context, GameProvider provider) {
+    final isHost = provider.isHost;
+    return Container(
+      height: 58,
+      decoration: BoxDecoration(
+        color: AppTheme.errorRed.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.errorRed.withValues(alpha: 0.5),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.errorRed.withValues(alpha: 0.2),
+            blurRadius: 16,
+            spreadRadius: 1,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: ElevatedButton(
+        onPressed: () => _confirmExit(context, provider),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          foregroundColor: AppTheme.errorRed,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.exit_to_app_rounded, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              isHost ? 'إلغاء الغرفة' : 'خروج',
+              style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }

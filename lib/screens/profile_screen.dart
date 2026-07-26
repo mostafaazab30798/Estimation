@@ -9,6 +9,7 @@ import '../services/history_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
+import '../widgets/update_check_tile.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -46,7 +47,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final name = await ProfileService.getProfileName();
     final photo = await ProfileService.getProfilePhoto();
     final stats = await ProfileService.getProfileStats(name);
-    final aHistory = await HistoryService.getHistory();
+    final aHistory = name.isNotEmpty
+        ? await ProfileService.getPlayerHistory(name)
+        : await HistoryService.getHistory();
 
     if (mounted) {
       setState(() {
@@ -281,6 +284,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         // ── Match History Tabs ────────────────────────
                         _buildHistorySection(),
+                        const SizedBox(height: 24),
+
+                        // ── Update Checker ────────────────────────────
+                        const UpdateCheckTile(),
                         const SizedBox(height: 24),
                       ],
                     ),

@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+        Exposes getExternalFilesDir("Download") to the system APK installer.
+        This is the directory where the app saves the downloaded APK before installing.
+    -->
+    <external-files-path name="apk_download" path="Download/" />
+</paths>
