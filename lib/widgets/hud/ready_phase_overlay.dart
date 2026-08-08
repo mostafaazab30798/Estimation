@@ -36,41 +36,51 @@ class ReadyPhaseOverlay extends StatelessWidget {
   // ── Ready waiting prompt ──────────────────────────────────────────────────
 
   Widget _buildReadyPrompt(BuildContext context) {
+    final readyCount = state.voidCheckPassed.length;
+    final totalCount = state.players.length;
+
     return Center(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xCC2A4560), Color(0xCC1D3348)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: AppTheme.steelBlue.withValues(alpha: 0.2),
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: AppTheme.glassDecoration(
+          borderRadius: 24,
+          borderColor: AppTheme.accentBlue.withValues(alpha: 0.35),
+          fillColor: AppTheme.navyDark.withValues(alpha: 0.8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              "انتظار اللاعبين",
-              style: GoogleFonts.cairo(
-                color: AppTheme.steelBlue,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00E676),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFF00E676),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "انتظار اللاعبين ($readyCount/$totalCount)",
+                  style: GoogleFonts.cairo(
+                    color: AppTheme.cream,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            // Ready progress dots
+            const SizedBox(height: 10),
+            // Ready progress pills
             Row(
               mainAxisSize: MainAxisSize.min,
               children: state.players.map((p) {
@@ -78,14 +88,24 @@ class ReadyPhaseOverlay extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    width: 10,
-                    height: 10,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutCubic,
+                    width: isReady ? 14 : 9,
+                    height: 9,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isReady ? AppTheme.playerGreen : AppTheme.steelBlue.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(5),
+                      color: isReady
+                          ? const Color(0xFF00E676)
+                          : AppTheme.steelBlue.withValues(alpha: 0.3),
                       boxShadow: isReady
-                          ? [BoxShadow(color: AppTheme.playerGreen.withValues(alpha: 0.5), blurRadius: 8)]
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF00E676)
+                                    .withValues(alpha: 0.65),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              ),
+                            ]
                           : null,
                     ),
                   ),
@@ -94,10 +114,10 @@ class ReadyPhaseOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              "اضغط 'جاهز' للبدء",
+              "اضغط 'جاهز للعب' للبدء",
               style: GoogleFonts.cairo(
-                color: AppTheme.cream.withValues(alpha: 0.6),
-                fontSize: 10,
+                color: AppTheme.steelBlue.withValues(alpha: 0.85),
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),

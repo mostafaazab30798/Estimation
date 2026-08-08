@@ -9,34 +9,80 @@ import '../../../core/models/card.dart';
 class LobbyRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
+  Future<void> _ensureAuth() async {
+    final session = _client.auth.currentSession;
+    if (session != null) {
+      final expiresAt = session.expiresAt;
+      if (expiresAt != null) {
+        final expirationDate = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+        if (DateTime.now().isAfter(expirationDate.subtract(const Duration(seconds: 30)))) {
+          debugPrint('[LobbyRepo] Session expired. Signing out to refresh anonymously.');
+          try {
+            await _client.auth.signOut().timeout(const Duration(seconds: 2));
+          } catch (_) {}
+        }
+      }
+    }
+
+    if (_client.auth.currentUser == null) {
+      try {
+        await _client.auth.signInAnonymously().timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('[LobbyRepo] signInAnonymously failed: $e');
+      }
+    }
+    if (_client.auth.currentUser == null) {
+      throw Exception('تعذّر تسجيل الدخول. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.');
+    }
+  }
+
   Future<GameRoom> createRoom({
     required String playerName,
     required String roomCode,
     required String hostIp,
     required int wsPort,
+    String gameType = 'kotchina',
+    int expectedPlayers = 4,
   }) async {
+    await _ensureAuth();
     final response = await _client.rpc('create_game_room', params: {
       'p_room_code': roomCode,
       'p_player_name': playerName,
       'p_host_ip': hostIp,
       'p_ws_port': wsPort,
+      'p_game_type': gameType,
     });
 
     final roomId = response['room_id'] as String;
+
+    if (expectedPlayers != 4) {
+      await _client.from('game_rooms').update({'max_players': expectedPlayers}).eq('id', roomId);
+    }
+
     return getRoom(roomId);
   }
 
   Future<GameRoom> joinRoom({
     required String roomCode,
     required String playerName,
+    String? expectedGameType,
   }) async {
+    await _ensureAuth();
     final response = await _client.rpc('join_game_room', params: {
       'p_room_code': roomCode,
       'p_player_name': playerName,
     });
 
     final roomId = response['room_id'] as String;
-    return getRoom(roomId);
+    final room = await getRoom(roomId);
+
+    if (expectedGameType != null && room.gameType != expectedGameType) {
+      // User entered code for wrong game mode
+      final targetModeLabel = room.gameType == 'kotchina' ? 'كوتشينة' : 'الـ99';
+      throw Exception('هذا الكود مخصص لروم $targetModeLabel');
+    }
+
+    return room;
   }
 
   Future<GameRoom> getRoom(String roomId) async {
@@ -95,7 +141,10 @@ class LobbyRepository {
     try {
       await _client.rpc('player_heartbeat', params: {'p_room_id': roomId});
     } catch (e) {
-      debugPrint('[Lobby] pingHeartbeat failed: $e');
+      final errorStr = e.toString();
+      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+        debugPrint('[Lobby] pingHeartbeat failed: $e');
+      }
     }
   }
 
@@ -104,7 +153,10 @@ class LobbyRepository {
     try {
       await _client.rpc('player_go_offline', params: {'p_room_id': roomId});
     } catch (e) {
-      debugPrint('[Lobby] markOffline failed: $e');
+      final errorStr = e.toString();
+      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+        debugPrint('[Lobby] markOffline failed: $e');
+      }
     }
   }
 

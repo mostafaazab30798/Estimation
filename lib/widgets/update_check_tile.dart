@@ -20,12 +20,18 @@ class UpdateCheckTile extends StatefulWidget {
 }
 
 class _UpdateCheckTileState extends State<UpdateCheckTile> {
-  bool _isChecking = false;
+  final _isChecking = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isChecking.dispose();
+    super.dispose();
+  }
 
   // ── Check for update ──────────────────────────────────────────
   Future<void> _checkForUpdate() async {
-    if (_isChecking) return;
-    setState(() => _isChecking = true);
+    if (_isChecking.value) return;
+    _isChecking.value = true;
 
     try {
       final info = await UpdateCheckerService().checkForUpdate();
@@ -44,7 +50,7 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
       if (!mounted) return;
       _showSnackBar('تعذّر التحقق من التحديثات', isError: true);
     } finally {
-      if (mounted) setState(() => _isChecking = false);
+      if (mounted) _isChecking.value = false;
     }
   }
 
@@ -122,20 +128,25 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
                     ],
                   ),
                 ),
-                _isChecking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: AppTheme.accentBlue,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                    : Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: AppTheme.accentLight.withValues(alpha: 0.8),
-                        size: 16,
-                      ),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _isChecking,
+                  builder: (context, checking, _) {
+                    return checking
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: AppTheme.accentBlue,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: AppTheme.accentLight.withValues(alpha: 0.8),
+                            size: 16,
+                          );
+                  },
+                ),
               ],
             ),
           ),
@@ -156,11 +167,43 @@ class _UpdateDialog extends StatefulWidget {
   State<_UpdateDialog> createState() => _UpdateDialogState();
 }
 
+class _DownloadViewModel extends ChangeNotifier {
+  _Phase phase = _Phase.idle;
+  double progress = 0;
+  String? errorMessage;
+  CancelToken? cancelToken;
+
+  void startDownload() {
+    phase = _Phase.downloading;
+    progress = 0;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  void updateProgress(double p) {
+    progress = p;
+    notifyListeners();
+  }
+
+  void setPhase(_Phase p) {
+    phase = p;
+    notifyListeners();
+  }
+
+  void setError(String msg) {
+    phase = _Phase.error;
+    errorMessage = msg;
+    notifyListeners();
+  }
+
+  void resetIdle() {
+    phase = _Phase.idle;
+    notifyListeners();
+  }
+}
+
 class _UpdateDialogState extends State<_UpdateDialog> {
-  _Phase _phase = _Phase.idle;
-  double _progress = 0; // 0.0 – 1.0
-  String? _errorMessage;
-  CancelToken? _cancelToken;
+  late final _vm = _DownloadViewModel();
 
   // ── Open in Browser Fallback ──────────────────────────────────
   Future<void> _openInBrowser() async {
@@ -178,11 +221,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
 
   // ── Start download ────────────────────────────────────────────
   Future<void> _startDownload() async {
-    setState(() {
-      _phase = _Phase.downloading;
-      _progress = 0;
-      _errorMessage = null;
-    });
+    _vm.startDownload();
 
     try {
       final dir = await getExternalStorageDirectory();
@@ -191,16 +230,16 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       await downloadDir.create(recursive: true);
       final savePath = '${downloadDir.path}/update.apk';
 
-      _cancelToken = CancelToken();
+      _vm.cancelToken = CancelToken();
 
       await Dio().download(
         widget.info.downloadUrl,
         savePath,
-        cancelToken: _cancelToken,
+        cancelToken: _vm.cancelToken,
         onReceiveProgress: (received, total) {
           if (total <= 0) return;
           if (mounted) {
-            setState(() => _progress = received / total);
+            _vm.updateProgress(received / total);
           }
         },
         options: Options(
@@ -210,7 +249,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       );
 
       if (!mounted) return;
-      setState(() => _phase = _Phase.installing);
+      _vm.setPhase(_Phase.installing);
 
       final result = await OpenFilex.open(savePath);
       debugPrint('[UpdateChecker] OpenFilex result: ${result.message}');
@@ -218,7 +257,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       if (mounted) Navigator.pop(context);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
-        if (mounted) setState(() => _phase = _Phase.idle);
+        if (mounted) _vm.resetIdle();
       } else {
         debugPrint('[UpdateChecker] Download error: $e');
         String msg = 'فشل التحميل، تحقق من اتصالك وحاول مرة أخرى.';
@@ -229,39 +268,39 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           msg = 'انتهت مهلة الاتصال أثناء التنزيل. حاول مرة أخرى.';
         }
         if (mounted) {
-          setState(() {
-            _phase = _Phase.error;
-            _errorMessage = msg;
-          });
+          _vm.setError(msg);
         }
       }
     } catch (e) {
       debugPrint('[UpdateChecker] Install error: $e');
       if (mounted) {
-        setState(() {
-          _phase = _Phase.error;
-          _errorMessage = 'حدث خطأ أثناء تحميل أو تثبيت التحديث.';
-        });
+        _vm.setError('حدث خطأ أثناء تحميل أو تثبيت التحديث.');
       }
     }
   }
 
   // ── Cancel download ───────────────────────────────────────────
   void _cancelDownload() {
-    _cancelToken?.cancel('user cancelled');
+    _vm.cancelToken?.cancel('user cancelled');
   }
 
   @override
   void dispose() {
-    _cancelToken?.cancel('dialog dismissed');
+    _vm.cancelToken?.cancel('dialog dismissed');
+    _vm.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.85;
+    return ListenableBuilder(
+      listenable: _vm,
+      builder: (context, _) {
+        final phase = _vm.phase;
+        final errorMessage = _vm.errorMessage;
+        final maxHeight = MediaQuery.of(context).size.height * 0.85;
 
-    return Dialog(
+        return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: PerformanceBlur(
@@ -331,7 +370,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                               const SizedBox(height: 12),
                               Text(
                                 'تحديث جديد متاح!',
-                                style: GoogleFonts.alexandria(
+                                style: GoogleFonts.cairo(
                                   color: AppTheme.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 19,
@@ -439,13 +478,13 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                         ],
 
                         // Download Progress State
-                        if (_phase == _Phase.downloading || _phase == _Phase.installing) ...[
+                        if (phase == _Phase.downloading || phase == _Phase.installing) ...[
                           const SizedBox(height: 16),
                           _buildProgressSection(),
                         ],
 
                         // Error State Box
-                        if (_phase == _Phase.error) ...[
+                        if (phase == _Phase.error) ...[
                           const SizedBox(height: 14),
                           Container(
                             padding: const EdgeInsets.all(10),
@@ -466,7 +505,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    _errorMessage ??
+                                    errorMessage ??
                                         'فشل التحميل، تحقق من اتصالك وحاول مرة أخرى.',
                                     style: GoogleFonts.cairo(
                                       color: AppTheme.errorRed,
@@ -493,7 +532,9 @@ class _UpdateDialogState extends State<_UpdateDialog> {
           ),
         ),
       );
-    }
+    },
+  );
+}
 
   Widget _buildVersionPill({
     required String label,
@@ -528,7 +569,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             fit: BoxFit.scaleDown,
             child: Text(
               version,
-              style: GoogleFonts.alexandria(
+              style: GoogleFonts.cairo(
                 color: color,
                 fontWeight: FontWeight.bold,
                 fontSize: 12.5,
@@ -541,8 +582,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   }
 
   Widget _buildProgressSection() {
-    final isInstalling = _phase == _Phase.installing;
-    final pct = (_progress * 100).toStringAsFixed(0);
+    final isInstalling = _vm.phase == _Phase.installing;
+    final pct = (_vm.progress * 100).toStringAsFixed(0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,7 +602,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
             if (!isInstalling)
               Text(
                 '$pct%',
-                style: GoogleFonts.alexandria(
+                style: GoogleFonts.cairo(
                   color: AppTheme.accentBlue,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -573,7 +614,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
-            value: isInstalling ? null : _progress,
+            value: isInstalling ? null : _vm.progress,
             minHeight: 8,
             backgroundColor: AppTheme.navyMid,
             valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accentBlue),
@@ -584,7 +625,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    switch (_phase) {
+    switch (_vm.phase) {
       case _Phase.idle:
         return Row(
           children: [

@@ -76,15 +76,27 @@ class GameState {
   Player? get bidder =>
       bidderPlayerId == null
           ? null
-          : players.firstWhere((p) => p.id == bidderPlayerId);
+          : players.firstWhere(
+              (p) => p.id == bidderPlayerId,
+              orElse: () => players.isNotEmpty ? players.first : Player(id: 'unknown', name: 'Unknown', seatIndex: 0),
+            );
 
   Player get currentPlayer =>
-      players.firstWhere((p) => p.seatIndex == currentPlayerSeatIndex);
+      players.firstWhere(
+        (p) => p.seatIndex == currentPlayerSeatIndex,
+        orElse: () => players.isNotEmpty ? players.first : Player(id: 'unknown', name: 'Unknown', seatIndex: currentPlayerSeatIndex),
+      );
 
-  Player playerById(String id) => players.firstWhere((p) => p.id == id);
+  Player playerById(String id) => players.firstWhere(
+        (p) => p.id == id,
+        orElse: () => players.isNotEmpty ? players.first : Player(id: id, name: 'Unknown', seatIndex: 0),
+      );
 
   Player playerBySeat(int seat) =>
-      players.firstWhere((p) => p.seatIndex == seat);
+      players.firstWhere(
+        (p) => p.seatIndex == seat,
+        orElse: () => players.isNotEmpty ? players.first : Player(id: 'unknown', name: 'Unknown', seatIndex: seat),
+      );
 
   bool get hasBots => players.any((p) => p.id.startsWith('bot_'));
 

@@ -90,7 +90,10 @@ class ReconnectionManager extends ChangeNotifier
     try {
       await _lobbyRepo.pingHeartbeat(roomId);
     } catch (e) {
-      debugPrint('[Reconnection] Heartbeat failed: $e');
+      final errorStr = e.toString();
+      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+        debugPrint('[Reconnection] Heartbeat failed: $e');
+      }
     }
   }
 
@@ -154,6 +157,13 @@ class ReconnectionManager extends ChangeNotifier
     final session = await _sessionService.getActiveRoomSession();
     if (session == null) return ReconnectionState.idle;
 
+    if (session.roomId.startsWith('test_')) {
+      debugPrint('[Reconnection] Test mode session detected (${session.roomId}); clearing session');
+      await _sessionService.clearSession();
+      _setState(ReconnectionState.idle);
+      return ReconnectionState.idle;
+    }
+
     _setState(ReconnectionState.reconnecting);
     debugPrint('[Reconnection] Attempting recovery for room ${session.roomId}…');
 
@@ -180,6 +190,7 @@ class ReconnectionManager extends ChangeNotifier
 
         final success = await _gameProvider.becomeHost(session);
         if (!success) {
+          await _sessionService.clearSession();
           _setState(ReconnectionState.failed);
           return ReconnectionState.failed;
         }
@@ -193,6 +204,7 @@ class ReconnectionManager extends ChangeNotifier
         final success =
             await _gameProvider.rehydrateGameState(session.roomId);
         if (!success) {
+          await _sessionService.clearSession();
           _setState(ReconnectionState.failed);
           return ReconnectionState.failed;
         }
@@ -203,6 +215,7 @@ class ReconnectionManager extends ChangeNotifier
       return ReconnectionState.reconnected;
     } catch (e) {
       debugPrint('[Reconnection] Recovery threw: $e');
+      await _sessionService.clearSession();
       _setState(ReconnectionState.failed);
       return ReconnectionState.failed;
     }

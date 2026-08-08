@@ -11,6 +11,24 @@ import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import 'playing_card_widget.dart';
 
+// ---------------------------------------------------------------------------
+// Immutable value object bundling the 3 sweeping-animation fields into one,
+// so ValueNotifier<_SweepState> replaces 3 setState calls.
+// ---------------------------------------------------------------------------
+class _SweepState {
+  final bool isSweeping;
+  final List<TrickCard>? sweepingTrick;
+  final int? winnerSeat;
+
+  const _SweepState({
+    required this.isSweeping,
+    this.sweepingTrick,
+    this.winnerSeat,
+  });
+
+  static const empty = _SweepState(isSweeping: false);
+}
+
 class TrickArea extends StatefulWidget {
   final GameState state;
   final String myPlayerId;
@@ -31,9 +49,8 @@ class TrickArea extends StatefulWidget {
 
 class _TrickAreaState extends State<TrickArea>
     with SingleTickerProviderStateMixin {
-  List<TrickCard>? _sweepingTrick;
-  int? _winnerSeat;
-  bool _isSweeping = false;
+  // ValueNotifier bundles all 3 sweep fields; no setState needed.
+  final _sweepState = ValueNotifier<_SweepState>(_SweepState.empty);
   List<TrickCard> _trickCache = [];
   final GlobalKey _trickAreaKey = GlobalKey();
 
@@ -53,6 +70,7 @@ class _TrickAreaState extends State<TrickArea>
   @override
   void dispose() {
     _sweepCtrl.dispose();
+    _sweepState.dispose();
     super.dispose();
   }
 
@@ -63,22 +81,12 @@ class _TrickAreaState extends State<TrickArea>
     if (_trickCache.length == 4 && widget.state.currentTrick.isEmpty) {
       final winnerSeat = widget.state.trickLeaderSeatIndex;
 
-      // Compute the screen-geometry direction vector for the winning player.
-      // We use MediaQuery here (screen size is available without a context)
-      // and derive the direction purely from relSeat so there is zero chance
-      // of horizontal / vertical axis confusion.
-      //
-      //  relSeat 0 → me (bottom)  → pile flies DOWN    (+dy)
-      //  relSeat 1 → right opp.   → pile flies RIGHT   (+dx)
-      //  relSeat 2 → top opp.     → pile flies UP      (-dy)
-      //  relSeat 3 → left opp.    → pile flies LEFT    (-dx)
-      // (relSeat is computed fresh inside build() from _winnerSeat + mySeat)
-
-      setState(() {
-        _sweepingTrick = List.from(_trickCache);
-        _winnerSeat = winnerSeat;
-        _isSweeping = true;
-      });
+      // Set sweep state — no setState needed.
+      _sweepState.value = _SweepState(
+        isSweeping: true,
+        sweepingTrick: List.from(_trickCache),
+        winnerSeat: winnerSeat,
+      );
 
       // Reset and start the Phase 3 controller after Phase 1 finishes (200 ms).
       _sweepCtrl.reset();
@@ -92,10 +100,7 @@ class _TrickAreaState extends State<TrickArea>
       // Clear sweep state after the full animation.
       Future.delayed(const Duration(milliseconds: 1050), () {
         if (mounted) {
-          setState(() {
-            _isSweeping = false;
-            _sweepingTrick = null;
-          });
+          _sweepState.value = _SweepState.empty;
           _sweepCtrl.reset();
         }
       });
@@ -128,72 +133,79 @@ class _TrickAreaState extends State<TrickArea>
 
   @override
   Widget build(BuildContext context) {
-    final trickToDisplay =
-        _isSweeping ? _sweepingTrick! : widget.state.currentTrick;
+    return ValueListenableBuilder<_SweepState>(
+      valueListenable: _sweepState,
+      builder: (context, sweep, _) {
+        final isSweeping = sweep.isSweeping;
+        final sweepingTrick = sweep.sweepingTrick;
+        final winnerSeat = sweep.winnerSeat;
 
-    final played = <int, TrickCard>{};
-    for (final tc in trickToDisplay) {
-      final seat = widget.state.playerById(tc.playerId).seatIndex;
-      played[seat] = tc;
-    }
+        final trickToDisplay =
+            isSweeping ? (sweepingTrick ?? widget.state.currentTrick) : widget.state.currentTrick;
 
-    final me = widget.state.players.firstWhere(
-      (p) => p.id == widget.myPlayerId,
-      orElse: () => widget.state.players.first,
-    );
-    final mySeat = me.seatIndex;
+        final played = <int, TrickCard>{};
+        for (final tc in trickToDisplay) {
+          final seat = widget.state.playerById(tc.playerId).seatIndex;
+          played[seat] = tc;
+        }
 
-    return RepaintBoundary(
-      child: AspectRatio(
-        aspectRatio: 1.0,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final size = constraints.maxWidth;
-            final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-            final cardW = size * (isPortrait ? 0.27 : 0.31);
-            final cardH = cardW / playingCardAspectRatio;
+        final me = widget.state.players.firstWhere(
+          (p) => p.id == widget.myPlayerId,
+          orElse: () => widget.state.players.first,
+        );
+        final mySeat = me.seatIndex;
 
-            Widget animatedCardFor(int relativeSeat) {
-              final absSeat = (mySeat + relativeSeat) % 4;
-              final tc = played[absSeat];
-              
-              Widget cardWidget = _AnimatedCard(
-                trickCard: tc,
-                width: cardW,
-                relativeSeat: relativeSeat,
-                isSweeping: _isSweeping,
-              );
+        return RepaintBoundary(
+          child: AspectRatio(
+            aspectRatio: 1.0,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final size = constraints.maxWidth;
+                final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+                final cardW = size * (isPortrait ? 0.27 : 0.31);
+                final cardH = cardW / playingCardAspectRatio;
 
-              if (tc != null) {
-                final rand = math.Random(tc.card.id.hashCode);
-                final rotOffset = (rand.nextDouble() * 24 - 12) * math.pi / 180.0;
-                final dx = rand.nextDouble() * 20 - 10;
-                final dy = rand.nextDouble() * 20 - 10;
+                Widget animatedCardFor(int relativeSeat) {
+                  final absSeat = (mySeat + relativeSeat) % 4;
+                  final tc = played[absSeat];
+                  
+                  Widget cardWidget = _AnimatedCard(
+                    trickCard: tc,
+                    width: cardW,
+                    relativeSeat: relativeSeat,
+                    isSweeping: isSweeping,
+                  );
 
-                cardWidget = Transform.translate(
-                  offset: Offset(dx, dy),
-                  child: Transform.rotate(
-                    angle: rotOffset,
-                    child: cardWidget,
-                  ),
-                );
-              }
+                  if (tc != null) {
+                    final rand = math.Random(tc.card.id.hashCode);
+                    final rotOffset = (rand.nextDouble() * 24 - 12) * math.pi / 180.0;
+                    final dx = rand.nextDouble() * 20 - 10;
+                    final dy = rand.nextDouble() * 20 - 10;
 
-              return cardWidget;
-            }
+                    cardWidget = Transform.translate(
+                      offset: Offset(dx, dy),
+                      child: Transform.rotate(
+                        angle: rotOffset,
+                        child: cardWidget,
+                      ),
+                    );
+                  }
 
-            // ── Phase 1 offsets (cards collapse from their slot to center) ──
-            final dyOffset = (size / 2) - (size * 0.02 + cardH / 2);
-            final dxOffset = (size / 2) - (size * 0.02 + cardW / 2);
+                  return cardWidget;
+                }
 
-            // ── Phase 3 target: recompute with real screen size ──────────────
-            // We re-derive relSeat here so the vector is always fresh.
-            final screenSize = MediaQuery.of(context).size;
-            Offset phase3Target = Offset.zero;
-            if (_isSweeping && _winnerSeat != null) {
-              final relSeat = (_winnerSeat! - mySeat + 4) % 4;
-              phase3Target = _relSeatToOffset(relSeat, screenSize);
-            }
+                // ── Phase 1 offsets (cards collapse from their slot to center) ──
+                final dyOffset = (size / 2) - (size * 0.02 + cardH / 2);
+                final dxOffset = (size / 2) - (size * 0.02 + cardW / 2);
+
+                // ── Phase 3 target: recompute with real screen size ──────────────
+                // We re-derive relSeat here so the vector is always fresh.
+                final screenSize = MediaQuery.of(context).size;
+                Offset phase3Target = Offset.zero;
+                if (isSweeping && winnerSeat != null) {
+                  final relSeat = (winnerSeat - mySeat + 4) % 4;
+                  phase3Target = _relSeatToOffset(relSeat, screenSize);
+                }
 
             // ── Sweep pile widget (Phase 1 + Phase 2 via flutter_animate) ───
             Widget buildSweepPile() {
@@ -268,7 +280,7 @@ class _TrickAreaState extends State<TrickArea>
                     ),
 
                   // 2. Cards — normal play OR sweep
-                  if (!_isSweeping)
+                  if (!isSweeping)
                     Stack(
                       alignment: Alignment.center,
                       clipBehavior: Clip.none,
@@ -333,6 +345,8 @@ class _TrickAreaState extends State<TrickArea>
           },
         ),
       ),
+    );
+      },
     );
   }
 }

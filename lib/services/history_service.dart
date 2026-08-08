@@ -9,6 +9,7 @@ class MatchRecord {
   final String date;
   final String winnerName;
   final int winnerScore;
+  final String gameType; // 'kotchina' or 'ninety_nine'
   final List<PlayerResult> players;
 
   MatchRecord({
@@ -16,6 +17,7 @@ class MatchRecord {
     required this.date,
     required this.winnerName,
     required this.winnerScore,
+    this.gameType = 'kotchina',
     required this.players,
   });
 
@@ -24,6 +26,7 @@ class MatchRecord {
         'date': date,
         'winnerName': winnerName,
         'winnerScore': winnerScore,
+        'gameType': gameType,
         'players': players.map((p) => p.toJson()).toList(),
       };
 
@@ -33,6 +36,7 @@ class MatchRecord {
       date: json['date'] as String,
       winnerName: json['winnerName'] as String,
       winnerScore: json['winnerScore'] as int,
+      gameType: (json['gameType'] as String?) ?? 'kotchina',
       players: (json['players'] as List<dynamic>)
           .map((p) => PlayerResult.fromJson(p as Map<String, dynamic>))
           .toList(),
@@ -150,10 +154,28 @@ class HistoryService {
     }
   }
 
+  /// Saves a finished MatchRecord directly to Supabase
+  static Future<void> saveMatchRecordDirect(MatchRecord record) async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        debugPrint('[HistoryService] Cannot save match: No authenticated user.');
+        return;
+      }
+      await Supabase.instance.client.from(_tableName).insert({
+        'user_id': userId,
+        'game_data': record.toJson(),
+      });
+      debugPrint('[HistoryService] Direct match record saved successfully (${record.gameType}).');
+    } catch (e) {
+      debugPrint('[HistoryService] Error saving direct match record: $e');
+    }
+  }
+
   /// Fetches history records for the authenticated user from Supabase.
   static Future<List<MatchRecord>> getHistory() async {
     try {
-      await migrateFromSharedPreferences();
+      await migrateFromSharedPreferences().timeout(const Duration(seconds: 2), onTimeout: () {});
 
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
@@ -164,7 +186,8 @@ class HistoryService {
       final response = await Supabase.instance.client
           .from(_tableName)
           .select('id, game_data, created_at')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 3));
 
       final List<MatchRecord> records = [];
       for (final row in response as List<dynamic>) {

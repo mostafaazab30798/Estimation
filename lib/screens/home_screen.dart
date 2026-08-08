@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
 import '../widgets/performance_blur.dart';
+import '../widgets/game_guide_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,7 +22,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin {
-  String _playerName = '';
+  // ValueNotifiers — pure UI local state; no setState needed.
+  final _playerName = ValueNotifier<String>('');
   final _codeController = TextEditingController();
   late AnimationController _animController;
   late AnimationController _pulseController;
@@ -29,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen>
   late Animation<Offset> _slideIn;
   late Animation<double> _pulseAnim;
 
-  String? _pendingMode; // 'host' | 'join' | null
-  String _profilePhoto = ProfileService.presetAvatars.first.id;
+  final _pendingMode = ValueNotifier<String?>(null); // 'host' | 'join' | null
+  late final _profilePhoto = ValueNotifier<String>(ProfileService.presetAvatars.first.id);
 
   @override
   void initState() {
@@ -59,10 +61,8 @@ class _HomeScreenState extends State<HomeScreen>
     final savedName = await ProfileService.getProfileName();
     final savedPhoto = await ProfileService.getProfilePhoto();
     if (mounted) {
-      setState(() {
-        _playerName = savedName;
-        _profilePhoto = savedPhoto;
-      });
+      _playerName.value = savedName;
+      _profilePhoto.value = savedPhoto;
     }
 
     if (!mounted) return;
@@ -72,8 +72,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     if (result == ReconnectionState.reconnected) {
       final provider = context.read<GameProvider>();
+      final is99Mode = provider.currentRoom?.gameType == 'ninety_nine';
       final route = (provider.currentRoom?.status.name == 'playing')
-          ? '/game'
+          ? (is99Mode ? '/ninety_nine/game' : '/game')
           : '/lobby';
       Navigator.pushReplacementNamed(context, route);
     }
@@ -84,11 +85,14 @@ class _HomeScreenState extends State<HomeScreen>
     _codeController.dispose();
     _animController.dispose();
     _pulseController.dispose();
+    _playerName.dispose();
+    _profilePhoto.dispose();
+    _pendingMode.dispose();
     super.dispose();
   }
 
   String? _validateName() {
-    if (_playerName.trim().isEmpty) return 'يرجى تعيين اسمك في الملف الشخصي أولاً';
+    if (_playerName.value.trim().isEmpty) return 'يرجى تعيين اسمك في الملف الشخصي أولاً';
     return null;
   }
 
@@ -97,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (err != null) { _snack(context, err); return; }
     
     final provider = context.read<GameProvider>();
-    await provider.hostGame(_playerName, expectedPlayers: expectedPlayers);
+    await provider.hostGame(_playerName.value, expectedPlayers: expectedPlayers);
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -115,7 +119,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     
     final provider = context.read<GameProvider>();
-    await provider.joinGameWithCode(_playerName, code);
+    await provider.joinGameWithCode(_playerName.value, code, expectedGameType: 'kotchina');
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -128,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (err != null) { _snack(context, err); return; }
     
     final provider = context.read<GameProvider>();
-    await provider.startTestGame(_playerName);
+    await provider.startTestGame(_playerName.value);
     if (context.mounted && provider.status == ConnectionStatus.connected) {
       Navigator.pushReplacementNamed(context, '/lobby');
     } else if (context.mounted && provider.status == ConnectionStatus.error) {
@@ -249,13 +253,25 @@ class _HomeScreenState extends State<HomeScreen>
 
             // ── Main Content SafeArea ─────────────────────────────────
             SafeArea(
+              left: false,
+              right: false,
               child: FadeTransition(
                 opacity: _fadeIn,
                 child: SlideTransition(
                   position: _slideIn,
-                  child: isPortrait
-                      ? _buildPortraitLayout(context, provider, isLoading)
-                      : _buildLandscapeLayout(context, provider, isLoading),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: isPortrait
+                            ? _buildPortraitLayout(context, provider, isLoading)
+                            : _buildLandscapeLayout(context, provider, isLoading),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16, top: 8),
+                        child: _buildSuitRow(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -294,9 +310,9 @@ class _HomeScreenState extends State<HomeScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildTopAppBar(context),
-          const SizedBox(height: 20),
+          const SizedBox(height: 36),
           _buildBrandHero(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           _buildGameModesSection(context),
           const SizedBox(height: 24),
         ],
@@ -315,6 +331,7 @@ class _HomeScreenState extends State<HomeScreen>
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: _buildTopAppBar(context),
         ),
+        const SizedBox(height: 12),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 8),
@@ -370,117 +387,219 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ── Top Header / Profile Pill ───────────────────────────────────
+  // ── Top Header / Guide (Left) & Profile (Right) Row ──────────────
 
   Widget _buildTopAppBar(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // App Title Badge
-        const Row(
-          children: [
-            // Container(
-            //   padding: const EdgeInsets.all(8),
-            //   decoration: BoxDecoration(
-            //     color: AppTheme.accentBlue.withValues(alpha: 0.15),
-            //     borderRadius: BorderRadius.circular(12),
-            //     border: Border.all(
-            //       color: AppTheme.accentBlue.withValues(alpha: 0.3),
-            //     ),
-            //   ),
-            //   child: const Icon(
-            //     Icons.style_rounded,
-            //     color: AppTheme.mintSoft,
-            //     size: 20,
-            //   ),
-            // ),
-            // const SizedBox(width: 10),
-            // Text(
-            //   'كوتشينة إستميشن',
-            //   style: GoogleFonts.cairo(
-            //     color: AppTheme.mintSoft,
-            //     fontSize: 15,
-            //     fontWeight: FontWeight.w700,
-            //   ),
-            // ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+            // 0. Change Mode Back Chip (Return to Mode Selection)
+            InkWell(
+              onTap: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacementNamed(context, '/');
+                }
+              },
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: AppTheme.glassDecoration(
+                  borderRadius: 24,
+                  borderColor: AppTheme.gold.withValues(alpha: 0.5),
+                  fillColor: AppTheme.navyDark.withValues(alpha: 0.7),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: AppTheme.gold.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.gold.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: AppTheme.gold,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'المودات 🎴',
+                      style: GoogleFonts.cairo(
+                        color: AppTheme.goldLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+
+            // 1. Game Guide Chip Button (Left side)
+            InkWell(
+              onTap: () => GameGuideDialog.show(context),
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: AppTheme.glassDecoration(
+                  borderRadius: 24,
+                  borderColor: AppTheme.mintSoft.withValues(alpha: 0.4),
+                  fillColor: AppTheme.navyDark.withValues(alpha: 0.7),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: AppTheme.mintSoft.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppTheme.mintSoft.withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: AppTheme.mintSoft,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'الدليل 📖',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            height: 1.1,
+                          ),
+                        ),
+                        Text(
+                          'كيف تلعب',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.accentLight.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-
-        // Profile Avatar Chip
+        const SizedBox(width: 16),
+        // 2. Profile Avatar Chip (Right side)
         InkWell(
           onTap: () => Navigator.pushNamed(context, '/profile')
               .then((_) => _loadSavedName()),
           borderRadius: BorderRadius.circular(24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: AppTheme.glassDecoration(
-              borderRadius: 24,
-              borderColor: AppTheme.accentBlue.withValues(alpha: 0.35),
-              fillColor: AppTheme.navyDark.withValues(alpha: 0.7),
-            ),
-            child: Row(
-              children: [
-                Stack(
-                  children: [
-                    PlayerAvatar(
-                      photoData: _profilePhoto,
-                      size: 36,
-                      borderWidth: 1.5,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppTheme.navyDark,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+          child: ListenableBuilder(
+            listenable: Listenable.merge([_playerName, _profilePhoto]),
+            builder: (context, _) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: AppTheme.glassDecoration(
+                  borderRadius: 24,
+                  borderColor: AppTheme.accentBlue.withValues(alpha: 0.35),
+                  fillColor: AppTheme.navyDark.withValues(alpha: 0.7),
                 ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _playerName.isNotEmpty ? _playerName : 'الملف الشخصي',
-                      style: GoogleFonts.cairo(
-                        color: AppTheme.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        height: 1.1,
-                      ),
+                    Stack(
+                      children: [
+                        PlayerAvatar(
+                          photoData: _profilePhoto.value,
+                          size: 36,
+                          borderWidth: 1.5,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.navyDark,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'تعديل الحساب',
-                      style: GoogleFonts.cairo(
-                        color: AppTheme.accentLight.withValues(alpha: 0.8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _playerName.value.isNotEmpty ? _playerName.value : 'الملف الشخصي',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            height: 1.1,
+                          ),
+                        ),
+                        Text(
+                          'تعديل الحساب',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.accentLight.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.tune_rounded,
+                      color: AppTheme.accentLight.withValues(alpha: 0.9),
+                      size: 16,
                     ),
                   ],
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.tune_rounded,
-                  color: AppTheme.accentLight.withValues(alpha: 0.9),
-                  size: 16,
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ],
-    );
+    ),
+  ));
+  });
   }
 
   // ── Brand Hero Section ─────────────────────────────────────────
@@ -519,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen>
           ).createShader(bounds),
           child: Text(
             'إستميشن',
-            style: GoogleFonts.alexandria(
+            style: GoogleFonts.cairo(
               fontSize: 44,
               fontWeight: FontWeight.w900,
               color: Colors.white,
@@ -528,23 +647,6 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
-
-        const SizedBox(height: 6),
-
-        // Text(
-        //   'التحدي والذكاء في لعبة الكوتشينة المصرية',
-        //   style: GoogleFonts.cairo(
-        //     color: AppTheme.accentLight.withValues(alpha: 0.75),
-        //     fontSize: 13,
-        //     fontWeight: FontWeight.w600,
-        //   ),
-        //   textAlign: TextAlign.center,
-        // ),
-
-        const SizedBox(height: 14),
-
-        // Suit Row Decor Chips
-        _buildSuitRow(),
       ],
     );
   }
@@ -587,50 +689,62 @@ class _HomeScreenState extends State<HomeScreen>
   // ── Game Modes Section ──────────────────────────────────────────
 
   Widget _buildGameModesSection(BuildContext context) {
-    final isHostActive = _pendingMode == 'host';
-    final isJoinActive = _pendingMode == 'join';
+    return ValueListenableBuilder<String?>(
+      valueListenable: _pendingMode,
+      builder: (context, mode, _) {
+        final isHostActive = mode == 'host';
+        final isJoinActive = mode == 'join';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Mode 1: Host Room
-        _buildModeTile(
-          title: 'إنشاء غرفة جديدة',
-          subtitle: 'استضف أصدقائك أو العب مع البوتات',
-          icon: Icons.wifi_tethering_rounded,
-          gradientColors: [const Color(0xFF3A7BD5), const Color(0xFF3A6073)],
-          isActive: isHostActive,
-          onTap: () {
-            setState(() {
-              _pendingMode = isHostActive ? null : 'host';
-            });
-          },
-          expandableContent: _buildHostOptions(context),
-        ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mode 1: Host Room
+            _buildModeTile(
+              title: 'إنشاء غرفة جديدة',
+              subtitle: 'استضف أصدقائك أو العب مع البوتات',
+              icon: Icons.wifi_tethering_rounded,
+              gradientColors: [const Color(0xFF3A7BD5), const Color(0xFF3A6073)],
+              isActive: isHostActive,
+              onTap: () {
+                _pendingMode.value = isHostActive ? null : 'host';
+              },
+              expandableContent: _buildHostOptions(context),
+            ),
 
-        const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-        // Mode 2: Join Room
-        _buildModeTile(
-          title: 'الانضمام لكود غرفة',
-          subtitle: 'أدخل الكود المكون من 6 أحرف للانضمام',
-          icon: Icons.vpn_key_rounded,
-          gradientColors: [const Color(0xFF11998E), const Color(0xFF38EF7D)],
-          isActive: isJoinActive,
-          onTap: () {
-            setState(() {
-              _pendingMode = isJoinActive ? null : 'join';
-            });
-          },
-          expandableContent: _buildJoinOptions(context),
-        ),
+            // Mode 2: Join Room
+            _buildModeTile(
+              title: 'الانضمام لكود غرفة',
+              subtitle: 'أدخل الكود المكون من 6 أحرف للانضمام',
+              icon: Icons.vpn_key_rounded,
+              gradientColors: [const Color(0xFF11998E), const Color(0xFF38EF7D)],
+              isActive: isJoinActive,
+              onTap: () {
+                _pendingMode.value = isJoinActive ? null : 'join';
+              },
+              expandableContent: _buildJoinOptions(context),
+            ),
 
-        const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-        // Mode 3: Practice vs Bots
-        _buildPracticeTile(context),
-      ],
+            // Mode 3: Practice vs Bots
+            _buildModeTile(
+              title: 'تجربة ضد البوتات',
+              subtitle: 'لعبة سريعة تدريبية بدون انتظار أونلاين',
+              icon: Icons.smart_toy_rounded,
+              gradientColors: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
+              isActive: false,
+              onTap: () {
+                _pendingMode.value = null;
+                _testMode(context);
+              },
+              badgeText: 'لعب سريع',
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -641,7 +755,8 @@ class _HomeScreenState extends State<HomeScreen>
     required List<Color> gradientColors,
     required bool isActive,
     required VoidCallback onTap,
-    required Widget expandableContent,
+    String? badgeText,
+    Widget? expandableContent,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -653,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen>
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isActive
-              ? AppTheme.accentBlue
+              ? gradientColors.first
               : Colors.white.withValues(alpha: 0.18),
           width: isActive ? 1.8 : 1.2,
         ),
@@ -685,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen>
                 padding: const EdgeInsets.all(18),
                 child: Row(
                   children: [
-                    // Icon Circle with vibrant gradient & glow
+                    // Icon Circle
                     Container(
                       width: 50,
                       height: 50,
@@ -711,19 +826,48 @@ class _HomeScreenState extends State<HomeScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            style: GoogleFonts.cairo(
-                              color: AppTheme.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  title,
+                                  style: GoogleFonts.cairo(
+                                    color: AppTheme.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (badgeText != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: gradientColors.first.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: gradientColors.first.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    badgeText,
+                                    style: GoogleFonts.cairo(
+                                      color: gradientColors.first,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             subtitle,
                             style: GoogleFonts.cairo(
-                              color: AppTheme.mintSoft.withValues(alpha: 0.8),
+                              color: AppTheme.steelBlue,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -731,35 +875,57 @@ class _HomeScreenState extends State<HomeScreen>
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+                    const SizedBox(width: 8),
+                    if (expandableContent != null)
+                      AnimatedRotation(
+                        turns: isActive ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? gradientColors.first.withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.05),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: isActive
+                                ? gradientColors.first
+                                : AppTheme.steelBlue,
+                            size: 22,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: AppTheme.steelBlue,
+                          size: 18,
+                        ),
                       ),
-                      child: Icon(
-                        isActive
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: AppTheme.mintSoft,
-                        size: 22,
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeInOut,
-            child: isActive
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                    child: expandableContent,
-                  )
-                : const SizedBox.shrink(),
-          ),
+          if (expandableContent != null)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              child: isActive
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                      child: expandableContent,
+                    )
+                  : const SizedBox.shrink(),
+            ),
         ],
       ),
     );
@@ -945,127 +1111,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildPracticeTile(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.navyDark.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            setState(() => _pendingMode = null);
-            _testMode(context);
-          },
-          borderRadius: BorderRadius.circular(22),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8E2DE2).withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.smart_toy_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'تجربة ضد البوتات',
-                            style: GoogleFonts.cairo(
-                              color: AppTheme.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentLight.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.accentLight.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Text(
-                              'لعب سريع',
-                              style: GoogleFonts.cairo(
-                                color: AppTheme.mintSoft,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'لعبة سريعة تدريبية بدون انتظار أونلاين',
-                        style: GoogleFonts.cairo(
-                          color: AppTheme.mintSoft.withValues(alpha: 0.8),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: AppTheme.mintSoft,
-                    size: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   // ── Input Text Fields ──────────────────────────────────────────
 

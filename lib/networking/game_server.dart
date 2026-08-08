@@ -26,6 +26,7 @@ class GameServer {
   String? hostPlayerId;
   String? hostName;
   late String roomId;
+  int maxPlayers = 4;
   
   late GameState _state;
   RealtimeChannel? _channel;
@@ -46,10 +47,11 @@ class GameServer {
 
   // ── Lifecycle ────────────────────────────────────────────────
 
-  Future<void> start(String hostName, String hostPlayerId, String roomId, String hostPhoto) async {
+  Future<void> start(String hostName, String hostPlayerId, String roomId, String hostPhoto, {int maxPlayers = 4}) async {
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
+    this.maxPlayers = maxPlayers;
 
     // Add host as the first player immediately
     final hostPlayer = Player(
@@ -67,7 +69,10 @@ class GameServer {
     _channel!.onBroadcast(
       event: 'action',
       callback: (payload) {
-        _handlePlayerAction(payload);
+        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+            ? payload['payload'] as Map<String, dynamic>
+            : payload;
+        _handlePlayerAction(data);
       },
     );
 
@@ -75,7 +80,10 @@ class GameServer {
     _channel!.onBroadcast(
       event: 'joinRequest',
       callback: (payload) {
-        _handleJoinRequest(payload);
+        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+            ? payload['payload'] as Map<String, dynamic>
+            : payload;
+        _handleJoinRequest(data);
       },
     );
 
@@ -83,7 +91,10 @@ class GameServer {
     _channel!.onBroadcast(
       event: 'leaveRequest',
       callback: (payload) {
-        _handleLeaveRequest(payload);
+        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+            ? payload['payload'] as Map<String, dynamic>
+            : payload;
+        _handleLeaveRequest(data);
       },
     );
 
@@ -131,11 +142,13 @@ class GameServer {
     _channel = null;
   }
 
+  int get playerCount => _state.players.length;
+
   // ── Bot players ──────────────────────────────────────────────
 
-  /// Add [count] bot players filling remaining seats (max 3).
+  /// Add [count] bot players filling remaining seats.
   void addBotPlayers({int count = 3}) {
-    final toAdd = count.clamp(0, kPlayerCount - _state.players.length);
+    final toAdd = count.clamp(0, maxPlayers - _state.players.length);
     for (int i = 1; i <= toAdd; i++) {
       final botId = 'bot_$i';
       final seatIndex = _state.players.length;
@@ -188,7 +201,7 @@ class GameServer {
         _sendError('اللعبة بدأت بالفعل');
         return;
       }
-      if (_state.players.length >= kPlayerCount) {
+      if (_state.players.length >= maxPlayers) {
         _sendError('الغرفة ممتلئة');
         return;
       }
@@ -257,7 +270,7 @@ class GameServer {
       case ActionType.rejectRedeal:
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _state.voidRedealRejections.add(playerId);
-          if (_state.voidRedealRejections.length >= kPlayerCount) {
+          if (_state.voidRedealRejections.length >= maxPlayers) {
             // Everyone rejected the redeal. Resume voidCheck.
             _state.voidDeclaringPlayerId = null;
             _state.voidRedealRejections.clear();
@@ -268,7 +281,7 @@ class GameServer {
       case ActionType.confirmNoVoid:
         if (_state.phase == GamePhase.voidCheck) {
           _state.voidCheckPassed.add(playerId);
-          if (_state.voidCheckPassed.length == kPlayerCount) {
+          if (_state.voidCheckPassed.length == maxPlayers) {
             _state.phase = GamePhase.auction;
             if (_state.voidCheckPassed.isNotEmpty) {
               final firstReadyId = _state.voidCheckPassed.first;
@@ -342,7 +355,7 @@ class GameServer {
 
       case ActionType.playCard:
         if (_state.phase == GamePhase.trickTaking) {
-          if (_state.currentTrick.length == kPlayerCount) {
+          if (_state.currentTrick.length == maxPlayers) {
             _broadcastState(); // Ignore input while waiting to clear trick — resync
             return;
           }
@@ -398,11 +411,11 @@ class GameServer {
 
   void _doDeal() {
     // Determine dealer for this round
-    _state.dealerSeatIndex = (_state.roundNumber - 1) % kPlayerCount;
+    _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
 
     // The player to the right of the dealer acts first in the auction
     _state.auctionTurnSeatIndex =
-        (_state.dealerSeatIndex + 1) % kPlayerCount;
+        (_state.dealerSeatIndex + 1) % maxPlayers;
 
     _state.voidCheckPassed.clear();
     _state.voidDeclaringPlayerId = null;
@@ -481,7 +494,7 @@ class GameServer {
         _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
       }
     } else if (_state.phase == GamePhase.trickTaking) {
-      if (_state.currentTrick.length < kPlayerCount) {
+      if (_state.currentTrick.length < maxPlayers) {
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
         if (!_botPlayerIds.contains(activePlayer.id)) {
           _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);

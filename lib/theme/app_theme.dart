@@ -67,10 +67,17 @@ class AppTheme {
   static const Color phaseScoring      = cream;
 
   // ── Rank Colors ───────────────────────────────────────────────
-  static const Color rankGold   = Color(0xFFD4A853);
-  static const Color rankSilver = Color(0xFFABBAC8);
-  static const Color rankBronze = Color(0xFFB07B4A);
-  static const Color rankLast   = Color(0xFF8B3A4A);
+  static const Color rankGold   = Color(0xFFFFD700); // 👑 King (1st) - Radiant Gold
+  static const Color rankSilver = Color(0xFF38BDF8); // 🥈 Sub-King (2nd) - Electric Platinum / Icy Silver
+  static const Color rankBronze = Color(0xFFF97316); // 🥉 Sub-Kooz (3rd) - Warm Copper / Bronze
+  static const Color rankLast   = Color(0xFFF43F5E); // 🤡 Kooz (4th) - Vivid Crimson / Magenta
+
+  static List<Color> get rankColors => const [
+        rankGold,
+        rankSilver,
+        rankBronze,
+        rankLast,
+      ];
 
   // ── Gradients ─────────────────────────────────────────────────
   static const LinearGradient bgGradient = LinearGradient(
@@ -210,10 +217,10 @@ class AppTheme {
         onSurface: cream,
       ),
       textTheme: GoogleFonts.cairoTextTheme(base.textTheme).copyWith(
-        displayLarge: GoogleFonts.alexandria(
+        displayLarge: GoogleFonts.cairo(
           color: cream,
           fontSize: 36,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w900,
           letterSpacing: -0.5,
         ),
         displayMedium: GoogleFonts.cairo(

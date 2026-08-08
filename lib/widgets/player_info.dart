@@ -40,30 +40,35 @@ class PlayerInfoWidget extends StatefulWidget {
 class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
   // Delayed trick counter — lets the trick-win animation play before
   // the score bar updates (same logic as the original widget).
-  late int _displayActual;
+  // ValueNotifier — drives a ValueListenableBuilder rebuild; no setState needed.
+  late final _displayActual = ValueNotifier<int>(0);
   bool _isWaitingToUpdate = false;
 
   @override
   void initState() {
     super.initState();
-    _displayActual = widget.player.actual;
+    _displayActual.value = widget.player.actual;
+  }
+
+  @override
+  void dispose() {
+    _displayActual.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant PlayerInfoWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.player.actual > _displayActual && !_isWaitingToUpdate) {
+    if (widget.player.actual > _displayActual.value && !_isWaitingToUpdate) {
       _isWaitingToUpdate = true;
       Future.delayed(const Duration(milliseconds: 1000), () {
         if (mounted) {
-          setState(() {
-            _displayActual = widget.player.actual;
-            _isWaitingToUpdate = false;
-          });
+          _displayActual.value = widget.player.actual;
+          _isWaitingToUpdate = false;
         }
       });
-    } else if (widget.player.actual < _displayActual) {
-      _displayActual = widget.player.actual;
+    } else if (widget.player.actual < _displayActual.value) {
+      _displayActual.value = widget.player.actual;
       _isWaitingToUpdate = false;
     }
   }
@@ -79,10 +84,10 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     return rankIndex;
   }
 
-  Color _resolveAccentColor() {
+  Color _resolveAccentColor(int displayActual) {
     return AppTheme.avatarRingColor(
       isCurrentTurn: widget.isCurrentTurn,
-      actual: _displayActual,
+      actual: displayActual,
       declared: widget.player.declared,
       tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
     );
@@ -90,25 +95,30 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final rankIndex = _computeRankIndex();
-    final accentColor = _resolveAccentColor();
-    final isDealer = widget.state.dealerSeatIndex == widget.player.seatIndex;
+    return ValueListenableBuilder<int>(
+      valueListenable: _displayActual,
+      builder: (context, displayActual, _) {
+        final rankIndex = _computeRankIndex();
+        final accentColor = _resolveAccentColor(displayActual);
+        final isDealer = widget.state.dealerSeatIndex == widget.player.seatIndex;
 
-    return RepaintBoundary(
-      child: GlassPlayerCard(
-        isCurrentTurn: widget.isCurrentTurn,
-        accentColor: accentColor,
-        compact: widget.compact,
-        child: widget.compact
-            ? _buildCompact(rankIndex, accentColor, isDealer)
-            : _buildFull(rankIndex, accentColor, isDealer),
-      ),
+        return RepaintBoundary(
+          child: GlassPlayerCard(
+            isCurrentTurn: widget.isCurrentTurn,
+            accentColor: accentColor,
+            compact: widget.compact,
+            child: widget.compact
+                ? _buildCompact(rankIndex, accentColor, isDealer, displayActual)
+                : _buildFull(rankIndex, accentColor, isDealer, displayActual),
+          ),
+        );
+      },
     );
   }
 
   // ── Full layout (portrait / local player) ─────────────────────────────────
 
-  Widget _buildFull(int rankIndex, Color accentColor, bool isDealer) {
+  Widget _buildFull(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
     if (widget.isMe) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -144,7 +154,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               widget.player.declared != null) ...[
             const SizedBox(width: 10),
             TrickProgressIndicator(
-              actual: _displayActual,
+              actual: displayActual,
               declared: widget.player.declared,
               tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
               compact: false,
@@ -204,7 +214,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                     widget.player.declared != null) ...[
                   const SizedBox(width: 10),
                   TrickProgressIndicator(
-                    actual: _displayActual,
+                    actual: displayActual,
                     declared: widget.player.declared,
                     tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
                     compact: false,
@@ -231,7 +241,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
 
   // ── Compact layout (opponents, landscape) ─────────────────────────────────
 
-  Widget _buildCompact(int rankIndex, Color accentColor, bool isDealer) {
+  Widget _buildCompact(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
     if (widget.isMe) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -266,7 +276,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               widget.player.declared != null) ...[
             const SizedBox(width: 6),
             TrickProgressIndicator(
-              actual: _displayActual,
+              actual: displayActual,
               declared: widget.player.declared,
               tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
               compact: true,
@@ -320,7 +330,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                 if (widget.player.declared != null) ...[
                   const SizedBox(width: 6),
                   TrickProgressIndicator(
-                    actual: _displayActual,
+                    actual: displayActual,
                     declared: widget.player.declared,
                     tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
                     compact: true,

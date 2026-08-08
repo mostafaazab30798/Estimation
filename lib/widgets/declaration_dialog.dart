@@ -29,7 +29,8 @@ class DeclarationDialog extends StatefulWidget {
 }
 
 class _DeclarationDialogState extends State<DeclarationDialog> {
-  late int _declared = 0;
+  // ValueNotifier — selection state inside the dialog; no setState needed.
+  late final _declared = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -42,7 +43,13 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
         initial--;
       }
     }
-    _declared = initial;
+    _declared.value = initial;
+  }
+
+  @override
+  void dispose() {
+    _declared.dispose();
+    super.dispose();
   }
 
   @override
@@ -169,80 +176,88 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
               const SizedBox(height: 10),
 
               // Number grid 0–13
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                alignment: WrapAlignment.center,
-                children: [
-                  for (int i = 0; i <= 13; i++)
-                    Builder(builder: (context) {
-                      final isForbidden = i == widget.forbiddenDeclaration;
-                      final isBelowMin =
-                          widget.minDeclaration != null && i < widget.minDeclaration!;
-                      final isDisabled = isForbidden || isBelowMin;
-                      final isSelected = _declared == i;
-                      return GestureDetector(
-                        onTap: isDisabled ? null : () => setState(() => _declared = i),
-                        child: Opacity(
-                          opacity: isDisabled ? 0.3 : 1.0,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 120),
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppTheme.gold : AppTheme.surfaceCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected ? AppTheme.gold : Colors.white12,
-                                width: isSelected ? 2 : 1,
-                              ),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: AppTheme.gold.withValues(alpha: 0.4),
-                                        blurRadius: 10,
-                                        spreadRadius: 1,
-                                      )
-                                    ]
-                                  : [],
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '$i',
-                              style: TextStyle(
-                                color: isSelected ? AppTheme.navyDark : AppTheme.textPrimary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
+              ValueListenableBuilder<int>(
+                valueListenable: _declared,
+                builder: (context, declared, _) {
+                  return Column(
+                    children: [
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          for (int i = 0; i <= 13; i++)
+                            Builder(builder: (context) {
+                              final isForbidden = i == widget.forbiddenDeclaration;
+                              final isBelowMin =
+                                  widget.minDeclaration != null && i < widget.minDeclaration!;
+                              final isDisabled = isForbidden || isBelowMin;
+                              final isSelected = declared == i;
+                              return GestureDetector(
+                                onTap: isDisabled ? null : () => _declared.value = i,
+                                child: Opacity(
+                                  opacity: isDisabled ? 0.3 : 1.0,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 120),
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? AppTheme.gold : AppTheme.surfaceCard,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected ? AppTheme.gold : Colors.white12,
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: AppTheme.gold.withValues(alpha: 0.4),
+                                                blurRadius: 10,
+                                                spreadRadius: 1,
+                                              )
+                                            ]
+                                          : [],
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '$i',
+                                      style: TextStyle(
+                                        color: isSelected ? AppTheme.navyDark : AppTheme.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Submit Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            backgroundColor: AppTheme.gold,
+                            foregroundColor: AppTheme.navyDark,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 4,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.onSubmit(declared);
+                          },
+                          child: Text(
+                            'تأكيد: $declared لمة',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                         ),
-                      );
-                    }),
-                  ],
-              ),
-              const SizedBox(height: 12),
-
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    backgroundColor: AppTheme.gold,
-                    foregroundColor: AppTheme.navyDark,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 4,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    widget.onSubmit(_declared);
-                  },
-                  child: Text(
-                    'تأكيد: $_declared لمة',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

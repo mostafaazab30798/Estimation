@@ -10,6 +10,7 @@ import '../../core/models/game_state.dart';
 import '../../core/constants.dart';
 import '../../theme/app_theme.dart';
 import '../performance_blur.dart';
+import '../game_guide_dialog.dart';
 
 class TopHud extends StatelessWidget {
   final GameState state;
@@ -22,7 +23,7 @@ class TopHud extends StatelessWidget {
   String _phaseArabic() {
     switch (state.phase) {
       case GamePhase.voidCheck:
-        return 'جاهزون ${state.voidCheckPassed.length}/4';
+        return 'جاهزون ${state.voidCheckPassed.length}/${state.players.length}';
       case GamePhase.auction:
         return 'المزاد';
       case GamePhase.declarations:
@@ -63,9 +64,28 @@ class TopHud extends StatelessWidget {
       }
     }
     if (declarers != 4) return null;
-    if (total < 13) return _UnderOverData('أندر ${13 - total}', Colors.lightBlueAccent, Icons.keyboard_double_arrow_down_rounded);
-    if (total > 13) return _UnderOverData('أوفر ${total - 13}', AppTheme.playerRed, Icons.keyboard_double_arrow_up_rounded);
-    return _UnderOverData('مقفولة', AppTheme.cream, Icons.check_circle_outline_rounded);
+    if (total < 13) {
+      return _UnderOverData(
+        statusText: 'أندر ${13 - total}',
+        funnyText: 'هتلبسو بعض 💀',
+        color: Colors.lightBlueAccent,
+        icon: Icons.keyboard_double_arrow_down_rounded,
+      );
+    }
+    if (total > 13) {
+      return _UnderOverData(
+        statusText: 'أوفر ${total - 13}',
+        funnyText: 'هتتخانقو ⚔️',
+        color: AppTheme.playerRed,
+        icon: Icons.keyboard_double_arrow_up_rounded,
+      );
+    }
+    return _UnderOverData(
+      statusText: 'مقفولة 🎯',
+      funnyText: null,
+      color: AppTheme.cream,
+      icon: Icons.check_circle_outline_rounded,
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -130,6 +150,8 @@ class TopHud extends StatelessWidget {
         Row(
           children: [
             _ExitButton(onTap: onExitTap),
+            const SizedBox(width: 6),
+            const _GuideButton(),
             const SizedBox(width: 10),
             Expanded(child: _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic())),
             const SizedBox(width: 10),
@@ -165,22 +187,26 @@ class TopHud extends StatelessWidget {
     return Row(
       children: [
         _ExitButton(onTap: onExitTap),
+        const SizedBox(width: 6),
+        const _GuideButton(),
         const SizedBox(width: 12),
         _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic()),
-        const Spacer(),
-        if (bidderName != null) _BidderBadge(name: bidderName),
-        if (bidderName != null && underOver != null) const SizedBox(width: 12),
-        if (underOver != null) _UnderOverBadge(data: underOver),
         if (state.trumpSuit != null) ...[
           const SizedBox(width: 12),
           _TrumpBadge(state: state),
         ],
+        const Spacer(),
+        if (bidderName != null) ...[
+          _BidderBadge(name: bidderName),
+          const SizedBox(width: 10),
+        ],
+        if (underOver != null) _UnderOverBadge(data: underOver),
       ],
     );
   }
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────
+// ── Supporting Badges ──────────────────────────────────────────────────────
 
 class _ExitButton extends StatelessWidget {
   final VoidCallback onTap;
@@ -188,18 +214,44 @@ class _ExitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppTheme.playerRed.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.playerRed.withValues(alpha: 0.3)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: const Icon(Icons.arrow_back_rounded, color: AppTheme.cream, size: 18),
         ),
-        child: const Icon(Icons.exit_to_app_rounded,
-            color: AppTheme.playerRed, size: 18),
+      ),
+    );
+  }
+}
+
+class _GuideButton extends StatelessWidget {
+  const _GuideButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => GameGuideDialog.show(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: AppTheme.mintSoft.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.mintSoft.withValues(alpha: 0.3)),
+          ),
+          child: const Icon(Icons.help_outline_rounded, color: AppTheme.mintSoft, size: 18),
+        ),
       ),
     );
   }
@@ -220,58 +272,36 @@ class _RoundPhaseCenter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Round number
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          child: RichText(
-            key: ValueKey(state.roundNumber),
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: 'جولة ',
-                  style: GoogleFonts.cairo(
-                    color: AppTheme.steelBlue,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                TextSpan(
-                  text: '${state.roundNumber}',
-                  style: GoogleFonts.cairo(
-                    color: AppTheme.gold,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        // Phase badge
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 350),
-          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-          child: Container(
-            key: ValueKey(state.phase),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: phaseColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: phaseColor.withValues(alpha: 0.35), width: 0.8),
-            ),
-            child: Text(
-              phaseText,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'الجولة ${state.roundNumber}',
               style: GoogleFonts.cairo(
-                color: phaseColor,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+                color: AppTheme.gold,
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: phaseColor.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                phaseText,
+                style: GoogleFonts.cairo(
+                  color: phaseColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -289,42 +319,30 @@ class _TrumpBadge extends StatelessWidget {
     final suitColor = isRed ? AppTheme.suitRed : AppTheme.steelBlue;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            suitColor.withValues(alpha: 0.18),
-            suitColor.withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.navyDark.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: suitColor.withValues(alpha: 0.4), width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: suitColor.withValues(alpha: 0.15),
-            blurRadius: 8,
-          ),
-        ],
+        border: Border.all(color: suitColor.withValues(alpha: 0.3)),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             suit.label,
             style: TextStyle(
-              fontSize: 16,
               color: suitColor,
-              height: 1.0,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(width: 4),
           Text(
             suit.arabicName,
             style: GoogleFonts.cairo(
-              color: suitColor,
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
+              color: AppTheme.cream,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -339,29 +357,44 @@ class _BidderBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.emoji_events_rounded, color: AppTheme.gold, size: 14),
-        const SizedBox(width: 4),
-        Text(
-          name,
-          style: GoogleFonts.cairo(
-            color: AppTheme.gold,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.gold.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('👑', style: TextStyle(fontSize: 11)),
+          const SizedBox(width: 4),
+          Text(
+            name,
+            style: GoogleFonts.cairo(
+              color: AppTheme.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _UnderOverData {
-  final String text;
+  final String statusText;
+  final String? funnyText;
   final Color color;
   final IconData icon;
-  const _UnderOverData(this.text, this.color, this.icon);
+
+  const _UnderOverData({
+    required this.statusText,
+    this.funnyText,
+    required this.color,
+    required this.icon,
+  });
 }
 
 class _UnderOverBadge extends StatelessWidget {
@@ -370,28 +403,54 @@ class _UnderOverBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: data.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: data.color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(data.icon, color: data.color, size: 13),
-          const SizedBox(width: 4),
-          Text(
-            data.text,
-            style: GoogleFonts.cairo(
-              color: data.color,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Primary Under/Over Container
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: data.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: data.color.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(data.icon, color: data.color, size: 13),
+              const SizedBox(width: 4),
+              Text(
+                data.statusText,
+                style: GoogleFonts.cairo(
+                  color: data.color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Separate Funny Text Container
+        if (data.funnyText != null) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: data.color.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: data.color.withValues(alpha: 0.5), width: 1),
+            ),
+            child: Text(
+              data.funnyText!,
+              style: GoogleFonts.cairo(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

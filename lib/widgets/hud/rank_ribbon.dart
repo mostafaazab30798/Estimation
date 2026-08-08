@@ -23,14 +23,28 @@ class RankRibbon extends StatelessWidget {
     if (rankIndex < 0 || rankIndex > 3) return const SizedBox.shrink();
 
     final cfg = _kRankConfigs[rankIndex];
-    final fontSize = compact ? 12.0 : 16.0;
+    final color = AppTheme.rankColors[rankIndex];
+    final fontSize = compact ? 11.0 : 15.0;
+    final padding = compact ? 2.0 : 3.0;
 
     return Container(
-      padding: const EdgeInsets.all(2),
+      padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
-        color: AppTheme.navyDark, // Dark background to contrast with avatar
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.3),
+          AppTheme.navyDark,
+        ),
         shape: BoxShape.circle,
+        border: Border.all(
+          color: color,
+          width: compact ? 1.4 : 1.8,
+        ),
         boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.45),
+            blurRadius: compact ? 5 : 8,
+            spreadRadius: 1,
+          ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.6),
             blurRadius: 4,

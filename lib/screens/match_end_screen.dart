@@ -108,35 +108,32 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 12),
                   ...sortedPlayers.asMap().entries.map((e) {
-                    final rank = e.key + 1;
+                    final rankIndex = e.key.clamp(0, 3);
                     final player = e.value;
                     final ranks = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-                    final rankName = ranks[e.key];
+                    final rankName = ranks[rankIndex];
+                    final rankColor = AppTheme.rankColors[rankIndex];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: rank == 1
-                            ? AppTheme.gold.withValues(alpha: 0.15)
-                            : AppTheme.surfaceCard,
+                        color: rankColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: rank == 1
-                              ? AppTheme.gold.withValues(alpha: 0.5)
-                              : Colors.white10,
+                          color: rankColor.withValues(alpha: 0.5),
                         ),
-                        boxShadow: rank == 1 ? AppTheme.neumorphicTurnGlow(AppTheme.gold) : [],
+                        boxShadow: rankIndex == 0 ? AppTheme.neumorphicTurnGlow(rankColor) : [],
                       ),
                       child: Row(
                         children: [
                           SizedBox(
-                            width: 85,
+                            width: 95,
                             child: Text(rankName,
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: rank == 1 ? AppTheme.gold : AppTheme.textPrimary,
+                                  color: rankColor,
                                 )),
                           ),
                           Expanded(
@@ -145,9 +142,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: rank == 1
-                                    ? AppTheme.gold
-                                    : AppTheme.textPrimary,
+                                color: rankColor,
                               ),
                             ),
                           ),
@@ -156,9 +151,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: rank == 1
-                                  ? AppTheme.gold
-                                  : AppTheme.textSecondary,
+                              color: rankColor,
                             ),
                           ),
                         ],

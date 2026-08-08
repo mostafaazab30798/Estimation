@@ -10,7 +10,8 @@ import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
 import '../widgets/performance_blur.dart';
-
+import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import '../features/lobby/domain/models/game_room.dart';
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
 
@@ -19,26 +20,39 @@ class LobbyScreen extends StatefulWidget {
 }
 
 class _LobbyScreenState extends State<LobbyScreen> {
-  static const List<String> _seatEmojis = ['♠', '♥', '♦', '♣'];
+  static const List<String> _seatEmojis = ['♠', '♥', '♦', '♣', '★', '🔥', '🌀'];
   static const List<Color> _seatColors = [
     AppTheme.accentBlue,
     AppTheme.suitRed,
     AppTheme.accentLight,
     Color(0xFFA78BFA),
+    Colors.orangeAccent,
+    Colors.pinkAccent,
+    Colors.cyanAccent,
   ];
 
   List<String> _previousPlayerIds = [];
   bool _hasNavigatedToGame = false;
   bool _hasNavigatedHome = false;
-  bool _isStartingGame = false;
+  // ValueNotifier — prevents double-tap on start during network call; no setState needed.
+  final _isStartingGame = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _isStartingGame.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GameProvider>();
     final state = provider.state;
     final isTestMode = provider.isTestMode;
-    // Use state?.players for all modes to reflect live presence from GameServer
-    final List<dynamic> players = state?.players ?? [];
+    final isNinetyNineMode = provider.currentRoom?.gameType == 'ninety_nine';
+    final nnProvider = context.watch<NinetyNineGameProvider>();
+    
+    // Use the appropriate state for live presence
+    final List<dynamic> players = isNinetyNineMode ? nnProvider.players : (state?.players ?? []);
 
     // Track player joins and leaves
     if (!isTestMode) {
@@ -64,10 +78,24 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     // Navigate to game
-    if (state != null && state.phase != GamePhase.lobby && !_hasNavigatedToGame) {
+    final isKotchinaStarted = state != null && state.phase != GamePhase.lobby;
+    final isNinetyNineStarted = provider.currentRoom?.gameType == 'ninety_nine' && provider.currentRoom?.status == GameRoomStatus.playing;
+    
+    if ((isKotchinaStarted || isNinetyNineStarted) && !_hasNavigatedToGame) {
       _hasNavigatedToGame = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) Navigator.pushReplacementNamed(context, '/game');
+        if (context.mounted) {
+          if (isNinetyNineStarted) {
+             final nnProvider = context.read<NinetyNineGameProvider>();
+             nnProvider.setClient(provider.nnClient);
+             provider.nnClient?.onStateUpdate = (state) {
+               nnProvider.syncState(state);
+             };
+             Navigator.pushReplacementNamed(context, '/ninety_nine/game');
+          } else {
+             Navigator.pushReplacementNamed(context, '/game');
+          }
+        }
       });
     }
 
@@ -115,7 +143,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           spacing: 12,
           runSpacing: 16,
           alignment: WrapAlignment.center,
-          children: List.generate(4, (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode)),
+          children: List.generate(provider.expectedPlayers, (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode)),
         ),
       ],
     );
@@ -535,7 +563,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final player = occupied ? players[i] : null;
     final isMe = occupied && player.id == provider.myPlayerId;
     final isBot = occupied && player.id.startsWith('bot_');
-    final seatColor = _seatColors[i];
+    final seatColor = _seatColors[i % _seatColors.length];
+
+    String? photoData;
+    if (occupied) {
+      try {
+        photoData = player.photo;
+      } on NoSuchMethodError {
+        try {
+          photoData = player.avatarId;
+        } catch (_) {}
+      }
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -544,9 +583,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            if (occupied && player.photo != null)
+            if (occupied && photoData != null)
               PlayerAvatar(
-                photoData: player.photo!,
+                photoData: photoData,
                 size: 72,
                 borderColor: seatColor,
                 borderWidth: 3,
@@ -568,7 +607,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    _seatEmojis[i],
+                    _seatEmojis[i % _seatEmojis.length],
                     style: TextStyle(
                       fontSize: 32,
                       color: seatColor.withValues(alpha: 0.6),
@@ -622,12 +661,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _buildStartButton(GameProvider provider, List<dynamic> players) {
     final canStart = players.length >= provider.expectedPlayers;
-    return Container(
-      width: double.infinity,
-      height: 58,
-      decoration: BoxDecoration(
-        gradient: canStart
-            ? const LinearGradient(
+    return ValueListenableBuilder<bool>(
+      valueListenable: _isStartingGame,
+      builder: (context, isStarting, _) {
+        return Container(
+          width: double.infinity,
+          height: 58,
+          decoration: BoxDecoration(
+            gradient: canStart
+                ? const LinearGradient(
                 colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -658,14 +700,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
             : [],
       ),
       child: ElevatedButton(
-        onPressed: (canStart && !_isStartingGame)
-            ? () {
-                setState(() {
-                  _isStartingGame = true;
-                });
-                provider.startGame();
-              }
-            : null,
+          onPressed: (canStart && !isStarting)
+              ? () {
+                  _isStartingGame.value = true;
+                  provider.startGame();
+                }
+              : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -689,11 +729,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
         ),
       ),
+        );
+      },
     );
   }
 
   Widget _buildThemeSelector(GameProvider provider) {
-    final currentTheme = provider.state?.cardTheme ?? 'theme_1';
+    final isNinetyNine = provider.currentRoom?.gameType == 'ninety_nine';
+    final nnProvider = context.watch<NinetyNineGameProvider>();
+    final currentTheme = isNinetyNine ? nnProvider.cardTheme : provider.state?.cardTheme ?? 'theme_1';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -855,18 +899,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
           disabledBackgroundColor: Colors.transparent,
           foregroundColor: AppTheme.errorRed,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.exit_to_app_rounded, size: 22),
-            const SizedBox(width: 8),
-            Text(
-              isHost ? 'إلغاء الغرفة' : 'خروج',
-              style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.exit_to_app_rounded, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                isHost ? 'إلغاء الغرفة' : 'خروج',
+                style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -17,6 +17,9 @@ import '../core/models/player.dart';
 import '../networking/game_server.dart';
 import '../networking/game_client.dart';
 import '../networking/messages.dart';
+import '../modes/ninety_nine/networking/ninety_nine_game_server.dart';
+import '../modes/ninety_nine/networking/ninety_nine_game_client.dart';
+import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import '../features/lobby/data/lobby_repository.dart';
 import '../features/lobby/domain/models/game_room.dart';
 import '../features/lobby/domain/models/room_player.dart';
@@ -43,6 +46,9 @@ class GameProvider extends ChangeNotifier {
 
   GameServer? _server;
   GameClient? _client;
+  NinetyNineGameServer? _nnServer;
+  NinetyNineGameClient? _nnClient;
+  NinetyNineGameProvider? nnProvider;
 
   String? _myPlayerId; // Supabase auth uid
   String _myName = '';
@@ -74,6 +80,8 @@ class GameProvider extends ChangeNotifier {
 
   GameRoom? get currentRoom => _currentRoom;
   List<RoomPlayer> get roomPlayers => _roomPlayers;
+
+  NinetyNineGameClient? get nnClient => _nnClient;
 
   List<String> _availableThemes = ['theme_1', 'theme_2'];
   List<String> get availableThemes => _availableThemes;
@@ -129,22 +137,38 @@ class GameProvider extends ChangeNotifier {
 
   // ── Supabase Lobby Streams ─────────────────────────────────────
 
+  /// Returns true when the game is actively in progress (past lobby).
+  /// Used to distinguish transient mid-game network blips from fatal
+  /// pre-game connection failures.
+  bool get _isGameInProgress =>
+      _state != null && _state!.phase != GamePhase.lobby;
+
   void _listenToRoom(String roomId) {
     _roomSub?.cancel();
     _roomSub = _lobbyRepo.watchRoom(roomId).listen(
       (room) {
         _currentRoom = room;
-        // Automatically start the game if status changed to playing
+        _expectedPlayers = room.maxPlayers;
+        // Automatically sync state if status changed to playing
         if (room.status == GameRoomStatus.playing) {
           if (_state == null && !isHost) {
-            _setError('بدأت اللعبة، ولكن لم تكتمل المزامنة مع الخادم. يرجى التحقق من اتصالك بالإنترنت.');
+            requestStateSync();
           }
         } else if (room.status == GameRoomStatus.cancelled) {
           _setError('تم إلغاء الغرفة من قبل المضيف');
         }
         notifyListeners();
       },
-      onError: (err) => _setError('حدث خطأ في الغرفة: $err'),
+      onError: (err) {
+        // Mid-game Supabase auth/network errors (e.g. token-refresh timeout)
+        // are transient and must NOT terminate an in-progress game session.
+        // Only treat them as fatal during the lobby phase.
+        if (_isGameInProgress) {
+          debugPrint('[GameProvider] Room stream error (non-fatal mid-game): $err');
+        } else {
+          _setError('حدث خطأ في الغرفة: $err');
+        }
+      },
     );
 
     _playersSub?.cancel();
@@ -153,14 +177,23 @@ class GameProvider extends ChangeNotifier {
         _roomPlayers = players;
         notifyListeners();
       },
-      onError: (err) => _setError('حدث خطأ في اللاعبين: $err'),
+      onError: (err) {
+        // Same: player-list stream errors mid-game are non-fatal.
+        if (_isGameInProgress) {
+          debugPrint('[GameProvider] Players stream error (non-fatal mid-game): $err');
+        } else {
+          _setError('حدث خطأ في اللاعبين: $err');
+        }
+      },
     );
   }
 
   // ── Host a game ───────────────────────────────────────────────
 
-  Future<void> hostGame(String name, {int expectedPlayers = 4}) async {
+  Future<void> hostGame(String name, {int expectedPlayers = 4, String gameType = 'kotchina'}) async {
+    await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    nnProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.host;
     _isTestMode = false;
@@ -182,30 +215,54 @@ class GameProvider extends ChangeNotifier {
             roomCode: roomCode,
             hostIp: '127.0.0.1',
             wsPort: 0,
-          );
-          debugPrint('Successfully created room: ${createdRoom.id}');
+            gameType: gameType,
+            expectedPlayers: expectedPlayers,
+          ).timeout(const Duration(seconds: 25));
+          _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
+          nnProvider?.setPlayerId(_myPlayerId!);
+          debugPrint('Successfully created room: ${createdRoom.id} for player: $_myPlayerId');
           break;
-        } catch (e) {
-          debugPrint('Failed to create room (retries left: ${retries - 1}): $e');
-          if (e.toString().contains('ROOM_CODE_COLLISION')) {
-            retries--;
-          } else {
-            rethrow;
+          } catch (e) {
+            debugPrint('Failed to create room (retries left: ${retries - 1}): $e');
+            if (e is TimeoutException || e.toString().contains('TimeoutException') || e.toString().contains('SocketException')) {
+              throw Exception('انتهى وقت الاتصال. يرجى التحقق من اتصالك بالإنترنت.');
+            }
+            if (e.toString().contains('ROOM_CODE_COLLISION')) {
+              retries--;
+            } else {
+              rethrow;
+            }
           }
         }
+
+      if (_status != ConnectionStatus.connecting) {
+        // User cancelled
+        if (createdRoom != null) {
+          _lobbyRepo.cancelRoom(createdRoom.id).catchError((_) {});
+        }
+        return;
       }
 
       if (createdRoom == null) throw Exception('فشل في إنشاء الغرفة');
 
-      // 2. Start local game server via Supabase Broadcast
-      _server = GameServer(
-        onStateUpdate: (state) {
-          _state = state;
-          notifyListeners();
-        },
-      );
-      final myPhoto = await ProfileService.getProfilePhoto();
-      await _server!.start(name, myPlayerId, createdRoom.id, myPhoto);
+      if (gameType == 'ninety_nine') {
+        _nnServer = NinetyNineGameServer(
+          onStateUpdate: (state) {
+            nnProvider?.syncState(state);
+          },
+        );
+        final myPhoto = await ProfileService.getProfilePhoto();
+        await _nnServer!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
+      } else {
+        _server = GameServer(
+          onStateUpdate: (state) {
+            _state = state;
+            notifyListeners();
+          },
+        );
+        final myPhoto = await ProfileService.getProfilePhoto();
+        await _server!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
+      }
 
       _currentRoom = createdRoom;
       _listenToRoom(createdRoom.id);
@@ -220,7 +277,11 @@ class GameProvider extends ChangeNotifier {
       _status = ConnectionStatus.connected;
       notifyListeners();
     } catch (e) {
-      _setError('فشل تشغيل الخادم: $e');
+      if (_status == ConnectionStatus.connecting) {
+        String msg = e.toString();
+        if (msg.startsWith('Exception: ')) msg = msg.substring(11);
+        _setError('فشل تشغيل الخادم: $msg');
+      }
     }
   }
 
@@ -233,6 +294,7 @@ class GameProvider extends ChangeNotifier {
   // ── Test mode (3 bot players) ─────────────────────────────────
 
   Future<void> startTestGame(String name) async {
+    await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     _myName = name;
     _role = ConnectionRole.host;
@@ -259,10 +321,40 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> startNinetyNineTestGame(String name, {int totalPlayers = 4}) async {
+    await reset();
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    nnProvider?.setPlayerId(_myPlayerId!);
+    _myName = name;
+    _role = ConnectionRole.host;
+    _isTestMode = true;
+    _expectedPlayers = totalPlayers;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      _nnServer = NinetyNineGameServer(
+        onStateUpdate: (state) {
+          nnProvider?.syncState(state);
+        },
+      );
+      final dummyRoomId = 'test_99_${_uuid.v4()}';
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _nnServer!.start(name, myPlayerId, dummyRoomId, myPhoto, maxPlayers: totalPlayers);
+      // Wait for dummy start
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل تشغيل الخادم: $e');
+    }
+  }
+
   // ── Join a game ───────────────────────────────────────────────
 
-  Future<void> joinGameWithCode(String name, String code) async {
+  Future<void> joinGameWithCode(String name, String code, {String? expectedGameType}) async {
+    await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    nnProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.client;
     _isTestMode = false;
@@ -270,13 +362,22 @@ class GameProvider extends ChangeNotifier {
     _isSearching = true;
     notifyListeners();
 
-    _client = GameClient(
-      onStateUpdate: (state) {
-        _state = state;
-        notifyListeners();
-      },
-      onError: (err) => _setError(err),
-    );
+    if (expectedGameType == 'ninety_nine') {
+      _nnClient = NinetyNineGameClient(
+        onError: (err) => _setError(err),
+        onStateUpdate: (state) {
+          nnProvider?.syncState(state);
+        },
+      );
+    } else {
+      _client = GameClient(
+        onStateUpdate: (state) {
+          _state = state;
+          notifyListeners();
+        },
+        onError: (err) => _setError(err),
+      );
+    }
 
     try {
       // 1. Join Supabase room
@@ -285,7 +386,10 @@ class GameProvider extends ChangeNotifier {
       final room = await _lobbyRepo.joinRoom(
         roomCode: normalizedCode,
         playerName: name,
-      );
+        expectedGameType: expectedGameType,
+      ).timeout(const Duration(seconds: 25));
+      _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
+      nnProvider?.setPlayerId(_myPlayerId!);
 
       if (_status != ConnectionStatus.connecting) {
         // User cancelled while we were joining, leave immediately
@@ -299,7 +403,12 @@ class GameProvider extends ChangeNotifier {
       // 2. Connect to Supabase Broadcast Channel
       _isSearching = false;
       final myPhoto = await ProfileService.getProfilePhoto();
-      await _client!.connect(room.id, myPlayerId, name, myPhoto);
+      
+      if (expectedGameType == 'ninety_nine') {
+        await _nnClient!.connect(room.id, myPlayerId, name, myPhoto);
+      } else {
+        await _client!.connect(room.id, myPlayerId, name, myPhoto);
+      }
       debugPrint('Connected to Supabase Broadcast for room: ${room.id}');
 
       // 3. Listen to Supabase room
@@ -315,15 +424,24 @@ class GameProvider extends ChangeNotifier {
       _status = ConnectionStatus.connected;
       notifyListeners();
     } catch (e, st) {
-      _isSearching = false;
-      debugPrint('ERROR in joinGameWithCode: $e\nStacktrace: $st');
-      _setError(_translateJoinError(e.toString()));
+      if (_status == ConnectionStatus.connecting) {
+        _isSearching = false;
+        debugPrint('ERROR in joinGameWithCode: $e\nStacktrace: $st');
+        _setError(_translateJoinError(e.toString()));
+      }
     }
   }
 
   // ── Actions → Host ────────────────────────────────────────────
 
   void _sendAction(String action, [Map<String, dynamic> extra = const {}]) {
+    // If a transient stream error flipped status to error while the game is
+    // actively running, auto-heal the status so actions are not silently dropped.
+    if (_status == ConnectionStatus.error && _isGameInProgress) {
+      debugPrint('[GameProvider] Auto-healing status from error→connected for mid-game action "$action"');
+      _status = ConnectionStatus.connected;
+    }
+
     if (_status != ConnectionStatus.connected) {
       debugPrint('Cannot send action "$action": Not connected (status: $_status)');
       return;
@@ -331,12 +449,17 @@ class GameProvider extends ChangeNotifier {
     if (_role == ConnectionRole.host) {
       if (_server != null) {
         _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+      } else if (_nnServer != null) {
+        _nnServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
       } else {
         debugPrint('Cannot send action "$action": Host server is null');
       }
     } else if (_role == ConnectionRole.client) {
       if (_client != null) {
         _client!.sendAction(action, myPlayerId, extra);
+      } else if (_nnClient != null) {
+        // 99-mode client — route through the NN client
+        _nnClient!.sendAction(action, extra.isEmpty ? null : extra);
       } else {
         debugPrint('Cannot send action "$action": Client is null');
       }
@@ -349,17 +472,24 @@ class GameProvider extends ChangeNotifier {
     if (_currentRoom != null && isHost) {
       try {
         // Sync all Supabase room players into the local game server state
-        // so dealCards has exactly 4 players, regardless of WebSocket timing.
+        // so dealCards has the correct player count, regardless of WebSocket timing.
         if (_server != null && _roomPlayers.isNotEmpty) {
           _server!.syncPlayersFromRoom(
             _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
           );
-          if (_expectedPlayers < 4) {
-            _server!.addBotPlayers(count: 4 - _expectedPlayers);
+          final is99 = _currentRoom?.gameType == 'ninety_nine';
+          if (!is99 && _server!.playerCount < 4) {
+            _server!.addBotPlayers(count: 4 - _server!.playerCount);
           }
+        } else if (_nnServer != null && _roomPlayers.isNotEmpty) {
+          // Sync room players into the 99-mode server before dealing cards.
+          // Without this the server only has the host and deals to 1 player.
+          _nnServer!.syncPlayersFromRoom(
+            _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
+          );
         }
-        await _lobbyRepo.startGame(_currentRoom!.id);
         _sendAction(ActionType.startGame);
+        await _lobbyRepo.startGame(_currentRoom!.id);
       } catch (e) {
         _setError('فشل بدء اللعبة: $e');
       }
@@ -400,6 +530,7 @@ class GameProvider extends ChangeNotifier {
 
   void requestStateSync() => _sendAction(ActionType.requestStateSync);
 
+
   void nextRound() => _sendAction(ActionType.nextRound);
 
   // ── Helpers ───────────────────────────────────────────────────
@@ -416,8 +547,8 @@ class GameProvider extends ChangeNotifier {
       return 'الغرفة ممتلئة أو لم تعد في وضع الانتظار.';
     } else if (raw.contains('NOT_AUTHENTICATED')) {
       return 'يجب تسجيل الدخول أولاً.';
-    } else if (raw.contains('SocketException') || raw.contains('Connection refused')) {
-      return 'تعذّر الاتصال بخادم اللعبة. تأكد أن المضيف على نفس الشبكة.';
+    } else if (raw.contains('SocketException') || raw.contains('Connection refused') || raw.contains('TimeoutException')) {
+      return 'استغرق الاتصال وقتًا أطول من المعتاد. يرجى التحقق من اتصالك بالإنترنت وإعادة المحاولة.';
     }
     return 'فشل الانضمام: $raw';
   }
@@ -429,21 +560,40 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void reset() {
-    _sessionService.clearSession();
-    if (_currentRoom != null && isHost) {
-      _lobbyRepo.cancelRoom(_currentRoom!.id).catchError((_) {});
-    } else if (_currentRoom != null && !isHost) {
-      _lobbyRepo.leaveRoom(_currentRoom!.id, myPlayerId).catchError((_) {});
+  Future<void> reset() async {
+    await _sessionService.clearSession();
+    final myId = myPlayerId;
+    if (_currentRoom != null && myId.isNotEmpty) {
+      try {
+        await _lobbyRepo.leaveRoom(_currentRoom!.id, myId);
+        await _sessionService.clearSession();
+      } catch (e) {
+        debugPrint('Error leaving room: $e');
+      }
     }
 
     _roomSub?.cancel();
+    _roomSub = null;
     _playersSub?.cancel();
-    _server?.stop();
-    _client?.disconnect(myPlayerId);
+    _playersSub = null;
+
+    if (_server != null) {
+      await _server!.stop();
+      _server = null;
+    }
+    if (_nnServer != null) {
+      await _nnServer!.stop();
+      _nnServer = null;
+    }
+    if (_client != null) {
+      _client!.disconnect(myId);
+      _client = null;
+    }
+    if (_nnClient != null) {
+      await _nnClient!.disconnect();
+      _nnClient = null;
+    }
     
-    _server = null;
-    _client = null;
     _state = null;
     _currentRoom = null;
     _roomPlayers = [];
@@ -513,6 +663,7 @@ class GameProvider extends ChangeNotifier {
   }) {
     _myPlayerId = playerId;
     _myName     = playerName;
+    nnProvider?.setPlayerId(playerId);
   }
 
   // ── State re-hydration (client reconnect) ─────────────────────────────────
@@ -619,6 +770,7 @@ class GameProvider extends ChangeNotifier {
 
       // 4. Restore local identity & room reference.
       _myPlayerId  = session.playerId;
+      nnProvider?.setPlayerId(_myPlayerId!);
       _myName      = session.playerName;
       _role        = ConnectionRole.host;
       _currentRoom = await _lobbyRepo.getRoom(session.roomId);

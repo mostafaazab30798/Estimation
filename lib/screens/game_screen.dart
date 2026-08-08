@@ -76,20 +76,19 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final phase = context.select((GameProvider p) => p.state?.phase);
-    final isStateNull = context.select((GameProvider p) => p.state == null);
-    final isMyTurn = context.select((GameProvider p) => p.isMyTurn);
+    final provider = context.watch<GameProvider>();
+    final state = provider.state;
 
-    if (isStateNull) {
+    if (state == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
       );
     }
 
-    final provider = context.read<GameProvider>();
-    final state = provider.state!;
+    final phase = state.phase;
+    final isMyTurn = provider.isMyTurn;
 
-    // If we just finished the trick-taking phase, delay the transition to the 
+    // If we just finished the trick-taking phase, delay the transition to the
     // scoring screen so the 13th trick collection animation has time to play.
     if (phase == GamePhase.scoring && _lastPhase == GamePhase.trickTaking && !_delayingScoring) {
       _delayingScoring = true;
@@ -193,8 +192,11 @@ class _GameScreenState extends State<GameScreen> {
                           : Alignment.centerLeft,
                       child: Consumer<GameProvider>(
                         builder: (ctx, prov, _) {
+                          final total = prov.state?.players.length ?? 4;
                           final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = (mySeat + 3) % 4;
+                          final oppSeat = total == 4 ? (mySeat + 3) % 4 :
+                                          total == 3 ? (mySeat + 2) % 3 : -1;
+                          if (oppSeat == -1) return const SizedBox.shrink();
                           return KeyedSubtree(
                             key: _areaKeys[oppSeat],
                             child: _buildSideOpponent(
@@ -216,8 +218,11 @@ class _GameScreenState extends State<GameScreen> {
                           : Alignment.centerRight,
                       child: Consumer<GameProvider>(
                         builder: (ctx, prov, _) {
+                          final total = prov.state?.players.length ?? 4;
                           final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = (mySeat + 1) % 4;
+                          final oppSeat = total == 4 ? (mySeat + 1) % 4 :
+                                          total == 3 ? (mySeat + 1) % 3 : -1;
+                          if (oppSeat == -1) return const SizedBox.shrink();
                           return KeyedSubtree(
                             key: _areaKeys[oppSeat],
                             child: _buildSideOpponent(
@@ -237,8 +242,11 @@ class _GameScreenState extends State<GameScreen> {
                       alignment: Alignment.topCenter,
                       child: Consumer<GameProvider>(
                         builder: (ctx, prov, _) {
+                          final total = prov.state?.players.length ?? 4;
                           final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = (mySeat + 2) % 4;
+                          final oppSeat = total == 2 ? (mySeat + 1) % 2 :
+                                          total == 4 ? (mySeat + 2) % 4 : -1;
+                          if (oppSeat == -1) return const SizedBox.shrink();
                           return KeyedSubtree(
                             key: _areaKeys[oppSeat],
                             child: _buildOpponentStrip(
@@ -416,7 +424,10 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildOpponentStrip(
       GameState state, int seatIndex, GameProvider provider) {
-    final player = state.playerBySeat(seatIndex);
+    final int idx = state.players.indexWhere((p) => p.seatIndex == seatIndex);
+    if (idx == -1) return const SizedBox.shrink();
+    final player = state.players[idx];
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -450,7 +461,10 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildSideOpponent(
       GameState state, int seatIndex, GameProvider provider,
       {required bool isLeft}) {
-    final player = state.playerBySeat(seatIndex);
+    final int idx = state.players.indexWhere((p) => p.seatIndex == seatIndex);
+    if (idx == -1) return const SizedBox.shrink();
+    final player = state.players[idx];
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

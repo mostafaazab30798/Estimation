@@ -26,11 +26,12 @@ class BidDialog extends StatefulWidget {
 }
 
 class _BidDialogState extends State<BidDialog> {
-  int _trickCount = 4;
-  Suit _suit = Suit.spade;
+  // ValueNotifiers — form input state; no setState needed.
+  late final _trickCount = ValueNotifier<int>(4);
+  late final _suit = ValueNotifier<Suit>(Suit.spade);
 
-  bool get _isValid {
-    final bid = Bid(trickCount: _trickCount, trumpSuit: _suit);
+  bool _isValidFor(int count, Suit suit) {
+    final bid = Bid(trickCount: count, trumpSuit: suit);
     return bid.beats(widget.currentHighBid ??
         const Bid(trickCount: 0, trumpSuit: Suit.club));
   }
@@ -40,17 +41,25 @@ class _BidDialogState extends State<BidDialog> {
     super.initState();
     // Pre-select a value higher than current high bid
     if (widget.currentHighBid != null) {
-      _trickCount = widget.currentHighBid!.trickCount;
-      _suit = Suit.values[
+      int tc = widget.currentHighBid!.trickCount;
+      Suit s = Suit.values[
           (widget.currentHighBid!.trumpSuit.priority + 1) %
               Suit.values.length];
-      if (_suit.priority <= widget.currentHighBid!.trumpSuit.priority) {
-        _trickCount++;
+      if (s.priority <= widget.currentHighBid!.trumpSuit.priority) {
+        tc++;
       }
-      _trickCount = _trickCount.clamp(4, 13);
+      _trickCount.value = tc.clamp(4, 13);
+      _suit.value = s;
     } else {
-      _trickCount = 4;
+      _trickCount.value = 4;
     }
+  }
+
+  @override
+  void dispose() {
+    _trickCount.dispose();
+    _suit.dispose();
+    super.dispose();
   }
 
   @override
@@ -58,161 +67,173 @@ class _BidDialogState extends State<BidDialog> {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
     final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.92 : 0.65);
 
-    return Dialog(
-      alignment: Alignment.center,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: dialogWidth,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: AppTheme.navyDark,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
-          boxShadow: AppTheme.neumorphicTurnGlow(AppTheme.navyDeep),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'المزاد',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  if (widget.currentHighBid != null)
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.gold.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
-                        ),
-                        child: Text(
-                          'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
-                          style: Theme.of(context)
-                              .textTheme.bodyMedium
-                              ?.copyWith(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
+    return ValueListenableBuilder<int>(
+      valueListenable: _trickCount,
+      builder: (context, count, _) {
+        return ValueListenableBuilder<Suit>(
+          valueListenable: _suit,
+          builder: (context, suit, _) {
+            final isValid = _isValidFor(count, suit);
 
-              // Content Layout (Vertical for Portrait, Horizontal for Landscape)
-              if (isPortrait) ...[
-                Text('عدد اللمات',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
-                const SizedBox(height: 8),
-                _TrickCountSelector(
-                  value: _trickCount,
-                  onChanged: (v) => setState(() => _trickCount = v),
+            return Dialog(
+              alignment: Alignment.center,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                width: dialogWidth,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppTheme.navyDark,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
+                  boxShadow: AppTheme.neumorphicTurnGlow(AppTheme.navyDeep),
                 ),
-                const SizedBox(height: 14),
-                Text('القطوع (الكار الكبير)',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
-                const SizedBox(height: 8),
-                _SuitSelector(
-                  selected: _suit,
-                  onChanged: (s) => setState(() => _suit = s),
-                ),
-              ] else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('عدد اللمات',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
-                          const SizedBox(height: 8),
-                          _TrickCountSelector(
-                            value: _trickCount,
-                            onChanged: (v) => setState(() => _trickCount = v),
+                          Text(
+                            'المزاد',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          if (widget.currentHighBid != null)
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.gold.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
+                                ),
+                                child: Text(
+                                  'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
+                                  style: Theme.of(context)
+                                      .textTheme.bodyMedium
+                                      ?.copyWith(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Content Layout (Vertical for Portrait, Horizontal for Landscape)
+                      if (isPortrait) ...[
+                        Text('عدد اللمات',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                        const SizedBox(height: 8),
+                        _TrickCountSelector(
+                          value: count,
+                          onChanged: (v) => _trickCount.value = v,
+                        ),
+                        const SizedBox(height: 14),
+                        Text('القطوع (الكار الكبير)',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                        const SizedBox(height: 8),
+                        _SuitSelector(
+                          selected: suit,
+                          onChanged: (s) => _suit.value = s,
+                        ),
+                      ] else
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('عدد اللمات',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                                  const SizedBox(height: 8),
+                                  _TrickCountSelector(
+                                    value: count,
+                                    onChanged: (v) => _trickCount.value = v,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 90,
+                              margin: const EdgeInsets.symmetric(horizontal: 12),
+                              color: Colors.white12,
+                            ),
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('القطوع (الكار الكبير)',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                                  const SizedBox(height: 8),
+                                  _SuitSelector(
+                                    selected: suit,
+                                    onChanged: (s) => _suit.value = s,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                      const SizedBox(height: 18),
+
+                      // Actions
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.5), width: 2),
+                                foregroundColor: AppTheme.errorRed,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                widget.onPass();
+                              },
+                              child: const Text('باس (Pass)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                backgroundColor: AppTheme.gold,
+                                foregroundColor: AppTheme.navyDark,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                elevation: isValid ? 4 : 0,
+                              ),
+                              onPressed: isValid
+                                  ? () {
+                                      Navigator.of(context).pop();
+                                      widget.onBid(
+                                          Bid(trickCount: count, trumpSuit: suit));
+                                    }
+                                  : null,
+                              child: const Text('مزايدة (Bid)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 90,
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
-                      color: Colors.white12,
-                    ),
-                    Expanded(
-                      flex: 5,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('القطوع (الكار الكبير)',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
-                          const SizedBox(height: 8),
-                          _SuitSelector(
-                            selected: _suit,
-                            onChanged: (s) => setState(() => _suit = s),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-
-              const SizedBox(height: 18),
-
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.5), width: 2),
-                        foregroundColor: AppTheme.errorRed,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        widget.onPass();
-                      },
-                      child: const Text('باس (Pass)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: AppTheme.gold,
-                        foregroundColor: AppTheme.navyDark,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: _isValid ? 4 : 0,
-                      ),
-                      onPressed: _isValid
-                          ? () {
-                              Navigator.of(context).pop();
-                              widget.onBid(
-                                  Bid(trickCount: _trickCount, trumpSuit: _suit));
-                            }
-                          : null,
-                      child: const Text('مزايدة (Bid)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    ),
-                  ),
-                ],
               ),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -1,9 +1,11 @@
 // lib/widgets/score_table.dart
 //
-// Round score breakdown table.
+// Modern floating rank cards score breakdown — no heavy back container box.
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/models/player.dart';
+import '../core/widgets/player_avatar.dart';
 import '../theme/app_theme.dart';
 
 class ScoreTable extends StatelessWidget {
@@ -20,135 +22,209 @@ class ScoreTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
-        boxShadow: AppTheme.neumorphicTurnGlow(AppTheme.navyDeep),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppTheme.gold.withValues(alpha: 0.15),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(18)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                    flex: 3,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: _header('اللاعب'),
-                    )),
-                Expanded(child: _header('صرّح')),
-                Expanded(child: _header('ربح')),
-                Expanded(flex: 1, child: _header('الجولة')),
-                Expanded(flex: 1, child: _header('المجموع')),
-              ],
-            ),
-          ),
-          // Rows
-          ...players.asMap().entries.map((e) {
-            final rankIndex = e.key;
-            final p = e.value;
-            final delta = lastRoundDeltas[p.id] ?? 0;
-            final isBidder = p.id == bidderPlayerId;
-            final positive = delta >= 0;
-            final rankTitle = rankIndex >= 0 && rankIndex < 4 ? rankTitles[rankIndex] : '';
-
-            return Container(
-              padding:
-                  const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-              decoration: BoxDecoration(
-                color: rankIndex == 0 ? AppTheme.gold.withValues(alpha: 0.05) : null,
-                border: Border(
-                  top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.08), width: 1),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Column Headers (floating directly above cards, no container box)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  'اللاعب',
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.cairo(
+                    color: AppTheme.gold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            if (isBidder)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 4),
-                                child: Text('🔥', style: TextStyle(fontSize: 12)),
-                              ),
-                            Flexible(
+              Expanded(flex: 2, child: _header('صرّح')),
+              Expanded(flex: 2, child: _header('ربح')),
+              Expanded(flex: 2, child: _header('الجولة')),
+              Expanded(flex: 3, child: _header('المجموع')),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        // Floating Individual Player Cards
+        ...players.asMap().entries.map((e) {
+          final rankIndex = e.key;
+          final p = e.value;
+          final delta = lastRoundDeltas[p.id] ?? 0;
+          final isBidder = p.id == bidderPlayerId;
+          final positive = delta >= 0;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildPlayerCard(
+              rankIndex: rankIndex,
+              player: p,
+              delta: delta,
+              isBidder: isBidder,
+              positive: positive,
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildPlayerCard({
+    required int rankIndex,
+    required Player player,
+    required int delta,
+    required bool isBidder,
+    required bool positive,
+  }) {
+    final rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
+    final rankBorderColors = AppTheme.rankColors;
+
+    final borderColor = rankIndex < rankBorderColors.length
+        ? rankBorderColors[rankIndex]
+        : AppTheme.steelBlue;
+    final rankTitle = rankIndex < rankTitles.length ? rankTitles[rankIndex] : '';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.navyDark.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: borderColor.withValues(alpha: rankIndex == 0 ? 0.8 : 0.5),
+          width: rankIndex == 0 ? 1.6 : 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withValues(alpha: rankIndex == 0 ? 0.25 : 0.12),
+            blurRadius: rankIndex == 0 ? 16 : 8,
+            spreadRadius: rankIndex == 0 ? 1 : 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Player Avatar & Name & Rank (Flex 5)
+          Expanded(
+            flex: 5,
+            child: Row(
+              children: [
+                PlayerAvatar(
+                  photoData: player.photo ?? '',
+                  size: 36,
+                  borderWidth: 1.5,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          if (isBidder)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4),
+                              child: Text('🔥', style: TextStyle(fontSize: 13)),
+                            ),
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
                               child: Text(
-                                p.name,
-                                style: TextStyle(
-                                  color: rankIndex == 0 ? AppTheme.gold : AppTheme.textPrimary,
-                                  fontSize: 14,
+                                player.name,
+                                style: GoogleFonts.cairo(
+                                  color: rankIndex == 0 ? AppTheme.gold : AppTheme.cream,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.bold,
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
-                        ),
-                        if (rankTitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            rankTitle,
-                            style: TextStyle(
-                              color: rankIndex == 0
-                                  ? AppTheme.gold.withValues(alpha: 0.85)
-                                  : AppTheme.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                  ),
-                  Expanded(child: _cell('${p.declared ?? '-'}')),
-                  Expanded(child: _cell('${p.actual}')),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      positive ? '+$delta' : '$delta',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color:
-                            positive ? Colors.greenAccent : AppTheme.errorRed,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
                       ),
-                    ),
+                      if (rankTitle.isNotEmpty)
+                        Text(
+                          rankTitle,
+                          style: GoogleFonts.cairo(
+                            color: borderColor.withValues(alpha: 0.9),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            height: 1.1,
+                          ),
+                        ),
+                    ],
                   ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      '${p.totalScore}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppTheme.gold,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                ),
+              ],
+            ),
+          ),
+
+          // Declared (Flex 2)
+          Expanded(
+            flex: 2,
+            child: _cell('${player.declared ?? '-'}'),
+          ),
+
+          // Won / Actual (Flex 2)
+          Expanded(
+            flex: 2,
+            child: _cell('${player.actual}'),
+          ),
+
+          // Round Score Delta Pill (Flex 2)
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (positive ? const Color(0xFF00E676) : AppTheme.errorRed)
+                      .withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: (positive ? const Color(0xFF00E676) : AppTheme.errorRed)
+                        .withValues(alpha: 0.45),
+                    width: 0.9,
                   ),
-                ],
+                ),
+                child: Text(
+                  positive ? '+$delta' : '$delta',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.cairo(
+                    color: positive ? const Color(0xFF00E676) : AppTheme.errorRed,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
               ),
-            );
-          }),
+            ),
+          ),
+
+          // Total Score (Flex 3)
+          Expanded(
+            flex: 3,
+            child: Text(
+              '${player.totalScore}',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(
+                color: AppTheme.gold,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -157,17 +233,21 @@ class ScoreTable extends StatelessWidget {
   Widget _header(String text) => Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: GoogleFonts.cairo(
           color: AppTheme.gold,
           fontWeight: FontWeight.bold,
-          fontSize: 12,
+          fontSize: 13,
         ),
       );
 
   Widget _cell(String text) => Text(
         text,
         textAlign: TextAlign.center,
-        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        style: GoogleFonts.cairo(
+          color: AppTheme.cream.withValues(alpha: 0.9),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
       );
 }
 

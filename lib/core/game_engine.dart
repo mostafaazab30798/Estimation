@@ -23,7 +23,7 @@ class GameEngine {
     }
     // Deal one at a time, round-robin
     for (int i = 0; i < deck.length; i++) {
-      final seatIndex = i % kPlayerCount;
+      final seatIndex = i % state.players.length;
       state.playerBySeat(seatIndex).hand.add(deck[i]);
     }
     // Auto-sort each hand
@@ -102,13 +102,13 @@ class GameEngine {
   }
 
   static int _getNextChronologicalSeat(GameState state, int currentSeat, bool Function(Player) isValid) {
-    if (state.voidCheckPassed.length == kPlayerCount) {
+    if (state.voidCheckPassed.length == state.players.length) {
       final readyList = state.voidCheckPassed.toList();
       final currentId = state.playerBySeat(currentSeat).id;
       final currIdx = readyList.indexOf(currentId);
       if (currIdx != -1) {
-        for (int i = 1; i < kPlayerCount; i++) {
-          final nextId = readyList[(currIdx + i) % kPlayerCount];
+        for (int i = 1; i < state.players.length; i++) {
+          final nextId = readyList[(currIdx + i) % state.players.length];
           final nextPlayer = state.playerById(nextId);
           if (isValid(nextPlayer)) {
             return nextPlayer.seatIndex;
@@ -117,12 +117,12 @@ class GameEngine {
       }
     }
 
-    int next = (currentSeat + 1) % kPlayerCount;
+    int next = (currentSeat + 1) % state.players.length;
     while (next != currentSeat) {
       if (isValid(state.playerBySeat(next))) {
         return next;
       }
-      next = (next + 1) % kPlayerCount;
+      next = (next + 1) % state.players.length;
     }
     return currentSeat;
   }
@@ -197,10 +197,10 @@ class GameEngine {
     player.hand.remove(card);
     state.currentTrick.add(TrickCard(playerId: playerId, card: card));
 
-    if (state.currentTrick.length < kPlayerCount) {
+    if (state.currentTrick.length < state.players.length) {
       // Trick not yet complete — advance to next player
       state.currentPlayerSeatIndex =
-          (state.currentPlayerSeatIndex + 1) % kPlayerCount;
+          (state.currentPlayerSeatIndex + 1) % state.players.length;
       return false;
     }
 
@@ -305,9 +305,9 @@ class GameEngine {
 
   static void startNextRound(GameState state) {
     state.roundNumber++;
-    state.dealerSeatIndex = (state.dealerSeatIndex + 1) % kPlayerCount;
+    state.dealerSeatIndex = (state.dealerSeatIndex + 1) % state.players.length;
     // First bidder = seat after dealer
-    final firstBidder = (state.dealerSeatIndex + 1) % kPlayerCount;
+    final firstBidder = (state.dealerSeatIndex + 1) % state.players.length;
     state.auctionTurnSeatIndex = firstBidder;
 
     for (final p in state.players) {

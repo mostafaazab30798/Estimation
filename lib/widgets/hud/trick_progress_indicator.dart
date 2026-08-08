@@ -105,11 +105,13 @@ class _TrickProgressIndicatorState extends State<TrickProgressIndicator>
   @override
   Widget build(BuildContext context) {
     final color = _barColor();
-    final segW = widget.compact ? 5.5 : 7.0;
     final segH = widget.compact ? 5.0 : 6.5;
-    final gap = widget.compact ? 1.5 : 2.0;
     final labelSize = widget.compact ? 8.0 : 9.5;
     final segmentCount = widget.declared ?? 0;
+
+    // Max dot size and min gap constants
+    final maxSegW = widget.compact ? 5.5 : 7.0;
+    final minGap = widget.compact ? 1.5 : 2.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -117,50 +119,77 @@ class _TrickProgressIndicatorState extends State<TrickProgressIndicator>
       children: [
         // ── Segmented bar ──────────────────────────────────────────
         if (segmentCount > 0) ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(segmentCount, (i) {
-              final filled = i < widget.actual;
-              final isTarget = i == segmentCount - 1;
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Compute segment width and gap that always fit the available width.
+              // Available width may be unconstrained (e.g. inside a Row with
+              // mainAxisSize.min), so fall back to a sensible max.
+              final availW = constraints.hasBoundedWidth
+                  ? constraints.maxWidth
+                  : (maxSegW * segmentCount + minGap * (segmentCount - 1));
 
-              return Padding(
-                padding: EdgeInsets.only(right: i < segmentCount - 1 ? gap : 0),
-                child: AnimatedBuilder(
-                  animation: _segCtrl[i],
-                  builder: (_, __) {
-                    final scale = filled ? _segScale[i].value : 1.0;
-                    return Transform.scale(
-                      scale: scale,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: segW,
-                        height: segH,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          color: filled
-                              ? color
-                              : AppTheme.deepNavy,
-                          border: Border.all(
-                            color: isTarget && !filled
-                                ? color.withValues(alpha: 0.7)
-                                : (filled ? Colors.transparent : AppTheme.steelBlue.withValues(alpha: 0.2)),
-                            width: isTarget && !filled ? 1.2 : 0.8,
+              // First try fitting with the preferred gap.
+              double segW = maxSegW;
+              double gap = minGap;
+
+              final totalPreferred =
+                  segW * segmentCount + gap * (segmentCount - 1);
+
+              if (totalPreferred > availW && segmentCount > 1) {
+                // Scale everything down proportionally so they fit exactly.
+                final scale = availW / totalPreferred;
+                segW = (segW * scale).clamp(2.0, maxSegW);
+                gap = (gap * scale).clamp(0.5, minGap);
+              }
+
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(segmentCount, (i) {
+                  final filled = i < widget.actual;
+                  final isTarget = i == segmentCount - 1;
+
+                  return Padding(
+                    padding: EdgeInsets.only(
+                        right: i < segmentCount - 1 ? gap : 0),
+                    child: AnimatedBuilder(
+                      animation: _segCtrl[i],
+                      builder: (_, __) {
+                        final scale = filled ? _segScale[i].value : 1.0;
+                        return Transform.scale(
+                          scale: scale,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: segW,
+                            height: segH,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                              color: filled ? color : AppTheme.deepNavy,
+                              border: Border.all(
+                                color: isTarget && !filled
+                                    ? color.withValues(alpha: 0.7)
+                                    : (filled
+                                        ? Colors.transparent
+                                        : AppTheme.steelBlue
+                                            .withValues(alpha: 0.2)),
+                                width: isTarget && !filled ? 1.2 : 0.8,
+                              ),
+                              boxShadow: filled
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.35),
+                                        blurRadius: 4,
+                                      )
+                                    ]
+                                  : null,
+                            ),
                           ),
-                          boxShadow: filled
-                              ? [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.35),
-                                    blurRadius: 4,
-                                  )
-                                ]
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
+                  );
+                }),
               );
-            }),
+            },
           ),
           const SizedBox(height: 3),
         ],
