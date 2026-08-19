@@ -26,9 +26,17 @@ import '../features/lobby/domain/models/room_player.dart';
 import '../services/session_storage_service.dart';
 import '../services/profile_service.dart';
 
+import '../networking/local/local_game_server.dart';
+import '../networking/local/local_game_client.dart';
+import '../modes/ninety_nine/networking/local_ninety_nine_game_server.dart';
+import '../modes/ninety_nine/networking/local_ninety_nine_game_client.dart';
+import '../networking/local/local_discovery_service.dart';
+
 enum ConnectionRole { none, host, client }
 
 enum ConnectionStatus { idle, connecting, connected, error }
+
+enum ConnectionTransport { online, local }
 
 class GameProvider extends ChangeNotifier {
   final _uuid = const Uuid();
@@ -56,6 +64,15 @@ class GameProvider extends ChangeNotifier {
   bool _isTestMode = false;
   int _expectedPlayers = 4;
 
+  ConnectionTransport _transport = ConnectionTransport.online;
+  LocalGameServer? _localServer;
+  LocalGameClient? _localClient;
+  LocalNinetyNineGameServer? _localNnServer;
+  LocalNinetyNineGameClient? _localNnClient;
+  final LocalDiscoveryService _discoveryService = LocalDiscoveryService();
+  String? _localHostIp;
+  int _localPort = 7890;
+
   // Supabase Lobby State
   GameRoom? _currentRoom;
   List<RoomPlayer> _roomPlayers = [];
@@ -67,6 +84,10 @@ class GameProvider extends ChangeNotifier {
   GameState? get state => _state;
   ConnectionRole get role => _role;
   ConnectionStatus get status => _status;
+  ConnectionTransport get transport => _transport;
+  bool get isLocal => _transport == ConnectionTransport.local;
+  String? get localHostIp => _localHostIp;
+  int get localPort => _localPort;
   String get errorMessage => _errorMessage;
   String get myPlayerId => _myPlayerId ?? '';
   String get myName => _myName;
@@ -186,6 +207,151 @@ class GameProvider extends ChangeNotifier {
         }
       },
     );
+  }
+
+  // ── Local (LAN / Hotspot) Hosting & Joining ──────────────────────────────
+
+  Future<void> hostLocalGame(
+    String name, {
+    int expectedPlayers = 4,
+    String gameType = 'kotchina',
+    int port = 7890,
+  }) async {
+    await reset();
+    _transport = ConnectionTransport.local;
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    nnProvider?.setPlayerId(_myPlayerId!);
+    _myName = name;
+    _role = ConnectionRole.host;
+    _isTestMode = false;
+    _expectedPlayers = expectedPlayers;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      final ip = await LocalDiscoveryService.getLocalIpAddress();
+      _localHostIp = ip ?? '127.0.0.1';
+      _localPort = port;
+      final roomCode = _generateRoomCode();
+
+      _currentRoom = GameRoom(
+        id: 'local_${_uuid.v4()}',
+        roomCode: roomCode,
+        hostId: _myPlayerId!,
+        status: GameRoomStatus.waiting,
+        maxPlayers: expectedPlayers,
+        hostIp: _localHostIp!,
+        wsPort: _localPort,
+        gameType: gameType,
+        createdAt: DateTime.now(),
+      );
+
+      final myPhoto = await ProfileService.getProfilePhoto();
+
+      if (gameType == 'ninety_nine') {
+        _localNnServer = LocalNinetyNineGameServer(
+          onStateUpdate: (state) {
+            nnProvider?.syncState(state);
+          },
+        );
+        await _localNnServer!.start(
+          name,
+          _myPlayerId!,
+          _currentRoom!.id,
+          myPhoto,
+          maxPlayers: expectedPlayers,
+          port: port,
+        );
+        _localPort = _localNnServer!.boundPort;
+      } else {
+        _localServer = LocalGameServer(
+          onStateUpdate: (state) {
+            _state = state;
+            notifyListeners();
+          },
+        );
+        await _localServer!.start(
+          name,
+          _myPlayerId!,
+          _currentRoom!.id,
+          myPhoto,
+          maxPlayers: expectedPlayers,
+          port: port,
+        );
+        _localPort = _localServer!.boundPort;
+      }
+
+      await _discoveryService.startBroadcasting(
+        hostName: name,
+        port: _localPort,
+        gameType: gameType,
+        roomCode: roomCode,
+        currentPlayers: 1,
+        maxPlayers: expectedPlayers,
+      );
+
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل تشغيل الخادم المحلي: $e');
+    }
+  }
+
+  Future<void> joinLocalGame(
+    String name,
+    String hostIp,
+    int port, {
+    String? expectedGameType,
+  }) async {
+    await reset();
+    _transport = ConnectionTransport.local;
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    nnProvider?.setPlayerId(_myPlayerId!);
+    _myName = name;
+    _role = ConnectionRole.client;
+    _isTestMode = false;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      _currentRoom = GameRoom(
+        id: 'local_client_${_uuid.v4()}',
+        roomCode: 'LOCAL',
+        hostId: 'host_local',
+        status: GameRoomStatus.waiting,
+        maxPlayers: 4,
+        hostIp: hostIp,
+        wsPort: port,
+        gameType: expectedGameType ?? 'kotchina',
+        createdAt: DateTime.now(),
+      );
+
+      final myPhoto = await ProfileService.getProfilePhoto();
+
+      if (expectedGameType == 'ninety_nine') {
+        _localNnClient = LocalNinetyNineGameClient(
+          onError: (err) => _setError(err),
+          onStateUpdate: (state) {
+            nnProvider?.syncState(state);
+          },
+        );
+        await _localNnClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
+      } else {
+        _localClient = LocalGameClient(
+          onStateUpdate: (state) {
+            _state = state;
+            notifyListeners();
+          },
+          onError: (err) => _setError(err),
+        );
+        await _localClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
+      }
+
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل الانضمام للخادم المحلي: $e');
+    }
   }
 
   // ── Host a game ───────────────────────────────────────────────
@@ -446,6 +612,24 @@ class GameProvider extends ChangeNotifier {
       debugPrint('Cannot send action "$action": Not connected (status: $_status)');
       return;
     }
+
+    if (_transport == ConnectionTransport.local) {
+      if (_role == ConnectionRole.host) {
+        if (_localServer != null) {
+          _localServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+        } else if (_localNnServer != null) {
+          _localNnServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+        }
+      } else if (_role == ConnectionRole.client) {
+        if (_localClient != null) {
+          _localClient!.sendAction(action, myPlayerId, extra);
+        } else if (_localNnClient != null) {
+          _localNnClient!.sendAction(action, extra.isEmpty ? null : extra);
+        }
+      }
+      return;
+    }
+
     if (_role == ConnectionRole.host) {
       if (_server != null) {
         _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
@@ -469,6 +653,31 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> startGame() async {
+    if (_transport == ConnectionTransport.local) {
+      if (isHost && _currentRoom != null) {
+        _currentRoom = GameRoom(
+          id: _currentRoom!.id,
+          roomCode: _currentRoom!.roomCode,
+          hostId: _currentRoom!.hostId,
+          status: GameRoomStatus.playing,
+          maxPlayers: _currentRoom!.maxPlayers,
+          hostIp: _currentRoom!.hostIp,
+          wsPort: _currentRoom!.wsPort,
+          gameType: _currentRoom!.gameType,
+          createdAt: _currentRoom!.createdAt,
+          startedAt: DateTime.now(),
+        );
+
+        if (_localServer != null && _localServer!.playerCount < 4 && _currentRoom!.gameType == 'kotchina') {
+          _localServer!.addBotPlayers(count: 4 - _localServer!.playerCount);
+        }
+
+        _sendAction(ActionType.startGame);
+        notifyListeners();
+      }
+      return;
+    }
+
     if (_currentRoom != null && isHost) {
       try {
         // Sync all Supabase room players into the local game server state
@@ -577,6 +786,24 @@ class GameProvider extends ChangeNotifier {
     _playersSub?.cancel();
     _playersSub = null;
 
+    await _discoveryService.stopBroadcasting();
+    if (_localServer != null) {
+      await _localServer!.stop();
+      _localServer = null;
+    }
+    if (_localNnServer != null) {
+      await _localNnServer!.stop();
+      _localNnServer = null;
+    }
+    if (_localClient != null) {
+      _localClient!.disconnect(myId);
+      _localClient = null;
+    }
+    if (_localNnClient != null) {
+      await _localNnClient!.disconnect();
+      _localNnClient = null;
+    }
+
     if (_server != null) {
       await _server!.stop();
       _server = null;
@@ -599,6 +826,7 @@ class GameProvider extends ChangeNotifier {
     _roomPlayers = [];
     _role = ConnectionRole.none;
     _status = ConnectionStatus.idle;
+    _transport = ConnectionTransport.online;
     _errorMessage = '';
     _isSearching = false;
     _isTestMode = false;

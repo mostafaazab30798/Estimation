@@ -456,12 +456,32 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          if (provider.isLocal && provider.localHostIp != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+              ),
+              child: SelectableText(
+                'عنوان IP المحلي: ${provider.localHostIp}:${provider.localPort}',
+                style: GoogleFonts.cairo(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                Clipboard.setData(ClipboardData(text: code));
-                SnackbarHelper.showSuccess(context, 'تم نسخ الكود بنجاح! 📋', title: 'نسخ');
+                final textToCopy = provider.isLocal ? '${provider.localHostIp}:${provider.localPort}' : code;
+                Clipboard.setData(ClipboardData(text: textToCopy));
+                SnackbarHelper.showSuccess(context, 'تم النسخ بنجاح! 📋', title: 'نسخ');
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
@@ -477,7 +497,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     const Icon(Icons.copy_rounded, size: 16, color: AppTheme.mintSoft),
                     const SizedBox(width: 8),
                     Text(
-                      'اضغط لنسخ الكود',
+                      provider.isLocal ? 'اضغط لنسخ عنوان IP' : 'اضغط لنسخ الكود',
                       style: GoogleFonts.cairo(
                         color: AppTheme.mintSoft,
                         fontSize: 13,

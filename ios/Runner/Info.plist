@@ -45,5 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>تطلب اللعبة الوصول للشبكة المحلية للبحث عن الألعاب المجاورة وإنشاء غرف لعب أوفلاين</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_pocketest._tcp</string>
+		<string>_pocketest._udp</string>
+	</array>
 </dict>
 </plist>

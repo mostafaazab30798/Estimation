@@ -14,6 +14,7 @@ import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/local_discovery_screen.dart';
 import 'modes/ninety_nine/presentation/screens/ninety_nine_home_screen.dart';
 import 'modes/ninety_nine/presentation/screens/ninety_nine_game_screen.dart';
 
@@ -148,6 +149,7 @@ class KotshinaApp extends StatelessWidget {
           '/lobby': (_) => const LobbyScreen(),
           '/game': (_) => const GameScreen(),
           '/profile': (_) => const ProfileScreen(),
+          '/local_discovery': (_) => const LocalDiscoveryScreen(),
           '/ninety_nine/home': (_) => const NinetyNineHomeScreen(),
           '/ninety_nine/game': (_) => const NinetyNineGameScreen(),
         },

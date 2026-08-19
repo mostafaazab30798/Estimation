@@ -5,6 +5,7 @@ import 'package:estimation/core/constants.dart';
 import 'package:estimation/core/models/card.dart';
 import 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
 import 'package:estimation/modes/ninety_nine/domain/ninety_nine_card_rules.dart';
+import 'package:estimation/modes/ninety_nine/domain/ninety_nine_game_engine.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 
 void main() {
@@ -61,30 +62,49 @@ void main() {
     });
   });
 
-  group('NinetyNineGameProvider 2-7 Player & 5-Round Match Tests', () {
+  group('NinetyNineGameEngine 2-7 Player & Round Match Tests', () {
     test('Game initialization supports 2 to 7 players', () {
       for (int count = 2; count <= 7; count++) {
-        final provider = NinetyNineGameProvider();
-        provider.startNewGame(localPlayerName: 'لاعب 1', totalPlayers: count);
+        final players = List.generate(
+          count,
+          (i) => NinetyNinePlayer(id: 'p_$i', name: 'لاعب ${i + 1}', hand: [], isBot: i > 0, avatarId: 'avatar_1'),
+        );
+        final state = NinetyNineGameState(
+          hostId: 'p_0',
+          players: players,
+          playerLosses: {for (final p in players) p.id: 0},
+        );
 
-        expect(provider.phase, equals(NinetyNinePhase.playing));
-        expect(provider.groundTotal, equals(0));
-        expect(provider.players.length, equals(count));
-        expect(provider.currentRoundNumber, equals(1));
+        NinetyNineGameEngine.dealCardsAndStartRound(state, roundNumber: 1);
+
+        expect(state.phase, equals(NinetyNinePhase.playing));
+        expect(state.groundTotal, equals(0));
+        expect(state.players.length, equals(count));
+        expect(state.currentRoundNumber, equals(1));
       }
     });
 
     test('Playing card updating groundTotal and advance turn', () {
-      final provider = NinetyNineGameProvider();
-      provider.startNewGame(localPlayerName: 'لاعب 1', totalPlayers: 4);
+      final players = List.generate(
+        4,
+        (i) => NinetyNinePlayer(id: 'p_$i', name: 'لاعب ${i + 1}', hand: [], isBot: false, avatarId: 'avatar_1'),
+      );
+      final state = NinetyNineGameState(
+        hostId: 'p_0',
+        players: players,
+        playerLosses: {for (final p in players) p.id: 0},
+      );
 
-      final p0 = provider.players[0];
+      NinetyNineGameEngine.dealCardsAndStartRound(state, roundNumber: 1);
+
+      final p0 = state.players[0];
       final cardToPlay = p0.hand.first;
       final expectedGround = cardToPlay.applyEffect(0);
 
-      provider.playCard(p0.id, cardToPlay);
+      final accepted = NinetyNineGameEngine.playCard(state, p0.id, cardToPlay);
 
-      expect(provider.groundTotal, equals(expectedGround));
+      expect(accepted, isTrue);
+      expect(state.groundTotal, equals(expectedGround));
     });
   });
 }

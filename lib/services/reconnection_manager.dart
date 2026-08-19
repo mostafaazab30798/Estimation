@@ -86,7 +86,7 @@ class ReconnectionManager extends ChangeNotifier
 
   Future<void> _ping() async {
     final roomId = _gameProvider.currentRoom?.id;
-    if (roomId == null) return;
+    if (roomId == null || roomId.startsWith('local_') || _gameProvider.isLocal) return;
     try {
       await _lobbyRepo.pingHeartbeat(roomId);
     } catch (e) {
@@ -116,7 +116,7 @@ class ReconnectionManager extends ChangeNotifier
   Future<void> _onAppPaused() async {
     _stopHeartbeat();
     final roomId = _gameProvider.currentRoom?.id;
-    if (roomId == null) return;
+    if (roomId == null || roomId.startsWith('local_') || _gameProvider.isLocal) return;
     try {
       await _lobbyRepo.markOffline(roomId);
       debugPrint('[Reconnection] Marked offline — room $roomId');
@@ -157,8 +157,8 @@ class ReconnectionManager extends ChangeNotifier
     final session = await _sessionService.getActiveRoomSession();
     if (session == null) return ReconnectionState.idle;
 
-    if (session.roomId.startsWith('test_')) {
-      debugPrint('[Reconnection] Test mode session detected (${session.roomId}); clearing session');
+    if (session.roomId.startsWith('test_') || session.roomId.startsWith('local_')) {
+      debugPrint('[Reconnection] Local or test mode session detected (${session.roomId}); clearing session');
       await _sessionService.clearSession();
       _setState(ReconnectionState.idle);
       return ReconnectionState.idle;

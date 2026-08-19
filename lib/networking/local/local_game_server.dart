@@ -1,38 +1,39 @@
-// lib/networking/game_server.dart
-//
-// Host-side server: Runs the GameEngine and broadcasts state via Supabase Realtime.
+// lib/networking/local/local_game_server.dart
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_web_socket/shelf_web_socket.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../core/ai/estimation_bot_ai.dart';
-import '../core/game_engine.dart';
-import '../core/models/bid.dart';
-import '../core/models/card.dart';
-import '../core/models/game_state.dart';
-import '../core/models/player.dart';
-import 'messages.dart';
+import '../../core/ai/estimation_bot_ai.dart';
+import '../../core/game_engine.dart';
+import '../../core/models/bid.dart';
+import '../../core/models/card.dart';
+import '../../core/models/game_state.dart';
+import '../../core/models/player.dart';
+import '../messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
 
-class GameServer {
+class LocalGameServer {
   static final Random _rng = Random();
 
   final StateUpdateCallback onStateUpdate;
-  
+
   String? hostPlayerId;
   String? hostName;
   late String roomId;
   int maxPlayers = 4;
-  
-  late GameState _state;
-  RealtimeChannel? _channel;
+  int boundPort = 7890;
 
-  // Tracks the last phase we saved to DB; we only persist on transitions.
-  GamePhase? _lastPersistedPhase;
+  late GameState _state;
+  HttpServer? _server;
+  final Map<String, WebSocketChannel> _clientSockets = {}; // playerId -> socket
+  final Set<WebSocketChannel> _unidentifiedSockets = {};
 
   // ── Turn Timer Support ─────────────────────────────────────────
   Timer? _turnTimer;
@@ -42,18 +43,23 @@ class GameServer {
   final Set<String> _botPlayerIds = {};
   bool _botProcessing = false;
 
-  GameServer({required this.onStateUpdate});
-
+  LocalGameServer({required this.onStateUpdate});
 
   // ── Lifecycle ────────────────────────────────────────────────
 
-  Future<void> start(String hostName, String hostPlayerId, String roomId, String hostPhoto, {int maxPlayers = 4}) async {
+  Future<void> start(
+    String hostName,
+    String hostPlayerId,
+    String roomId,
+    String hostPhoto, {
+    int maxPlayers = 4,
+    int port = 7890,
+  }) async {
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
     this.maxPlayers = maxPlayers;
 
-    // Add host as the first player immediately
     final hostPlayer = Player(
       id: hostPlayerId,
       name: hostName,
@@ -62,91 +68,50 @@ class GameServer {
     );
     _state = GameEngine.createInitialState([hostPlayer]);
 
-    // Initialize Supabase Broadcast Channel
-    _channel = Supabase.instance.client.channel('room_$roomId');
-    
-    // Listen for actions from clients
-    _channel!.onBroadcast(
-      event: 'action',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handlePlayerAction(data);
-      },
-    );
-
-    // Listen for join requests from clients
-    _channel!.onBroadcast(
-      event: 'joinRequest',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handleJoinRequest(data);
-      },
-    );
-
-    // Listen for leave requests from clients
-    _channel!.onBroadcast(
-      event: 'leaveRequest',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handleLeaveRequest(data);
-      },
-    );
-
-    // Listen for presence leave to automatically remove disconnected players
-    _channel!.onPresenceLeave((payload) {
-      if (_state.phase == GamePhase.lobby) {
-        bool changed = false;
-        for (final presence in payload.leftPresences) {
-          final pId = presence.payload['playerId'] as String?;
-          if (pId != null && pId != hostPlayerId) {
-            final idx = _state.players.indexWhere((p) => p.id == pId);
-            if (idx != -1) {
-              _state.players.removeAt(idx);
-              changed = true;
-            }
-          }
-        }
-        if (changed) {
-          // Reassign seat indexes
-          for (int i = 0; i < _state.players.length; i++) {
-            _state.players[i] = _state.players[i].copyWith(seatIndex: i);
-          }
-          _broadcastState();
-        }
-      }
+    // Start Shelf WebSocket HTTP server
+    final handler = webSocketHandler((WebSocketChannel webSocket) {
+      _handleNewSocket(webSocket);
     });
 
-    _channel!.subscribe((status, [error]) async {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        await _channel!.track({
-          'playerId': hostPlayerId,
-          'name': hostName,
-        });
-      }
-    });
+    try {
+      _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, port);
+      boundPort = _server!.port;
+      debugPrint('[LocalGameServer] Bound WebSocket server to port $boundPort');
+    } catch (e) {
+      // If requested port fails, bind to any available port (0)
+      _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 0);
+      boundPort = _server!.port;
+      debugPrint('[LocalGameServer] Fallback bind to port $boundPort (error: $e)');
+    }
 
-    // Immediately notify host UI so they appear in the lobby
     onStateUpdate(_state);
   }
 
   Future<void> stop() async {
     _turnTimer?.cancel();
     _turnTimer = null;
-    await _channel?.unsubscribe();
-    _channel = null;
+
+    for (final socket in _clientSockets.values) {
+      try {
+        socket.sink.close();
+      } catch (_) {}
+    }
+    _clientSockets.clear();
+
+    for (final socket in _unidentifiedSockets) {
+      try {
+        socket.sink.close();
+      } catch (_) {}
+    }
+    _unidentifiedSockets.clear();
+
+    await _server?.close(force: true);
+    _server = null;
+    debugPrint('[LocalGameServer] Server stopped');
   }
 
   int get playerCount => _state.players.length;
 
-  // ── Bot players ──────────────────────────────────────────────
-
-  /// Add [count] bot players filling remaining seats.
   void addBotPlayers({int count = 3}) {
     final toAdd = count.clamp(0, maxPlayers - _state.players.length);
     for (int i = 1; i <= toAdd; i++) {
@@ -162,72 +127,109 @@ class GameServer {
     onStateUpdate(_state);
   }
 
-  /// Sync players from Supabase into the local game state.
-  /// Called just before startGame so all 4 seats are filled
-  /// regardless of broadcast join timing.
-  void syncPlayersFromRoom(List<({String id, String name})> players) {
-    // Remove ghosts (players in state but not in the Supabase room)
-    _state.players.removeWhere((sp) => !players.any((p) => p.id == sp.id));
+  // ── Socket & Connection handling ────────────────────────────────
 
-    // Add new players
-    for (final p in players) {
-      final alreadyIn = _state.players.any((sp) => sp.id == p.id);
-      if (!alreadyIn) {
-        final seat = _state.players.length;
-        _state.players.add(Player(id: p.id, name: p.name, seatIndex: seat));
-      }
-    }
+  void _handleNewSocket(WebSocketChannel socket) {
+    _unidentifiedSockets.add(socket);
+    String? associatedPlayerId;
 
-    // Reassign seat indexes to ensure sequential seats
-    for (int i = 0; i < _state.players.length; i++) {
-      _state.players[i] = _state.players[i].copyWith(seatIndex: i);
+    socket.stream.listen(
+      (data) {
+        if (data is String) {
+          try {
+            final msg = GameMessage.fromJsonString(data);
+            associatedPlayerId = _processMessage(socket, msg, associatedPlayerId);
+          } catch (e) {
+            debugPrint('[LocalGameServer] Error parsing frame: $e');
+          }
+        }
+      },
+      onDone: () {
+        _handleSocketClosed(socket, associatedPlayerId);
+      },
+      onError: (err) {
+        _handleSocketClosed(socket, associatedPlayerId);
+      },
+    );
+  }
+
+  String? _processMessage(WebSocketChannel socket, GameMessage msg, String? currentAssocId) {
+    switch (msg.type) {
+      case MessageType.joinRequest:
+        final playerId = msg.payload['playerId'] as String?;
+        if (playerId != null) {
+          _unidentifiedSockets.remove(socket);
+          _clientSockets[playerId] = socket;
+          _handleJoinRequest(msg.payload);
+          return playerId;
+        }
+        return currentAssocId;
+
+      case MessageType.playerAction:
+        _handlePlayerAction(msg.payload);
+        return currentAssocId;
+
+      case MessageType.heartbeat:
+        socket.sink.add(GameMessage(type: MessageType.heartbeat, payload: {}).toJsonString());
+        return currentAssocId;
+
+      default:
+        return currentAssocId;
     }
   }
 
-  // ── Network handling ───────────────────────────────────────
+  void _handleSocketClosed(WebSocketChannel socket, String? playerId) {
+    _unidentifiedSockets.remove(socket);
+    if (playerId != null && _clientSockets[playerId] == socket) {
+      _clientSockets.remove(playerId);
+      debugPrint('[LocalGameServer] Socket closed for player: $playerId');
+      if (_state.phase == GamePhase.lobby) {
+        _handleLeaveRequest({'playerId': playerId});
+      } else {
+        debugPrint('[LocalGameServer] Mid-game disconnect for $playerId — keeping seat intact');
+      }
+    }
+  }
 
   void _handleJoinRequest(Map<String, dynamic> payload) {
     final playerId = payload['playerId'] as String;
     final playerName = payload['name'] as String;
     final playerPhoto = payload['photo'] as String?;
-    
-    // Check if player is already in the state
+
     final existingIndex = _state.players.indexWhere((p) => p.id == playerId);
-    
+
     if (existingIndex == -1) {
-      // New player joining
       if (_state.phase != GamePhase.lobby) {
-        // Cannot join a game in progress if not already in it
-        _sendError('اللعبة بدأت بالفعل');
+        _sendErrorToPlayer(playerId, 'اللعبة بدأت بالفعل');
         return;
       }
       if (_state.players.length >= maxPlayers) {
-        _sendError('الغرفة ممتلئة');
+        _sendErrorToPlayer(playerId, 'الغرفة ممتلئة');
         return;
       }
       final seat = _state.players.length;
       _state.players.add(Player(id: playerId, name: playerName, seatIndex: seat, photo: playerPhoto));
     } else if (playerPhoto != null && _state.players[existingIndex].photo != playerPhoto) {
-      // Update photo if changed during reconnection
       _state.players[existingIndex] = _state.players[existingIndex].copyWith(photo: playerPhoto);
     }
 
-    // Always broadcast to give the newly connected client the current state
     _broadcastState();
   }
 
-  void _sendError(String errorMsg) {
-    _channel?.sendBroadcastMessage(
-      event: 'error',
-      payload: {'error': errorMsg},
-    );
+  void _sendErrorToPlayer(String playerId, String errorMsg) {
+    final socket = _clientSockets[playerId];
+    if (socket != null) {
+      socket.sink.add(GameMessage(
+        type: MessageType.error,
+        payload: {'error': errorMsg},
+      ).toJsonString());
+    }
   }
 
   void _handleLeaveRequest(Map<String, dynamic> payload) {
     final playerId = payload['playerId'] as String;
     if (_state.phase == GamePhase.lobby) {
       _state.players.removeWhere((p) => p.id == playerId);
-      // Reassign seat indexes
       for (int i = 0; i < _state.players.length; i++) {
         _state.players[i] = _state.players[i].copyWith(seatIndex: i);
       }
@@ -246,13 +248,9 @@ class GameServer {
         _broadcastState();
 
       case ActionType.startGame:
-        // Only the host can start. The player-count check is done in the UI
-        // (via roomPlayers from Supabase), so we trust it here.
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
-          // Ensure all joined players are in _state; if some are
-          // missing (race condition), we still proceed – the deal fills hands.
           _state.phase = GamePhase.dealing;
-          _doDeal(); // _doDeal calls _broadcastState internally
+          _doDeal();
         }
 
       case ActionType.changeTheme:
@@ -271,7 +269,6 @@ class GameServer {
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _state.voidRedealRejections.add(playerId);
           if (_state.voidRedealRejections.length >= maxPlayers) {
-            // Everyone rejected the redeal. Resume voidCheck.
             _state.voidDeclaringPlayerId = null;
             _state.voidRedealRejections.clear();
           }
@@ -285,8 +282,7 @@ class GameServer {
             _state.phase = GamePhase.auction;
             if (_state.voidCheckPassed.isNotEmpty) {
               final firstReadyId = _state.voidCheckPassed.first;
-              _state.auctionTurnSeatIndex =
-                  _state.playerById(firstReadyId).seatIndex;
+              _state.auctionTurnSeatIndex = _state.playerById(firstReadyId).seatIndex;
             }
           }
           _broadcastState();
@@ -308,7 +304,6 @@ class GameServer {
             }
             _broadcastState();
           } else {
-            // Action rejected (e.g. out of turn) — resync caller
             _broadcastState();
           }
         } else {
@@ -334,16 +329,15 @@ class GameServer {
         if (_state.phase == GamePhase.declarations) {
           final player = _state.playerById(playerId);
           if (player.seatIndex != _state.currentPlayerSeatIndex) {
-            _broadcastState(); // Out of turn — resync caller
+            _broadcastState();
             return;
           }
-          
           final declared = payload['declared'] as int;
           final decls = _state.players.map((p) => p.declared).where((d) => d != null).toList();
           if (decls.length == 3) {
             final sum = decls.fold<int>(0, (a, b) => a + b!);
             if (sum + declared == 13) {
-              _broadcastState(); // Invalid declaration — resync caller
+              _broadcastState();
               return;
             }
           }
@@ -356,31 +350,26 @@ class GameServer {
       case ActionType.playCard:
         if (_state.phase == GamePhase.trickTaking) {
           if (_state.currentTrick.length == maxPlayers) {
-            _broadcastState(); // Ignore input while waiting to clear trick — resync
+            _broadcastState();
             return;
           }
-          final card =
-              PlayingCard.fromJson(payload['card'] as Map<String, dynamic>);
+          final card = PlayingCard.fromJson(payload['card'] as Map<String, dynamic>);
           final player = _state.playerById(playerId);
           if (GameEngine.canPlayCard(_state, player, card)) {
             final finished = GameEngine.playCard(_state, playerId, card);
             if (finished) {
-               _broadcastState(); // Broadcast immediately to show the 4th card
-               _persistSnapshotAndHands();
-               Future.delayed(const Duration(seconds: 2), () {
-                 GameEngine.resolveTrick(_state);
-                 if (_state.phase == GamePhase.scoring) {
-                    GameEngine.computeAndApplyScores(_state);
-                 }
-                 _broadcastState();
-                 _persistSnapshotAndHands();
-               });
+              _broadcastState();
+              Future.delayed(const Duration(seconds: 2), () {
+                GameEngine.resolveTrick(_state);
+                if (_state.phase == GamePhase.scoring) {
+                  GameEngine.computeAndApplyScores(_state);
+                }
+                _broadcastState();
+              });
             } else {
-               _broadcastState();
-               _persistSnapshotAndHands();
+              _broadcastState();
             }
           } else {
-            // Action rejected (illegal card or stale turn) — resync caller
             _broadcastState();
           }
         } else {
@@ -394,7 +383,7 @@ class GameServer {
           } else {
             GameEngine.startNextRound(_state);
             _doDeal();
-            return; // _doDeal calls _broadcastState
+            return;
           }
           _broadcastState();
         }
@@ -402,30 +391,21 @@ class GameServer {
   }
 
   void _maybeSkipDeclarations() {
-    final nonBidders =
-        _state.players.where((p) => p.id != _state.bidderPlayerId);
+    final nonBidders = _state.players.where((p) => p.id != _state.bidderPlayerId);
     if (nonBidders.every((p) => p.declared != null)) {
       _state.phase = GamePhase.trickTaking;
     }
   }
 
   void _doDeal() {
-    // Determine dealer for this round
     _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
-
-    // The player to the right of the dealer acts first in the auction
-    _state.auctionTurnSeatIndex =
-        (_state.dealerSeatIndex + 1) % maxPlayers;
+    _state.auctionTurnSeatIndex = (_state.dealerSeatIndex + 1) % maxPlayers;
 
     _state.voidCheckPassed.clear();
     _state.voidDeclaringPlayerId = null;
     _state.voidRedealRejections.clear();
     GameEngine.dealCards(_state);
 
-    // Persist each real player's private hand for reconnection recovery.
-    _saveHandCards();
-
-    // Automatically declare void if any player has an empty suit
     final playerWithVoid = _state.players
         .where((p) => p.hand.map((c) => c.suit).toSet().length < 4)
         .firstOrNull;
@@ -456,25 +436,22 @@ class GameServer {
   // ── Broadcast ────────────────────────────────────────────────
 
   void _broadcastState() {
-    final payload = _state.toJson();
-    _channel?.sendBroadcastMessage(
-      event: 'state',
-      payload: payload,
-    );
+    final msg = GameMessage(
+      type: MessageType.stateUpdate,
+      payload: _state.toJson(),
+    ).toJsonString();
+
+    for (final socket in _clientSockets.values) {
+      try {
+        socket.sink.add(msg);
+      } catch (e) {
+        debugPrint('[LocalGameServer] Broadcast frame error: $e');
+      }
+    }
+
     onStateUpdate(_state);
     _scheduleBotTurn();
     _resetTurnTimer();
-
-    // Persist a snapshot on phase change or phase snapshot updates
-    if (_state.phase != _lastPersistedPhase) {
-      _lastPersistedPhase = _state.phase;
-      _persistSnapshotAndHands();
-    }
-  }
-
-  void _persistSnapshotAndHands() {
-    _persistPhaseSnapshot();
-    _saveHandCards();
   }
 
   // ── Turn Timeout Handling ─────────────────────────────────────
@@ -504,16 +481,13 @@ class GameServer {
   }
 
   void _handleTurnTimeout() {
-    debugPrint('[Server] Turn timeout triggered for phase: ${_state.phase.name}');
     switch (_state.phase) {
       case GamePhase.auction:
         final activePlayer = _state.playerBySeat(_state.auctionTurnSeatIndex);
-        debugPrint('[Server] Timing out auction turn for ${activePlayer.name}');
         _handlePlayerAction({'action': ActionType.passBid, 'playerId': activePlayer.id});
 
       case GamePhase.declarations:
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-        debugPrint('[Server] Timing out declaration turn for ${activePlayer.name}');
         int minDecl = 0;
         if (activePlayer.id == _state.bidderPlayerId && _state.currentHighBid != null) {
           minDecl = _state.currentHighBid!.trickCount;
@@ -536,7 +510,6 @@ class GameServer {
 
       case GamePhase.trickTaking:
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-        debugPrint('[Server] Timing out trickTaking turn for ${activePlayer.name}');
         _autoPlayCardForPlayer(activePlayer);
 
       default:
@@ -555,115 +528,12 @@ class GameServer {
     });
   }
 
-  /// Fire-and-forget: save the current GameState to Supabase on phase transitions.
-  void _persistPhaseSnapshot() {
-    if (roomId.startsWith('test_')) return;
-    Supabase.instance.client
-        .rpc('save_game_state', params: {
-          'p_room_id': roomId,
-          'p_state':   _state.toJson(),
-        })
-        .catchError(
-          (e) => debugPrint('[Server] Phase snapshot persist failed: $e'),
-        );
-  }
-
-  /// Fire-and-forget: save every real player's hand after a deal.
-  /// Bots are skipped — their hands are never private.
-  void _saveHandCards() {
-    if (roomId.startsWith('test_')) return;
-    for (final player in _state.players) {
-      if (player.id.startsWith('bot_')) continue;
-      Supabase.instance.client
-          .rpc('save_player_hand', params: {
-            'p_room_id':    roomId,
-            'p_player_id':  player.id,
-            'p_hand_cards': player.hand.map((c) => c.toJson()).toList(),
-          })
-          .catchError(
-            (e) => debugPrint('[Server] Hand save failed for ${player.id}: $e'),
-          );
-    }
-  }
-
-  // ── Host direct action ───────────────────────────────────────
-
   void sendHostAction(String action, Map<String, dynamic> extra) {
     _handlePlayerAction({
       'action': action,
       'playerId': hostPlayerId,
       ...extra,
     });
-  }
-
-  // ── Host promotion: restore from persisted state ──────────────────────────
-
-  /// Called when this client has been elected as the new host.
-  /// Re-creates the Realtime channel with the same room_id so existing clients
-  /// continue to receive broadcasts without re-connecting.
-  ///
-  /// After [subscribe] confirms, the new host immediately re-broadcasts
-  /// the current state so all clients are in sync.
-  Future<void> restoreFromState({
-    required GameState state,
-    required String hostPlayerId,
-    required String hostName,
-    required String roomId,
-  }) async {
-    this.hostPlayerId = hostPlayerId;
-    this.hostName = hostName;
-    this.roomId = roomId;
-    _state = state;
-    _lastPersistedPhase = state.phase; // Avoid re-persisting the same phase
-
-    _channel = Supabase.instance.client.channel('room_$roomId');
-
-    _channel!.onBroadcast(
-      event: 'action',
-      callback: _handlePlayerAction,
-    );
-    _channel!.onBroadcast(
-      event: 'joinRequest',
-      callback: _handleJoinRequest,
-    );
-    _channel!.onBroadcast(
-      event: 'leaveRequest',
-      callback: _handleLeaveRequest,
-    );
-
-    _channel!.onPresenceLeave((payload) {
-      // During lobby: remove players who disconnected and never came back.
-      if (_state.phase == GamePhase.lobby) {
-        bool changed = false;
-        for (final presence in payload.leftPresences) {
-          final pId = presence.payload['playerId'] as String?;
-          if (pId != null && pId != hostPlayerId) {
-            final idx = _state.players.indexWhere((p) => p.id == pId);
-            if (idx != -1) {
-              _state.players.removeAt(idx);
-              changed = true;
-            }
-          }
-        }
-        if (changed) {
-          for (int i = 0; i < _state.players.length; i++) {
-            _state.players[i] = _state.players[i].copyWith(seatIndex: i);
-          }
-          _broadcastState();
-        }
-      }
-    });
-
-    _channel!.subscribe((status, [error]) async {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        await _channel!.track({'playerId': hostPlayerId, 'name': hostName});
-        // Re-announce state immediately so clients don't wait for next action.
-        _broadcastState();
-      }
-    });
-
-    onStateUpdate(_state);
-    debugPrint('[Server] Restored from persisted state — phase: ${_state.phase.name}');
   }
 
   // ── Bot AI ───────────────────────────────────────────────────
@@ -691,8 +561,7 @@ class GameServer {
       case GamePhase.auction:
         final seat = _state.auctionTurnSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty &&
-            _botPlayerIds.contains(players.first.id);
+        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.declarations:
         final seat = _state.currentPlayerSeatIndex;
@@ -700,11 +569,10 @@ class GameServer {
         return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.trickTaking:
-        if (_state.currentTrick.length == 4) return false; // Waiting to clear trick
+        if (_state.currentTrick.length == 4) return false;
         final seat = _state.currentPlayerSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty &&
-            _botPlayerIds.contains(players.first.id);
+        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       default:
         return false;
@@ -742,8 +610,7 @@ class GameServer {
 
       case GamePhase.auction:
         final seat = _state.auctionTurnSeatIndex;
-        final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
+        final playerList = _state.players.where((p) => p.seatIndex == seat).toList();
         if (playerList.isEmpty) return;
         final bot = playerList.first;
         if (!_botPlayerIds.contains(bot.id)) return;
@@ -775,8 +642,7 @@ class GameServer {
 
       case GamePhase.trickTaking:
         final seat = _state.currentPlayerSeatIndex;
-        final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
+        final playerList = _state.players.where((p) => p.seatIndex == seat).toList();
         if (playerList.isEmpty) return;
         final bot = playerList.first;
         if (!_botPlayerIds.contains(bot.id)) return;

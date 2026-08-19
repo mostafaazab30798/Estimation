@@ -109,6 +109,19 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _hostLocal(BuildContext context, int expectedPlayers) async {
+    final err = _validateName();
+    if (err != null) { _snack(context, err); return; }
+    
+    final provider = context.read<GameProvider>();
+    await provider.hostLocalGame(_playerName.value, expectedPlayers: expectedPlayers, gameType: 'kotchina');
+    if (context.mounted && provider.status == ConnectionStatus.connected) {
+      Navigator.pushReplacementNamed(context, '/lobby');
+    } else if (context.mounted && provider.status == ConnectionStatus.error) {
+      _snack(context, provider.errorMessage);
+    }
+  }
+
   Future<void> _joinWithCode(BuildContext context) async {
     final err = _validateName();
     if (err != null) { _snack(context, err); return; }
@@ -729,7 +742,23 @@ class _HomeScreenState extends State<HomeScreen>
 
             const SizedBox(height: 14),
 
-            // Mode 3: Practice vs Bots
+            // Mode 3: LAN Offline Multiplayer
+            _buildModeTile(
+              title: 'لعب محلي',
+              subtitle: 'استضف أصدقائك أو انضم أوفلاين عبر الواي فاي',
+              icon: Icons.wifi_find_rounded,
+              gradientColors: [const Color(0xFFF59E0B), const Color(0xFFD97706)],
+              isActive: mode == 'local',
+              onTap: () {
+                _pendingMode.value = (mode == 'local') ? null : 'local';
+              },
+              expandableContent: _buildLocalOptions(context),
+              badgeText: 'أوفلاين 📡',
+            ),
+
+            const SizedBox(height: 14),
+
+            // Mode 4: Practice vs Bots
             _buildModeTile(
               title: 'تجربة ضد البوتات',
               subtitle: 'لعبة سريعة تدريبية بدون انتظار أونلاين',
@@ -973,6 +1002,47 @@ class _HomeScreenState extends State<HomeScreen>
                 subLabel: 'مكتمل',
                 icon: Icons.groups_rounded,
                 onTap: () => _host(context, 4),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocalOptions(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(color: Colors.white.withValues(alpha: 0.15)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () => _hostLocal(context, 4),
+                icon: const Icon(Icons.cell_tower_rounded, size: 18),
+                label: Text('إنشاء غرفة أوفلاين', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, '/local_discovery'),
+                icon: const Icon(Icons.wifi_find_rounded, size: 18),
+                label: Text('البحث عن ألعاب', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.cream,
+                  side: const BorderSide(color: Color(0xFFF59E0B), width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
           ],
