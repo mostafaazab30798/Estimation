@@ -10,6 +10,8 @@ import '../theme/app_theme.dart';
 class BidDialog extends StatefulWidget {
   final Bid? currentHighBid;
   final String? bidderName;
+  final Trump? fixedTrump;
+  final int roundNumber;
   final void Function(Bid bid) onBid;
   final VoidCallback onPass;
 
@@ -17,6 +19,8 @@ class BidDialog extends StatefulWidget {
     super.key,
     this.currentHighBid,
     this.bidderName,
+    this.fixedTrump,
+    this.roundNumber = 1,
     required this.onBid,
     required this.onPass,
   });
@@ -26,54 +30,62 @@ class BidDialog extends StatefulWidget {
 }
 
 class _BidDialogState extends State<BidDialog> {
-  // ValueNotifiers — form input state; no setState needed.
   late final _trickCount = ValueNotifier<int>(4);
-  late final _suit = ValueNotifier<Suit>(Suit.spade);
+  late final _trump = ValueNotifier<Trump>(Trump.spade);
 
-  bool _isValidFor(int count, Suit suit) {
-    final bid = Bid(trickCount: count, trumpSuit: suit);
-    return bid.beats(widget.currentHighBid ??
-        const Bid(trickCount: 0, trumpSuit: Suit.club));
+  bool _isValidFor(int count, Trump trump) {
+    final bid = Bid(trickCount: count, trump: trump);
+    if (widget.fixedTrump != null) {
+      if (trump != widget.fixedTrump && count < kOverrideFixedTrumpTricks) {
+        return false;
+      }
+    }
+    if (widget.currentHighBid == null) return count >= kMinBidTricks;
+    return bid.beats(widget.currentHighBid!);
   }
 
   @override
   void initState() {
     super.initState();
-    // Pre-select a value higher than current high bid
-    if (widget.currentHighBid != null) {
+    if (widget.fixedTrump != null) {
+      _trump.value = widget.fixedTrump!;
+      _trickCount.value = (widget.currentHighBid != null)
+          ? (widget.currentHighBid!.trickCount + 1).clamp(4, 13)
+          : 4;
+    } else if (widget.currentHighBid != null) {
       int tc = widget.currentHighBid!.trickCount;
-      Suit s = Suit.values[
-          (widget.currentHighBid!.trumpSuit.priority + 1) %
-              Suit.values.length];
-      if (s.priority <= widget.currentHighBid!.trumpSuit.priority) {
+      Trump t = Trump.values[
+          (widget.currentHighBid!.trump.priority + 1) % Trump.values.length];
+      if (t.priority <= widget.currentHighBid!.trump.priority) {
         tc++;
       }
       _trickCount.value = tc.clamp(4, 13);
-      _suit.value = s;
+      _trump.value = t;
     } else {
       _trickCount.value = 4;
+      _trump.value = Trump.spade;
     }
   }
 
   @override
   void dispose() {
     _trickCount.dispose();
-    _suit.dispose();
+    _trump.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.92 : 0.65);
+    final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.92 : 0.68);
 
     return ValueListenableBuilder<int>(
       valueListenable: _trickCount,
       builder: (context, count, _) {
-        return ValueListenableBuilder<Suit>(
-          valueListenable: _suit,
-          builder: (context, suit, _) {
-            final isValid = _isValidFor(count, suit);
+        return ValueListenableBuilder<Trump>(
+          valueListenable: _trump,
+          builder: (context, trump, _) {
+            final isValid = _isValidFor(count, trump);
 
             return Dialog(
               alignment: Alignment.center,
@@ -114,7 +126,8 @@ class _BidDialogState extends State<BidDialog> {
                                 child: Text(
                                   'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
                                   style: Theme.of(context)
-                                      .textTheme.bodyMedium
+                                      .textTheme
+                                      .bodyMedium
                                       ?.copyWith(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -122,9 +135,25 @@ class _BidDialogState extends State<BidDialog> {
                             ),
                         ],
                       ),
+                      if (widget.fixedTrump != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentBlue.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '📌 لون الجولة إجباري: ${widget.fixedTrump!.arabicName} (لا يمكن تغييره إلا بطلب 8 لمات فأكثر)',
+                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
-                      // Content Layout (Vertical for Portrait, Horizontal for Landscape)
+                      // Content Layout
                       if (isPortrait) ...[
                         Text('عدد اللمات',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
@@ -134,12 +163,14 @@ class _BidDialogState extends State<BidDialog> {
                           onChanged: (v) => _trickCount.value = v,
                         ),
                         const SizedBox(height: 14),
-                        Text('القطوع (الكار الكبير)',
+                        Text('نوع الحكم / القطوع',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
                         const SizedBox(height: 8),
-                        _SuitSelector(
-                          selected: suit,
-                          onChanged: (s) => _suit.value = s,
+                        _TrumpSelector(
+                          selected: trump,
+                          fixedTrump: widget.fixedTrump,
+                          currentTrickCount: count,
+                          onChanged: (t) => _trump.value = t,
                         ),
                       ] else
                         Row(
@@ -171,12 +202,14 @@ class _BidDialogState extends State<BidDialog> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('القطوع (الكار الكبير)',
+                                  Text('نوع الحكم / القطوع',
                                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
                                   const SizedBox(height: 8),
-                                  _SuitSelector(
-                                    selected: suit,
-                                    onChanged: (s) => _suit.value = s,
+                                  _TrumpSelector(
+                                    selected: trump,
+                                    fixedTrump: widget.fixedTrump,
+                                    currentTrickCount: count,
+                                    onChanged: (t) => _trump.value = t,
                                   ),
                                 ],
                               ),
@@ -217,8 +250,7 @@ class _BidDialogState extends State<BidDialog> {
                               onPressed: isValid
                                   ? () {
                                       Navigator.of(context).pop();
-                                      widget.onBid(
-                                          Bid(trickCount: count, trumpSuit: suit));
+                                      widget.onBid(Bid(trickCount: count, trump: trump));
                                     }
                                   : null,
                               child: const Text('مزايدة (Bid)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -285,62 +317,89 @@ class _TrickCountSelector extends StatelessWidget {
   }
 }
 
-class _SuitSelector extends StatelessWidget {
-  final Suit selected;
-  final void Function(Suit) onChanged;
+class _TrumpSelector extends StatelessWidget {
+  final Trump selected;
+  final Trump? fixedTrump;
+  final int currentTrickCount;
+  final void Function(Trump) onChanged;
 
-  const _SuitSelector({required this.selected, required this.onChanged});
+  const _TrumpSelector({
+    required this.selected,
+    this.fixedTrump,
+    required this.currentTrickCount,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Show suits in priority order (highest first for easy selection)
-    final suits = Suit.values.toList()
+    final trumps = Trump.values.toList()
       ..sort((a, b) => b.priority.compareTo(a.priority));
 
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       alignment: WrapAlignment.start,
-      children: suits.map((suit) {
-        final isSelected = suit == selected;
-        final color = suit.color == SuitColor.red
-            ? AppTheme.suitRed
-            : AppTheme.suitBlack;
+      children: trumps.map((trump) {
+        final isSelected = trump == selected;
+        final isFixedLocked = fixedTrump != null &&
+            trump != fixedTrump &&
+            currentTrickCount < kOverrideFixedTrumpTricks;
+
+        Color textColor;
+        if (trump.color == SuitColor.red) {
+          textColor = AppTheme.suitRed;
+        } else if (trump.color == SuitColor.gold) {
+          textColor = AppTheme.gold;
+        } else {
+          textColor = AppTheme.suitBlack;
+        }
+
         return GestureDetector(
-          onTap: () => onChanged(suit),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isSelected ? AppTheme.cardWhite : AppTheme.surfaceCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: isSelected ? AppTheme.gold : Colors.white12,
-                width: isSelected ? 2 : 1,
+          onTap: isFixedLocked ? null : () => onChanged(trump),
+          child: Opacity(
+            opacity: isFixedLocked ? 0.35 : 1.0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.cardWhite : AppTheme.surfaceCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected ? AppTheme.gold : Colors.white12,
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.gold.withValues(alpha: 0.4),
+                          blurRadius: 4,
+                        )
+                      ]
+                    : [],
               ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: AppTheme.gold.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                      )
-                    ]
-                  : [],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(suit.label,
-                    style: TextStyle(fontSize: 20, color: color)),
-                const SizedBox(height: 2),
-                Text(suit.arabicName,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trump.isSans ? '👑' : trump.label,
                     style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected
-                            ? AppTheme.navyDark
-                            : AppTheme.textSecondary)),
-              ],
+                      fontSize: 18,
+                      color: isSelected && trump.isSans ? AppTheme.navyDark : textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    trump.arabicName,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? AppTheme.navyDark
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

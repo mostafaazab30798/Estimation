@@ -3,16 +3,22 @@
 // Premium casino table painter — replaces the original _PremiumTablePainter
 // with a richer layered oval: wooden frame → navy felt → gold stitching →
 // inner radial glow. Phase-reactive felt glow is driven by [glowColor].
+// Subtle Trump watermark in felt center when a trump contract is active.
 
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 import '../../theme/app_theme.dart';
 
 /// Singleton painter factory. Call [CasinoTablePainter.forPhase] to get a
 /// cached painter that repaints only when the glow color changes.
 class CasinoTablePainter extends CustomPainter {
   final Color glowColor;
+  final Trump? trump;
 
-  const CasinoTablePainter({this.glowColor = AppTheme.deepNavy});
+  const CasinoTablePainter({
+    this.glowColor = AppTheme.deepNavy,
+    this.trump,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -40,17 +46,16 @@ class CasinoTablePainter extends CustomPainter {
     canvas.drawOval(tableRect.translate(0, 14), shadowPaint);
 
     // ── 2. Wooden frame (outer ring) ─────────────────────────────
-    // Deep warm-brown gradient simulating polished wood.
     final frameRect = tableRect;
-    final frameGradient = RadialGradient(
-      center: const Alignment(-0.3, -0.5),
+    final frameGradient = const RadialGradient(
+      center: Alignment(-0.3, -0.5),
       radius: 1.1,
-      colors: const [
+      colors: [
         Color(0xFF3D2314), // lighter wood highlight
         Color(0xFF2C1810), // mid tone
         Color(0xFF1A0F09), // dark shadow
       ],
-      stops: const [0.0, 0.55, 1.0],
+      stops: [0.0, 0.55, 1.0],
     ).createShader(frameRect);
 
     canvas.drawOval(
@@ -109,7 +114,37 @@ class CasinoTablePainter extends CustomPainter {
       );
     }
 
-    // ── 5. Gold stitching ring ────────────────────────────────────
+    // ── 5. Center Trump Watermark ─────────────────────────────────
+    if (trump != null) {
+      final center = feltRect.center;
+      final watermarkSymbol = _trumpSymbol(trump!);
+      final isRed = trump == Trump.heart || trump == Trump.diamond;
+      final watermarkColor = (isRed ? AppTheme.suitRed : AppTheme.accentLight)
+          .withValues(alpha: 0.065);
+
+      final textSpan = TextSpan(
+        text: watermarkSymbol,
+        style: TextStyle(
+          fontSize: isPortrait ? 95 : 120,
+          fontWeight: FontWeight.bold,
+          color: watermarkColor,
+          height: 1.0,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final textOffset = Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2 - (isPortrait ? 8 : 0),
+      );
+      textPainter.paint(canvas, textOffset);
+    }
+
+    // ── 6. Gold stitching ring ────────────────────────────────────
     final stitchRect = feltRect.deflate(12);
     final stitchPaint = Paint()
       ..color = AppTheme.gold.withValues(alpha: 0.22)
@@ -118,13 +153,16 @@ class CasinoTablePainter extends CustomPainter {
     canvas.drawOval(stitchRect, stitchPaint);
 
     // Dashes on the stitching ring
-    _drawDashedOval(canvas, stitchRect.deflate(4),
-        Paint()
-          ..color = AppTheme.gold.withValues(alpha: 0.10)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8);
+    _drawDashedOval(
+      canvas,
+      stitchRect.deflate(4),
+      Paint()
+        ..color = AppTheme.gold.withValues(alpha: 0.10)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
 
-    // ── 6. Inner light reflection (top highlight) ─────────────────
+    // ── 7. Inner light reflection (top highlight) ─────────────────
     final reflectGradient = RadialGradient(
       center: const Alignment(0, -0.7),
       radius: 0.6,
@@ -142,10 +180,24 @@ class CasinoTablePainter extends CustomPainter {
     );
   }
 
+  static String _trumpSymbol(Trump trump) {
+    switch (trump) {
+      case Trump.spade:
+        return '♠';
+      case Trump.heart:
+        return '♥';
+      case Trump.diamond:
+        return '♦';
+      case Trump.club:
+        return '♣';
+      case Trump.sans:
+        return 'SANS';
+    }
+  }
+
   void _drawDashedOval(Canvas canvas, Rect rect, Paint paint) {
-    // Approximate dashed oval via 36 short arc segments.
     const segments = 36;
-    const dashFraction = 0.55; // fraction of segment that is drawn
+    const dashFraction = 0.55;
     final path = Path();
     for (int i = 0; i < segments; i++) {
       final startAngle = (i / segments) * 2 * 3.1416;
@@ -156,5 +208,6 @@ class CasinoTablePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(CasinoTablePainter old) => old.glowColor != glowColor;
+  bool shouldRepaint(CasinoTablePainter old) =>
+      old.glowColor != glowColor || old.trump != trump;
 }

@@ -3,19 +3,21 @@
 // Main game table — all existing game logic is UNCHANGED.
 // Only the presentation layer is redesigned using the new hud/ components.
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-
 import '../core/models/game_state.dart';
+import '../core/game_engine.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/player_hand.dart';
 import '../widgets/trick_area.dart';
 import '../widgets/player_info.dart';
 import '../widgets/bid_dialog.dart';
+import '../widgets/dash_call_dialog.dart';
 import '../widgets/declaration_dialog.dart';
 import '../widgets/tricks_dialog.dart';
 import '../widgets/reconnection_banner.dart';
@@ -36,14 +38,39 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  bool _dashCallDialogOpen = false;
   bool _bidDialogOpen = false;
   bool _declarationDialogOpen = false;
   bool _delayingScoring = false;
+  bool _showEmotes = false;
+  String? _floatingEmote;
+  Timer? _emoteTimer;
 
   // Fix #1/#9: Track last-seen values so we only trigger dialog logic
   // when the relevant state actually changes, not on every rebuild.
   GamePhase? _lastPhase;
   bool _lastIsMyTurn = false;
+
+  void _triggerEmote(String emote) {
+    setState(() {
+      _floatingEmote = emote;
+      _showEmotes = false;
+    });
+    _emoteTimer?.cancel();
+    _emoteTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        setState(() {
+          _floatingEmote = null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _emoteTimer?.cancel();
+    super.dispose();
+  }
 
   final Map<int, GlobalKey> _playerKeys = {
     0: GlobalKey(),
@@ -69,6 +96,7 @@ class _GameScreenState extends State<GameScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (provider.state == null || provider.status != ConnectionStatus.connected) return;
+      _maybeShowDashCallDialog(context, provider, state);
       _maybeShowBidDialog(context, provider, state);
       _maybeShowDeclarationDialog(context, provider, state);
     });
@@ -141,7 +169,10 @@ class _GameScreenState extends State<GameScreen> {
             Positioned.fill(
               child: RepaintBoundary(
                 child: CustomPaint(
-                  painter: CasinoTablePainter(glowColor: tableGlowColor),
+                  painter: CasinoTablePainter(
+                    glowColor: tableGlowColor,
+                    trump: state.trump,
+                  ),
                 ),
               ),
             ),
@@ -364,6 +395,52 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
 
+                  // ── Floating Emote Animation ─────────────────────────────
+                  if (_floatingEmote != null)
+                    Positioned(
+                      bottom: isPortrait ? 135 : 85,
+                      left: isPortrait ? 24 : 110,
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 1800),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, val, child) {
+                          return Transform.translate(
+                            offset: Offset(0, -val * 60),
+                            child: Opacity(
+                              opacity: (1.0 - val).clamp(0.0, 1.0),
+                              child: Transform.scale(
+                                scale: 1.0 + val * 0.4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.navyDark.withValues(alpha: 0.85),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(_floatingEmote!, style: const TextStyle(fontSize: 32)),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                  // ── Floating Emote Drawer Trigger ─────────────────────────
+                  Positioned(
+                    bottom: isPortrait ? 8 : 12,
+                    right: isPortrait ? 8 : 16,
+                    child: _buildEmoteDrawer(isPortrait),
+                  ),
+
                   // ── Phase overlay ─────────────────────────────────
                   Consumer<GameProvider>(
                     builder: (ctx, prov, _) =>
@@ -391,6 +468,81 @@ class _GameScreenState extends State<GameScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEmoteDrawer(bool isPortrait) {
+    const emotes = ['🔥', '👑', '👏', '😂', '💀', '💩', '⚡'];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_showEmotes)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.navyDark.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.45)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final emote in emotes)
+                  GestureDetector(
+                    onTap: () => _triggerEmote(emote),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      child: Text(emote, style: const TextStyle(fontSize: 24)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _showEmotes = !_showEmotes;
+            });
+          },
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppTheme.navyDark.withValues(alpha: 0.85),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _showEmotes ? AppTheme.gold : Colors.white.withValues(alpha: 0.3),
+                width: 1.4,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                _showEmotes ? '✕' : '💬',
+                style: TextStyle(
+                  fontSize: _showEmotes ? 16 : 18,
+                  color: _showEmotes ? AppTheme.gold : Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -660,6 +812,50 @@ class _GameScreenState extends State<GameScreen> {
 
   // ── Dialog triggers — UNCHANGED LOGIC ──────────────────────────────────
 
+  // ── Dialog triggers ──────────────────────────────────────────────────
+
+  void _maybeShowDashCallDialog(
+      BuildContext context, GameProvider provider, GameState state) {
+    if (provider.state == null ||
+        provider.status != ConnectionStatus.connected ||
+        state.phase != GamePhase.dashCall ||
+        !provider.isMyTurn) {
+      if (_dashCallDialogOpen) {
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        _dashCallDialogOpen = false;
+      }
+      return;
+    }
+
+    final me = provider.me;
+    if (me == null || state.dashCallPassed.contains(me.id)) {
+      if (_dashCallDialogOpen) {
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+        _dashCallDialogOpen = false;
+      }
+      return;
+    }
+
+    if (_dashCallDialogOpen) return;
+
+    _dashCallDialogOpen = true;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => DashCallDialog(
+        onDecision: (wantsDashCall) {
+          provider.submitDashCall(wantsDashCall);
+        },
+      ),
+    ).then((_) {
+      if (mounted) _dashCallDialogOpen = false;
+    });
+  }
+
   void _maybeShowBidDialog(
       BuildContext context, GameProvider provider, GameState state) {
     if (provider.state == null ||
@@ -686,6 +882,8 @@ class _GameScreenState extends State<GameScreen> {
         bidderName: state.bidderPlayerId != null
             ? state.playerById(state.bidderPlayerId!).name
             : null,
+        fixedTrump: state.fixedTrump,
+        roundNumber: state.roundNumber,
         onBid: (bid) {
           provider.submitBid(bid);
         },
@@ -726,20 +924,10 @@ class _GameScreenState extends State<GameScreen> {
 
     if (_declarationDialogOpen) return;
 
-    int? forbidden;
+    final forbidden = GameEngine.getForbiddenDeclaration(state, me.id);
+    final maxDeclaration = GameEngine.getMaxAllowedDeclaration(state, me.id);
+
     int? minDeclaration;
-
-    final decls = state.players
-        .map((p) => p.declared)
-        .where((d) => d != null)
-        .toList();
-
-    if (decls.length == 3) {
-      final sum = decls.fold<int>(0, (a, b) => a + b!);
-      forbidden = 13 - sum;
-      if (forbidden < 0 || forbidden > 13) forbidden = null;
-    }
-
     if (provider.amBidder && state.currentHighBid != null) {
       minDeclaration = state.currentHighBid!.trickCount;
     }
@@ -753,6 +941,7 @@ class _GameScreenState extends State<GameScreen> {
         me: me,
         forbiddenDeclaration: forbidden,
         minDeclaration: minDeclaration,
+        maxDeclaration: maxDeclaration,
         onSubmit: (declared) {
           provider.submitDeclaration(declared);
         },

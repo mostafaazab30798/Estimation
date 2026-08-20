@@ -7,6 +7,7 @@ import '../core/models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../services/history_service.dart';
+import '../services/audio_service.dart';
 
 class MatchEndScreen extends StatefulWidget {
   final GameState state;
@@ -35,6 +36,14 @@ class _MatchEndScreenState extends State<MatchEndScreen>
         vsync: this, duration: const Duration(milliseconds: 600));
     _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _ctrl.forward();
+
+    final winner = widget.state.matchWinner;
+    final isMeWinner = winner != null && winner.id == widget.provider.myPlayerId;
+    if (isMeWinner) {
+      AudioService.instance.playWin();
+    } else {
+      AudioService.instance.playDefeat();
+    }
     
     if (!_hasSaved) {
       _hasSaved = true;

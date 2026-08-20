@@ -33,6 +33,13 @@ _PlayerStatus _resolveStatus({
       final isReady = state.voidCheckPassed.contains(player.id);
       return isReady ? _PlayerStatus.ready : _PlayerStatus.waiting;
 
+    case GamePhase.dashCall:
+      if (player.isDashCall) return _PlayerStatus.declared;
+      if (state.currentPlayerSeatIndex == player.seatIndex) {
+        return _PlayerStatus.declaring;
+      }
+      return _PlayerStatus.waiting;
+
     case GamePhase.auction:
       if (player.hasPassed) return _PlayerStatus.passed;
       if (state.auctionTurnSeatIndex == player.seatIndex) {

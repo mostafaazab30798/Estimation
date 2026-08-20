@@ -10,6 +10,7 @@ import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/score_table.dart';
 import '../widgets/performance_blur.dart';
+import '../services/audio_service.dart';
 
 class ScoringScreen extends StatefulWidget {
   final GameState state;
@@ -56,6 +57,16 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
     );
 
     _entrance.forward();
+
+    final me = widget.provider.me;
+    if (me != null) {
+      final delta = widget.state.lastRoundScoreDeltas[me.id] ?? 0;
+      if ((me.isRisk || me.isDashCall) && me.actual == me.declared) {
+        AudioService.instance.playRiskWin();
+      } else if (delta < 0) {
+        AudioService.instance.playDefeat();
+      }
+    }
   }
 
   @override

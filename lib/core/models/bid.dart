@@ -2,36 +2,43 @@
 import '../constants.dart';
 
 class Bid {
-  final int trickCount; // 1–13
-  final Suit trumpSuit;
+  final int trickCount; // 4–13
+  final Trump trump;
 
-  const Bid({required this.trickCount, required this.trumpSuit});
+  const Bid({required this.trickCount, required this.trump});
+
+  /// Backward-compat getter: returns Trump.suit if not sans
+  Suit? get suit => trump.suit;
+  Trump get trumpSuit => trump; // for backward compatibility
 
   /// Returns true if this bid beats [other].
-  /// Spec §5.4: B beats H if B.trickCount > H.trickCount
-  ///             OR (B.trickCount == H.trickCount AND B.trumpSuit.priority > H.trumpSuit.priority)
+  /// B beats H if B.trickCount > H.trickCount
+  ///             OR (B.trickCount == H.trickCount AND B.trump.priority > H.trump.priority)
   bool beats(Bid other) {
     if (trickCount > other.trickCount) return true;
     if (trickCount == other.trickCount &&
-        trumpSuit.priority > other.trumpSuit.priority) {
+        trump.priority > other.trump.priority) {
       return true;
     }
     return false;
   }
 
-  String get arabicLabel => '$trickCount ${trumpSuit.arabicName}';
+  String get arabicLabel => '$trickCount ${trump.arabicName}';
 
   Map<String, dynamic> toJson() => {
         'trickCount': trickCount,
-        'trumpSuit': trumpSuit.name,
+        'trump': trump.name,
+        'trumpSuit': trump.name,
       };
 
-  factory Bid.fromJson(Map<String, dynamic> json) => Bid(
-        trickCount: json['trickCount'] as int,
-        trumpSuit: Suit.fromString(json['trumpSuit'] as String),
-      );
+  factory Bid.fromJson(Map<String, dynamic> json) {
+    final trumpName = (json['trump'] ?? json['trumpSuit']) as String;
+    return Bid(
+      trickCount: json['trickCount'] as int,
+      trump: Trump.fromString(trumpName),
+    );
+  }
 
   @override
-  String toString() => '$trickCount ${trumpSuit.label}';
+  String toString() => '$trickCount ${trump.label}';
 }
-

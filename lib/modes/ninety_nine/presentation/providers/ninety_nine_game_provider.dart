@@ -1,12 +1,9 @@
 // lib/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart
 
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'package:estimation/core/models/card.dart';
-import 'package:estimation/modes/ninety_nine/domain/ninety_nine_card_rules.dart';
-import 'package:estimation/services/history_service.dart';
 
 import 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
 export 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
@@ -15,7 +12,6 @@ import 'package:estimation/networking/messages.dart';
 
 class NinetyNineGameProvider extends ChangeNotifier {
   static const int maxLosses = 5;
-  final Random _random = Random();
   Timer? _botTimer;
 
   int _groundTotal = 0;

@@ -58,6 +58,8 @@ class _GameBackgroundState extends State<GameBackground>
         return AppTheme.phaseScoring;
       case GamePhase.voidCheck:
         return AppTheme.phaseReady;
+      case GamePhase.dashCall:
+        return Colors.orangeAccent;
       default:
         return AppTheme.deepNavy;
     }

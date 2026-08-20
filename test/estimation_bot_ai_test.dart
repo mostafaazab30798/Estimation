@@ -87,7 +87,7 @@ void main() {
 
       final bid = EstimationBotAi.decideAuctionBid(state, bot);
       expect(bid, isNotNull);
-      expect(bid!.trumpSuit, Suit.spade);
+      expect(bid!.trump, Trump.spade);
       expect(bid.trickCount, greaterThanOrEqualTo(4));
     });
 
@@ -116,7 +116,7 @@ void main() {
       final state = GameState(
         players: [bot],
         phase: GamePhase.auction,
-        currentHighBid: const Bid(trickCount: 4, trumpSuit: Suit.club),
+        currentHighBid: const Bid(trickCount: 4, trump: Trump.club),
       );
 
       final bid = EstimationBotAi.decideAuctionBid(state, bot);
@@ -151,8 +151,8 @@ void main() {
         players: [bot],
         phase: GamePhase.declarations,
         bidderPlayerId: bot.id,
-        trumpSuit: Suit.spade,
-        currentHighBid: const Bid(trickCount: 5, trumpSuit: Suit.spade),
+        trump: Trump.spade,
+        currentHighBid: const Bid(trickCount: 5, trump: Trump.spade),
       );
 
       final decl = EstimationBotAi.decideDeclaration(state, bot);

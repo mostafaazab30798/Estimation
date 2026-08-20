@@ -43,6 +43,7 @@ class GameMessage {
 class ActionType {
   static const String submitBid = 'submitBid';
   static const String passBid = 'passBid';
+  static const String submitDashCall = 'submitDashCall';
 
   static const String approveRedeal = 'approveRedeal';
   static const String rejectRedeal = 'rejectRedeal';

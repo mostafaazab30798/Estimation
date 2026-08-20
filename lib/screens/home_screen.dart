@@ -12,6 +12,7 @@ import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
 import '../widgets/performance_blur.dart';
 import '../widgets/game_guide_dialog.dart';
+import '../services/audio_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -621,30 +622,26 @@ class _HomeScreenState extends State<HomeScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Standalone Animated Logo
+        // 3D Animated Floating Mini-Cards Fan
         AnimatedBuilder(
           animation: _pulseAnim,
           builder: (context, child) {
             return Transform.scale(
               scale: _pulseAnim.value,
-              child: Image.asset(
-                'assets/poker.png',
-                height: 140,
-                fit: BoxFit.contain,
-              ),
+              child: _buildFloatingCardFan(),
             );
           },
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
         // Gradient Title Text
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
             colors: [
               AppTheme.white,
-              AppTheme.mintSoft,
-              AppTheme.accentLight,
+              Color(0xFFFFF176),
+              AppTheme.gold,
             ],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
@@ -652,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: Text(
             'إستميشن',
             style: GoogleFonts.cairo(
-              fontSize: 44,
+              fontSize: 46,
               fontWeight: FontWeight.w900,
               color: Colors.white,
               letterSpacing: 1,
@@ -660,7 +657,139 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
         ),
+
+        const SizedBox(height: 8),
+
+        // Official Rules Subtitle Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.gold.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.gold.withValues(alpha: 0.45),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.gold.withValues(alpha: 0.15),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('👑', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Text(
+                'البولة الرسمية 18 دور • سانز وداش كول',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.goldLight,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _buildFloatingCardFan() {
+    return SizedBox(
+      height: 125,
+      width: 210,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Left Card (Ace of Spades) tilted
+          Transform.translate(
+            offset: const Offset(-38, 6),
+            child: Transform.rotate(
+              angle: -0.28,
+              child: _buildMiniHeroCard('♠', 'A', AppTheme.accentLight, AppTheme.navyDark),
+            ),
+          ),
+          // Right Card (Ace of Diamonds) tilted
+          Transform.translate(
+            offset: const Offset(38, 6),
+            child: Transform.rotate(
+              angle: 0.28,
+              child: _buildMiniHeroCard('♦', 'A', AppTheme.suitRed, AppTheme.navyDark),
+            ),
+          ),
+          // Center Card (King of Hearts) elevated
+          Transform.translate(
+            offset: const Offset(0, -6),
+            child: _buildMiniHeroCard('♥', 'K', AppTheme.suitRed, const Color(0xFF1E293B), isCenter: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniHeroCard(String suit, String rank, Color suitColor, Color bg, {bool isCenter = false}) {
+    return Container(
+      width: 68,
+      height: 98,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCenter ? AppTheme.gold : Colors.white.withValues(alpha: 0.28),
+          width: isCenter ? 1.8 : 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isCenter
+                ? AppTheme.gold.withValues(alpha: 0.4)
+                : Colors.black.withValues(alpha: 0.45),
+            blurRadius: isCenter ? 18 : 10,
+            spreadRadius: isCenter ? 1 : 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rank,
+            style: GoogleFonts.cinzel(
+              color: suitColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
+          ),
+          Center(
+            child: Text(
+              suit,
+              style: TextStyle(
+                color: suitColor,
+                fontSize: 22,
+                height: 1.0,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Text(
+              rank,
+              style: GoogleFonts.cinzel(
+                color: suitColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -707,11 +836,17 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context, mode, _) {
         final isHostActive = mode == 'host';
         final isJoinActive = mode == 'join';
+        final isLocalActive = mode == 'local';
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 🌟 Featured Hero Action: Quick Play vs Bots
+            _buildHeroQuickPlayCard(context),
+
+            const SizedBox(height: 16),
+
             // Mode 1: Host Room
             _buildModeTile(
               title: 'إنشاء غرفة جديدة',
@@ -720,6 +855,7 @@ class _HomeScreenState extends State<HomeScreen>
               gradientColors: [const Color(0xFF3A7BD5), const Color(0xFF3A6073)],
               isActive: isHostActive,
               onTap: () {
+                HapticFeedback.selectionClick();
                 _pendingMode.value = isHostActive ? null : 'host';
               },
               expandableContent: _buildHostOptions(context),
@@ -735,6 +871,7 @@ class _HomeScreenState extends State<HomeScreen>
               gradientColors: [const Color(0xFF11998E), const Color(0xFF38EF7D)],
               isActive: isJoinActive,
               onTap: () {
+                HapticFeedback.selectionClick();
                 _pendingMode.value = isJoinActive ? null : 'join';
               },
               expandableContent: _buildJoinOptions(context),
@@ -748,32 +885,146 @@ class _HomeScreenState extends State<HomeScreen>
               subtitle: 'استضف أصدقائك أو انضم أوفلاين عبر الواي فاي',
               icon: Icons.wifi_find_rounded,
               gradientColors: [const Color(0xFFF59E0B), const Color(0xFFD97706)],
-              isActive: mode == 'local',
+              isActive: isLocalActive,
               onTap: () {
-                _pendingMode.value = (mode == 'local') ? null : 'local';
+                HapticFeedback.selectionClick();
+                _pendingMode.value = isLocalActive ? null : 'local';
               },
               expandableContent: _buildLocalOptions(context),
               badgeText: 'أوفلاين 📡',
             ),
-
-            const SizedBox(height: 14),
-
-            // Mode 4: Practice vs Bots
-            _buildModeTile(
-              title: 'تجربة ضد البوتات',
-              subtitle: 'لعبة سريعة تدريبية بدون انتظار أونلاين',
-              icon: Icons.smart_toy_rounded,
-              gradientColors: [const Color(0xFF8E2DE2), const Color(0xFF4A00E0)],
-              isActive: false,
-              onTap: () {
-                _pendingMode.value = null;
-                _testMode(context);
-              },
-              badgeText: 'لعب سريع',
-            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHeroQuickPlayCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF2E1065), // Royal deep violet
+            Color(0xFF4C1D95), // Vibrant purple
+            Color(0xFF1E1B4B), // Midnight navy
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppTheme.gold.withValues(alpha: 0.75),
+          width: 1.6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+            blurRadius: 20,
+            spreadRadius: 1,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.heavyImpact();
+            AudioService.instance.playCard();
+            _testMode(context);
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.gold, Color(0xFFFFD700), Color(0xFFD97706)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.gold.withValues(alpha: 0.45),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text('🤖', style: TextStyle(fontSize: 26)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'العب الآن ضد البوتات',
+                              style: GoogleFonts.cairo(
+                                color: AppTheme.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.gold.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
+                            ),
+                            child: Text(
+                              'سريع ⚡',
+                              style: GoogleFonts.cairo(
+                                color: AppTheme.gold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'بدء مباراة فورية بدون انتظار • 18 دور',
+                        style: GoogleFonts.cairo(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                  ),
+                  child: const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.gold, size: 15),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

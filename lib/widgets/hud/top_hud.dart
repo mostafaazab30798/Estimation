@@ -24,6 +24,8 @@ class TopHud extends StatelessWidget {
     switch (state.phase) {
       case GamePhase.voidCheck:
         return 'جاهزون ${state.voidCheckPassed.length}/${state.players.length}';
+      case GamePhase.dashCall:
+        return 'داش كول';
       case GamePhase.auction:
         return 'المزاد';
       case GamePhase.declarations:
@@ -41,6 +43,8 @@ class TopHud extends StatelessWidget {
     switch (state.phase) {
       case GamePhase.voidCheck:
         return AppTheme.phaseReady;
+      case GamePhase.dashCall:
+        return Colors.orangeAccent;
       case GamePhase.auction:
         return AppTheme.phaseAuction;
       case GamePhase.declarations:
@@ -155,7 +159,7 @@ class TopHud extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(child: _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic())),
             const SizedBox(width: 10),
-            if (state.trumpSuit != null)
+            if (state.trump != null)
               _TrumpBadge(state: state)
             else
               const SizedBox(width: 40),
@@ -191,7 +195,7 @@ class TopHud extends StatelessWidget {
         const _GuideButton(),
         const SizedBox(width: 12),
         _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic()),
-        if (state.trumpSuit != null) ...[
+        if (state.trump != null) ...[
           const SizedBox(width: 12),
           _TrumpBadge(state: state),
         ],
@@ -270,6 +274,8 @@ class _RoundPhaseCenter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -284,7 +290,52 @@ class _RoundPhaseCenter extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
+            if (isFixedRound) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🔒', style: TextStyle(fontSize: 10)),
+                    const SizedBox(width: 3),
+                    Text(
+                      'ثابت',
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFFFDE68A),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (state.isDoubleRound) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.suitRed.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.suitRed.withValues(alpha: 0.6)),
+                ),
+                child: Text(
+                  '🔥 x2',
+                  style: GoogleFonts.cairo(
+                    color: const Color(0xFFFF8A80),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -314,7 +365,35 @@ class _TrumpBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final suit = state.trumpSuit!;
+    if (state.trump == Trump.sans) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF4C1D95).withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFA78BFA).withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🚫', style: TextStyle(fontSize: 13)),
+            const SizedBox(width: 4),
+            Text(
+              'سانز',
+              style: GoogleFonts.cairo(
+                color: const Color(0xFFDDD6FE),
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final suit = state.trumpSuit;
+    if (suit == null) return const SizedBox.shrink();
+
     final isRed = suit.color == SuitColor.red;
     final suitColor = isRed ? AppTheme.suitRed : AppTheme.steelBlue;
 

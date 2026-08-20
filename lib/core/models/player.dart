@@ -14,6 +14,8 @@ class Player {
   int? declared; // tricks declared (null before declaration phase)
   int actual;    // tricks won so far this round
   bool hasPassed; // passed in auction?
+  bool isDashCall; // declared Dash Call (0 tricks blind) before auction
+  bool isRisk;     // last player took risk (sum <= 11 in under)
   int totalScore; // cumulative across rounds
 
   Player({
@@ -26,6 +28,8 @@ class Player {
     this.declared,
     this.actual = 0,
     this.hasPassed = false,
+    this.isDashCall = false,
+    this.isRisk = false,
     this.totalScore = 0,
   })  : hand = hand ?? [],
         takenTricks = takenTricks ?? [];
@@ -36,6 +40,8 @@ class Player {
     declared = null;
     actual = 0;
     hasPassed = false;
+    isDashCall = false;
+    isRisk = false;
   }
 
   Map<String, dynamic> toJson() => {
@@ -50,6 +56,8 @@ class Player {
         'declared': declared,
         'actual': actual,
         'hasPassed': hasPassed,
+        'isDashCall': isDashCall,
+        'isRisk': isRisk,
         'totalScore': totalScore,
       };
 
@@ -61,12 +69,15 @@ class Player {
       photo: json['photo'] as String?,
       declared: json['declared'] as int?,
       actual: json['actual'] as int,
-      hasPassed: json['hasPassed'] as bool,
-      totalScore: json['totalScore'] as int,
+      hasPassed: json['hasPassed'] as bool? ?? false,
+      isDashCall: json['isDashCall'] as bool? ?? false,
+      isRisk: json['isRisk'] as bool? ?? false,
+      totalScore: json['totalScore'] as int? ?? 0,
     );
-    p.hand = (json['hand'] as List<dynamic>)
-        .map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
-        .toList();
+    p.hand = (json['hand'] as List<dynamic>?)
+            ?.map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+            .toList() ??
+        [];
     if (json['takenTricks'] != null) {
       p.takenTricks = (json['takenTricks'] as List<dynamic>)
           .map((trick) => (trick as List<dynamic>)
@@ -89,6 +100,8 @@ class Player {
     int? declared,
     int? actual,
     bool? hasPassed,
+    bool? isDashCall,
+    bool? isRisk,
     int? totalScore,
   }) {
     final p = Player(
@@ -99,6 +112,8 @@ class Player {
       declared: declared ?? this.declared,
       actual: actual ?? this.actual,
       hasPassed: hasPassed ?? this.hasPassed,
+      isDashCall: isDashCall ?? this.isDashCall,
+      isRisk: isRisk ?? this.isRisk,
       totalScore: totalScore ?? this.totalScore,
     );
     p.hand = hand ?? List.from(this.hand);
@@ -106,4 +121,3 @@ class Player {
     return p;
   }
 }
-

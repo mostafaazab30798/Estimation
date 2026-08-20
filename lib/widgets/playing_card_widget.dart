@@ -70,6 +70,18 @@ class PlayingCardWidget extends StatelessWidget {
                     ],
                   ),
                 ),
+              )
+            else if (playable && !dimmed)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: _kCardBorderRadius,
+                    border: Border.all(
+                      color: AppTheme.gold.withValues(alpha: 0.35),
+                      width: 1.2,
+                    ),
+                  ),
+                ),
               ),
             // Dimming overlay (not playable)
             if (dimmed)

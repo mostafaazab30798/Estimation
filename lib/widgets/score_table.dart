@@ -136,7 +136,17 @@ class ScoreTable extends StatelessWidget {
                           if (isBidder)
                             const Padding(
                               padding: EdgeInsets.only(left: 4),
+                              child: Text('👑', style: TextStyle(fontSize: 13)),
+                            ),
+                          if (player.isDashCall)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4),
                               child: Text('🔥', style: TextStyle(fontSize: 13)),
+                            ),
+                          if (player.isRisk)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4),
+                              child: Text('⚡', style: TextStyle(fontSize: 13)),
                             ),
                           Expanded(
                             child: FittedBox(

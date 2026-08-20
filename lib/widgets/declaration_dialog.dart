@@ -12,6 +12,7 @@ class DeclarationDialog extends StatefulWidget {
   final void Function(int declared) onSubmit;
   final int? forbiddenDeclaration;
   final int? minDeclaration;
+  final int? maxDeclaration;
   final GameState? state;
   final Player? me;
 
@@ -20,6 +21,7 @@ class DeclarationDialog extends StatefulWidget {
     required this.onSubmit, 
     this.forbiddenDeclaration,
     this.minDeclaration,
+    this.maxDeclaration,
     this.state,
     this.me,
   });
@@ -35,11 +37,12 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
   @override
   void initState() {
     super.initState();
-    int initial = (widget.minDeclaration ?? 0).clamp(0, 13);
+    int maxAllowed = widget.maxDeclaration ?? 13;
+    int initial = (widget.minDeclaration ?? 0).clamp(0, maxAllowed);
     if (initial == widget.forbiddenDeclaration) {
-      if (initial < 13) {
+      if (initial < maxAllowed) {
         initial++;
-      } else if (initial > 0) {
+      } else if (initial > (widget.minDeclaration ?? 0)) {
         initial--;
       }
     }
@@ -155,6 +158,15 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                   textAlign: TextAlign.center,
                 ),
               ],
+              if (widget.maxDeclaration != null && widget.maxDeclaration! < 13) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '📌 لا يمكنك طلب أكلات أكثر من صاحب المزاد (${widget.maxDeclaration})',
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ],
               if (widget.forbiddenDeclaration != null) ...[
                 const SizedBox(height: 6),
                 Container(
@@ -179,6 +191,12 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
               ValueListenableBuilder<int>(
                 valueListenable: _declared,
                 builder: (context, declared, _) {
+                  final isWith = state?.bidder?.declared != null &&
+                      declared == state?.bidder?.declared &&
+                      me?.id != state?.bidderPlayerId;
+                  final isRisk = widget.forbiddenDeclaration != null &&
+                      (totalDeclaredSoFar + declared <= 11);
+
                   return Column(
                     children: [
                       Wrap(
@@ -191,12 +209,14 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                               final isForbidden = i == widget.forbiddenDeclaration;
                               final isBelowMin =
                                   widget.minDeclaration != null && i < widget.minDeclaration!;
-                              final isDisabled = isForbidden || isBelowMin;
+                              final isAboveMax =
+                                  widget.maxDeclaration != null && i > widget.maxDeclaration!;
+                              final isDisabled = isForbidden || isBelowMin || isAboveMax;
                               final isSelected = declared == i;
                               return GestureDetector(
                                 onTap: isDisabled ? null : () => _declared.value = i,
                                 child: Opacity(
-                                  opacity: isDisabled ? 0.3 : 1.0,
+                                  opacity: isDisabled ? 0.25 : 1.0,
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 120),
                                     width: 38,
@@ -233,6 +253,42 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                             }),
                           ],
                       ),
+                      if (isWith || isRisk) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isWith)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.gold.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
+                                ),
+                                child: const Text(
+                                  '👑 ويز (With) +10 بونص',
+                                  style: TextStyle(color: AppTheme.gold, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            if (isRisk)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                                ),
+                                child: const Text(
+                                  '⚡ ريسك (Risk) +10 بونص',
+                                  style: TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       // Submit Button
                       SizedBox(

@@ -7,9 +7,10 @@ import '../constants.dart';
 enum GamePhase {
   lobby,
   dealing,
-  voidCheck,   // after deal, before auction — players may request redeal
+  voidCheck,    // after deal, before auction — players may request redeal
+  dashCall,     // pre-auction prompt — players may call Dash Call (0 blind)
   auction,
-  declarations, // non-Bidder players declare trick targets
+  declarations, // players declare trick targets
   trickTaking,
   scoring,
   matchEnd,
@@ -21,8 +22,13 @@ class GameState {
   GamePhase phase;
 
   // ── Round meta ─────────────────────────────────────────────
-  int roundNumber;     // 1-based
+  int roundNumber;     // 1-based (1 to 18)
+  int totalRounds;     // Default 18 for official Boula
   int dealerSeatIndex; // rotates each round
+  bool isDoubleRound;  // true if previous round was all-passed (2x points)
+
+  // ── Pre-auction Dash Call ──────────────────────────────────
+  Set<String> dashCallPassed; // player IDs who responded to Dash Call prompt
 
   // ── Auction ────────────────────────────────────────────────
   Bid? currentHighBid;
@@ -30,19 +36,27 @@ class GameState {
   int auctionTurnSeatIndex; // whose turn it is to bid
   String? bidderPlayerId;   // auction winner (set when auction ends)
 
-  // ── Trick-taking ───────────────────────────────────────────
-  Suit? trumpSuit;
+  // ── Trick-taking & Trump ───────────────────────────────────
+  Trump? trump;
+  Suit? get trumpSuit => trump?.suit; // Backward compatibility
+  set trumpSuit(dynamic val) {
+    if (val is Trump?) {
+      trump = val;
+    } else if (val is Suit?) {
+      trump = val != null ? Trump.fromSuit(val) : null;
+    }
+  }
+
   List<TrickCard> currentTrick; // cards played so far in this trick
   int trickLeaderSeatIndex;     // who leads current trick
   int tricksPlayedThisRound;
-  // whose turn to play a card
-  int currentPlayerSeatIndex;
+  int currentPlayerSeatIndex;   // whose turn to play a card
 
   // ── Round scores (populated at end of round) ───────────────
   Map<String, int> lastRoundScoreDeltas; // playerId → score delta
 
   // ── Void-check ─────────────────────────────────────────────
-  Set<String> voidCheckPassed; // player IDs who have confirmed no redeal needed
+  Set<String> voidCheckPassed; // player IDs who confirmed no redeal needed
   String? voidDeclaringPlayerId; // player ID who declared a void suit
   Set<String> voidRedealRejections; // player IDs who rejected the redeal
 
@@ -53,12 +67,16 @@ class GameState {
     required this.players,
     this.phase = GamePhase.lobby,
     this.roundNumber = 1,
+    this.totalRounds = kBoulaTotalRounds,
     this.dealerSeatIndex = 0,
+    this.isDoubleRound = false,
+    Set<String>? dashCallPassed,
     this.currentHighBid,
     this.currentHighBidderPlayerId,
     this.auctionTurnSeatIndex = 0,
     this.bidderPlayerId,
-    this.trumpSuit,
+    this.trump,
+    Suit? trumpSuit,
     List<TrickCard>? currentTrick,
     this.trickLeaderSeatIndex = 0,
     this.tricksPlayedThisRound = 0,
@@ -68,10 +86,17 @@ class GameState {
     this.voidDeclaringPlayerId,
     Set<String>? voidRedealRejections,
     this.cardTheme = 'theme_1',
-  })  : currentTrick = currentTrick ?? [],
+  })  : dashCallPassed = dashCallPassed ?? {},
+        currentTrick = currentTrick ?? [],
         lastRoundScoreDeltas = lastRoundScoreDeltas ?? {},
         voidCheckPassed = voidCheckPassed ?? {},
-        voidRedealRejections = voidRedealRejections ?? {};
+        voidRedealRejections = voidRedealRejections ?? {} {
+    if (trump == null && trumpSuit != null) {
+      trump = Trump.fromSuit(trumpSuit);
+    }
+  }
+
+  Trump? get fixedTrump => fixedTrumpForRound(roundNumber, totalRounds);
 
   Player? get bidder =>
       bidderPlayerId == null
@@ -101,14 +126,10 @@ class GameState {
   bool get hasBots => players.any((p) => p.id.startsWith('bot_'));
 
   bool get isMatchOver {
+    final reachedRoundLimit = roundNumber >= totalRounds && 
+        (phase == GamePhase.scoring || phase == GamePhase.matchEnd);
     final reachedScore = players.any((p) => p.totalScore >= kMatchEndScore);
-    if (hasBots) {
-      return reachedScore;
-    } else {
-      final reachedRoundLimit = roundNumber >= 7 && 
-          (phase == GamePhase.scoring || phase == GamePhase.matchEnd);
-      return reachedScore || reachedRoundLimit;
-    }
+    return reachedRoundLimit || (totalRounds != kBoulaTotalRounds && reachedScore);
   }
 
   Player? get matchWinner {
@@ -122,11 +143,15 @@ class GameState {
         'players': players.map((p) => p.toJson()).toList(),
         'phase': phase.name,
         'roundNumber': roundNumber,
+        'totalRounds': totalRounds,
         'dealerSeatIndex': dealerSeatIndex,
+        'isDoubleRound': isDoubleRound,
+        'dashCallPassed': dashCallPassed.toList(),
         'currentHighBid': currentHighBid?.toJson(),
         'currentHighBidderPlayerId': currentHighBidderPlayerId,
         'auctionTurnSeatIndex': auctionTurnSeatIndex,
         'bidderPlayerId': bidderPlayerId,
+        'trump': trump?.name,
         'trumpSuit': trumpSuit?.name,
         'currentTrick': currentTrick.map((t) => t.toJson()).toList(),
         'trickLeaderSeatIndex': trickLeaderSeatIndex,
@@ -140,33 +165,40 @@ class GameState {
       };
 
   factory GameState.fromJson(Map<String, dynamic> json) {
+    final trumpName = json['trump'] as String? ?? json['trumpSuit'] as String?;
+    final trumpVal = trumpName != null ? Trump.fromString(trumpName) : null;
+
     return GameState(
       players: (json['players'] as List<dynamic>)
           .map((p) => Player.fromJson(p as Map<String, dynamic>))
           .toList(),
       phase: GamePhase.values.firstWhere((e) => e.name == json['phase']),
-      roundNumber: json['roundNumber'] as int,
-      dealerSeatIndex: json['dealerSeatIndex'] as int,
+      roundNumber: json['roundNumber'] as int? ?? 1,
+      totalRounds: json['totalRounds'] as int? ?? kBoulaTotalRounds,
+      dealerSeatIndex: json['dealerSeatIndex'] as int? ?? 0,
+      isDoubleRound: json['isDoubleRound'] as bool? ?? false,
+      dashCallPassed: json['dashCallPassed'] != null
+          ? Set<String>.from(json['dashCallPassed'] as List<dynamic>)
+          : null,
       currentHighBid: json['currentHighBid'] == null
           ? null
           : Bid.fromJson(json['currentHighBid'] as Map<String, dynamic>),
       currentHighBidderPlayerId:
           json['currentHighBidderPlayerId'] as String?,
-      auctionTurnSeatIndex: json['auctionTurnSeatIndex'] as int,
+      auctionTurnSeatIndex: json['auctionTurnSeatIndex'] as int? ?? 0,
       bidderPlayerId: json['bidderPlayerId'] as String?,
-      trumpSuit: json['trumpSuit'] == null
-          ? null
-          : Suit.fromString(json['trumpSuit'] as String),
-      currentTrick: (json['currentTrick'] as List<dynamic>)
-          .map((t) => TrickCard.fromJson(t as Map<String, dynamic>))
-          .toList(),
-      trickLeaderSeatIndex: json['trickLeaderSeatIndex'] as int,
-      tricksPlayedThisRound: json['tricksPlayedThisRound'] as int,
-      currentPlayerSeatIndex: json['currentPlayerSeatIndex'] as int,
+      trump: trumpVal,
+      currentTrick: (json['currentTrick'] as List<dynamic>?)
+              ?.map((t) => TrickCard.fromJson(t as Map<String, dynamic>))
+              .toList() ??
+          [],
+      trickLeaderSeatIndex: json['trickLeaderSeatIndex'] as int? ?? 0,
+      tricksPlayedThisRound: json['tricksPlayedThisRound'] as int? ?? 0,
+      currentPlayerSeatIndex: json['currentPlayerSeatIndex'] as int? ?? 0,
       lastRoundScoreDeltas: Map<String, int>.from(
-          json['lastRoundScoreDeltas'] as Map<String, dynamic>),
-      voidCheckPassed:
-          Set<String>.from(json['voidCheckPassed'] as List<dynamic>),
+          json['lastRoundScoreDeltas'] as Map<String, dynamic>? ?? {}),
+      voidCheckPassed: Set<String>.from(
+          json['voidCheckPassed'] as List<dynamic>? ?? []),
       voidDeclaringPlayerId: json['voidDeclaringPlayerId'] as String?,
       voidRedealRejections: json['voidRedealRejections'] != null 
           ? Set<String>.from(json['voidRedealRejections'] as List<dynamic>)
@@ -175,4 +207,3 @@ class GameState {
     );
   }
 }
-

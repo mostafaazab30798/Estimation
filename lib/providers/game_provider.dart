@@ -139,6 +139,9 @@ class GameProvider extends ChangeNotifier {
   bool get isMyTurn {
     if (_state == null || me == null) return false;
     switch (_state!.phase) {
+      case GamePhase.dashCall:
+        return _state!.currentPlayerSeatIndex == me!.seatIndex &&
+            !_state!.dashCallPassed.contains(myPlayerId);
       case GamePhase.auction:
         return _state!.auctionTurnSeatIndex == me!.seatIndex;
       case GamePhase.trickTaking:
@@ -730,6 +733,9 @@ class GameProvider extends ChangeNotifier {
       _sendAction(ActionType.submitBid, {'bid': bid.toJson()});
 
   void passBid() => _sendAction(ActionType.passBid);
+
+  void submitDashCall(bool wantsDashCall) =>
+      _sendAction(ActionType.submitDashCall, {'wantsDashCall': wantsDashCall});
 
   void submitDeclaration(int declared) =>
       _sendAction(ActionType.submitDeclaration, {'declared': declared});

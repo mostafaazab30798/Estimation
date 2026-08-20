@@ -280,21 +280,22 @@ class GameServer {
 
       case ActionType.confirmNoVoid:
         if (_state.phase == GamePhase.voidCheck) {
-          _state.voidCheckPassed.add(playerId);
-          if (_state.voidCheckPassed.length == maxPlayers) {
-            _state.phase = GamePhase.auction;
-            if (_state.voidCheckPassed.isNotEmpty) {
-              final firstReadyId = _state.voidCheckPassed.first;
-              _state.auctionTurnSeatIndex =
-                  _state.playerById(firstReadyId).seatIndex;
-            }
-          }
+          GameEngine.passVoidCheck(_state, playerId);
           _broadcastState();
         }
 
       case ActionType.unready:
         if (_state.phase == GamePhase.voidCheck) {
           _state.voidCheckPassed.remove(playerId);
+          _broadcastState();
+        }
+
+      case ActionType.submitDashCall:
+        if (_state.phase == GamePhase.dashCall) {
+          final wantsDash = payload['wantsDashCall'] as bool? ?? false;
+          GameEngine.submitDashCall(_state, playerId, wantsDash);
+          _broadcastState();
+        } else {
           _broadcastState();
         }
 
@@ -483,7 +484,12 @@ class GameServer {
     _turnTimer?.cancel();
     _turnTimer = null;
 
-    if (_state.phase == GamePhase.auction) {
+    if (_state.phase == GamePhase.dashCall) {
+      final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
+      if (!_botPlayerIds.contains(activePlayer.id)) {
+        _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
+      }
+    } else if (_state.phase == GamePhase.auction) {
       final activePlayer = _state.playerBySeat(_state.auctionTurnSeatIndex);
       if (!_botPlayerIds.contains(activePlayer.id)) {
         _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
@@ -506,6 +512,15 @@ class GameServer {
   void _handleTurnTimeout() {
     debugPrint('[Server] Turn timeout triggered for phase: ${_state.phase.name}');
     switch (_state.phase) {
+      case GamePhase.dashCall:
+        final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
+        debugPrint('[Server] Timing out dash call turn for ${activePlayer.name}');
+        _handlePlayerAction({
+          'action': ActionType.submitDashCall,
+          'playerId': activePlayer.id,
+          'wantsDashCall': false,
+        });
+
       case GamePhase.auction:
         final activePlayer = _state.playerBySeat(_state.auctionTurnSeatIndex);
         debugPrint('[Server] Timing out auction turn for ${activePlayer.name}');
@@ -688,6 +703,12 @@ class GameServer {
         }
         return _botPlayerIds.any((id) => !_state.voidCheckPassed.contains(id));
 
+      case GamePhase.dashCall:
+        final seat = _state.currentPlayerSeatIndex;
+        final players = _state.players.where((p) => p.seatIndex == seat);
+        return players.isNotEmpty &&
+            _botPlayerIds.contains(players.first.id);
+
       case GamePhase.auction:
         final seat = _state.auctionTurnSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
@@ -739,6 +760,21 @@ class GameServer {
             }
           }
         }
+
+      case GamePhase.dashCall:
+        final seat = _state.currentPlayerSeatIndex;
+        final playerList =
+            _state.players.where((p) => p.seatIndex == seat).toList();
+        if (playerList.isEmpty) return;
+        final bot = playerList.first;
+        if (!_botPlayerIds.contains(bot.id)) return;
+
+        final wantsDash = EstimationBotAi.shouldCallDash(bot);
+        _handlePlayerAction({
+          'action': ActionType.submitDashCall,
+          'playerId': bot.id,
+          'wantsDashCall': wantsDash,
+        });
 
       case GamePhase.auction:
         final seat = _state.auctionTurnSeatIndex;

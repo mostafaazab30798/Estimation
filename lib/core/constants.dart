@@ -24,7 +24,39 @@ enum Suit {
       Suit.values.firstWhere((e) => e.name == s);
 }
 
-enum SuitColor { red, black }
+enum SuitColor { red, black, gold }
+
+/// Trump contract chosen in auction or fixed in last 5 rounds
+/// Sans (No Trump) > Spade > Heart > Diamond > Club
+enum Trump {
+  club(label: '♣', arabicName: 'تريفل', priority: 0, color: SuitColor.black, suit: Suit.club),
+  diamond(label: '♦', arabicName: 'كارو', priority: 1, color: SuitColor.red, suit: Suit.diamond),
+  heart(label: '♥', arabicName: 'هارت', priority: 2, color: SuitColor.red, suit: Suit.heart),
+  spade(label: '♠', arabicName: 'سبيد', priority: 3, color: SuitColor.black, suit: Suit.spade),
+  sans(label: 'NT', arabicName: 'سانز', priority: 4, color: SuitColor.gold, suit: null);
+
+  const Trump({
+    required this.label,
+    required this.arabicName,
+    required this.priority,
+    required this.color,
+    required this.suit,
+  });
+
+  final String label;
+  final String arabicName;
+  final int priority; // higher = stronger
+  final SuitColor color;
+  final Suit? suit; // null for sans (no-trump)
+
+  bool get isSans => this == Trump.sans;
+
+  static Trump fromString(String s) =>
+      Trump.values.firstWhere((e) => e.name == s, orElse: () => Trump.sans);
+
+  static Trump fromSuit(Suit s) =>
+      Trump.values.firstWhere((e) => e.suit == s);
+}
 
 /// Card rank (higher index = higher rank)
 /// A > K > Q > J > 10 > 9 > 8 > 7 > 6 > 5 > 4 > 3 > 2
@@ -57,7 +89,35 @@ enum Rank {
       Rank.values.firstWhere((e) => e.name == s);
 }
 
-/// Match ends when a player reaches this score
+/// Standard official match total rounds (البولة الكاملة)
+const int kBoulaTotalRounds = 18;
+
+/// Minimum bid trick count in auction
+const int kMinBidTricks = 4;
+
+/// Override bid trick count to change fixed trump in last 5 rounds
+const int kOverrideFixedTrumpTricks = 8;
+
+/// Fixed trump per round in the last 5 rounds of an 18-round Boula
+Trump? fixedTrumpForRound(int roundNumber, [int totalRounds = kBoulaTotalRounds]) {
+  if (totalRounds != 18) return null;
+  switch (roundNumber) {
+    case 14:
+      return Trump.sans;
+    case 15:
+      return Trump.spade;
+    case 16:
+      return Trump.heart;
+    case 17:
+      return Trump.diamond;
+    case 18:
+      return Trump.club;
+    default:
+      return null;
+  }
+}
+
+/// Match ends when a player reaches this score (in points target mode)
 const int kMatchEndScore = 50;
 
 /// Bonus added to The Bidder's score when they meet their declaration
@@ -68,4 +128,5 @@ const int kPlayerCount = 4;
 
 /// Number of tricks per round
 const int kTricksPerRound = 13;
+
 
