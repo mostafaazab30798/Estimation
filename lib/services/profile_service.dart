@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/utils/string_utils.dart';
 import 'history_service.dart';
 
 class PresetAvatar {
@@ -118,13 +119,15 @@ class ProfileService {
   /// Loads saved player name from SharedPreferences
   static Future<String> getProfileName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_kNameKey) ?? '';
+    final raw = prefs.getString(_kNameKey) ?? '';
+    return StringUtils.capitalizeWords(raw);
   }
 
   /// Saves player name to SharedPreferences
   static Future<void> saveProfileName(String name) async {
+    final formatted = StringUtils.capitalizeWords(name);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kNameKey, name.trim());
+    await prefs.setString(_kNameKey, formatted);
   }
 
   /// Loads saved profile photo string from SharedPreferences.

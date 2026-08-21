@@ -16,6 +16,7 @@ import '../widgets/rank_tier_badge.dart';
 import 'leaderboard_screen.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
+import '../core/utils/string_utils.dart';
 import '../core/widgets/player_avatar.dart';
 import '../widgets/update_check_tile.dart';
 
@@ -271,10 +272,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _vm.setLoading(true);
 
     try {
-      final name = await ProfileService.getProfileName().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => '',
-      );
+      final authProfile = AuthService.instance.currentProfile;
+      String name = authProfile?.username ?? '';
+      if (name.isEmpty) {
+        name = await ProfileService.getProfileName().timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => '',
+        );
+      }
+      name = StringUtils.capitalizeWords(name);
+
       final photo = await ProfileService.getProfilePhoto().timeout(
         const Duration(seconds: 2),
         onTimeout: () => ProfileService.presetAvatars.first.id,
@@ -300,12 +307,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveName() async {
-    final newName = _nameController.text.trim();
+    final newName = StringUtils.capitalizeWords(_nameController.text.trim());
     if (newName.isEmpty) {
       SnackbarHelper.showError(context, 'يرجى إدخال اسم للاحتفاظ به', title: 'تنبيه');
       return;
     }
 
+    _nameController.text = newName;
     _vm.setSavingName(true);
     await ProfileService.saveProfileName(newName);
     await AuthService.instance.updateProfile(username: newName);
@@ -332,13 +340,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final auth = AuthService.instance;
       final profile = await auth.signInWithGoogle();
       if (profile != null && mounted) {
-        _nameController.text = profile.username;
+        final formattedName = StringUtils.capitalizeWords(profile.username);
+        _nameController.text = formattedName;
         _vm.setPhoto(profile.avatarUrl);
+        await ProfileService.saveProfileName(formattedName);
         await _loadProfileData();
         if (mounted) {
           SnackbarHelper.showSuccess(
             context,
-            'أهلاً بك يا ${profile.username}! تم ربط حساب Google وحفظ التقدم بنجاح',
+            'أهلاً بك يا $formattedName! تم ربط حساب Google وحفظ التقدم بنجاح',
             title: 'تم تسجيل الدخول',
           );
         }
@@ -652,26 +662,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           // Title
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'مركز اللاعب والتحكم',
-                  style: GoogleFonts.cairo(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.cream,
-                  ),
-                ),
-                Text(
-                  'الملف الشخصي • المتصدرين • السجل • الإعدادات • قواعد اللعب',
-                  style: GoogleFonts.cairo(
-                    fontSize: 11,
-                    color: AppTheme.steelBlue,
-                  ),
-                ),
-              ],
+            child: Text(
+              'مركز اللاعب والتحكم',
+              style: GoogleFonts.cairo(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.cream,
+              ),
             ),
           ),
 

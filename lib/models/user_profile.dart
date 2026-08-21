@@ -1,6 +1,7 @@
 // lib/models/user_profile.dart
 
 import 'dart:math';
+import '../core/utils/string_utils.dart';
 import 'rank_tier.dart';
 
 class UserProfile {
@@ -33,7 +34,7 @@ class UserProfile {
     return UserProfile(
       id: map['id']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
-      username: map['username']?.toString() ?? 'Player',
+      username: StringUtils.capitalizeWords(map['username']?.toString() ?? 'Player'),
       avatarUrl: map['avatar_url']?.toString() ?? 'preset:king',
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level: (map['level'] as num?)?.toInt() ?? 1,

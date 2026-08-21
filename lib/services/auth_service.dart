@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/utils/string_utils.dart';
 import '../models/user_profile.dart';
 import 'profile_service.dart';
 
@@ -160,12 +161,25 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
 
       if (res != null) {
-        _currentProfile = UserProfile.fromMap(res);
+        final profile = UserProfile.fromMap(res);
+        final formattedName = StringUtils.capitalizeWords(profile.username);
+        if (formattedName != res['username'] && formattedName.isNotEmpty) {
+          try {
+            await _supabase.from('profiles').update({'username': formattedName}).eq('id', user.id);
+          } catch (_) {}
+        }
+        _currentProfile = profile.copyWith(username: formattedName);
+        if (_currentProfile!.username.isNotEmpty) {
+          await ProfileService.saveProfileName(_currentProfile!.username);
+        }
         notifyListeners();
         return _currentProfile;
       } else {
         // Create profile if not yet created
         _currentProfile = await _fetchOrBootstrapProfile(user);
+        if (_currentProfile!.username.isNotEmpty) {
+          await ProfileService.saveProfileName(_currentProfile!.username);
+        }
         notifyListeners();
         return _currentProfile;
       }
@@ -189,7 +203,9 @@ class AuthService extends ChangeNotifier {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       if (username != null && username.trim().isNotEmpty) {
-        updates['username'] = username.trim();
+        final formatted = StringUtils.capitalizeWords(username);
+        updates['username'] = formatted;
+        await ProfileService.saveProfileName(formatted);
       }
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         updates['avatar_url'] = avatarUrl;
@@ -197,7 +213,6 @@ class AuthService extends ChangeNotifier {
 
       await _supabase.from('profiles').update(updates).eq('id', user.id);
 
-      if (username != null) await ProfileService.saveProfileName(username);
       if (avatarUrl != null) await ProfileService.saveProfilePhoto(avatarUrl);
 
       await refreshProfile();
@@ -237,6 +252,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Formats a name so each word starts with a capital letter (Title Case).
+  static String capitalizeName(String name) => StringUtils.capitalizeWords(name);
+
   Future<UserProfile> _fetchOrBootstrapProfile(User user, [GoogleSignInAccount? googleUser]) async {
     try {
       final existing = await _supabase
@@ -246,14 +264,22 @@ class AuthService extends ChangeNotifier {
           .maybeSingle();
 
       if (existing != null) {
-        return UserProfile.fromMap(existing);
+        final profile = UserProfile.fromMap(existing);
+        final formattedName = StringUtils.capitalizeWords(profile.username);
+        if (formattedName != existing['username'] && formattedName.isNotEmpty) {
+          try {
+            await _supabase.from('profiles').update({'username': formattedName}).eq('id', user.id);
+          } catch (_) {}
+        }
+        return profile.copyWith(username: formattedName);
       }
 
-      final fallbackName = googleUser?.displayName ??
+      final rawName = googleUser?.displayName ??
           user.userMetadata?['full_name'] ??
           user.userMetadata?['name'] ??
-          user.email?.split('@').first ??
+          user.email?.split('@').first.replaceAll(RegExp(r'[._]'), ' ') ??
           'Player';
+      final formattedName = capitalizeName(rawName);
 
       final fallbackAvatar = googleUser?.photoUrl ??
           user.userMetadata?['avatar_url'] ??
@@ -263,7 +289,7 @@ class AuthService extends ChangeNotifier {
       final newProfileMap = {
         'id': user.id,
         'email': user.email ?? '',
-        'username': fallbackName,
+        'username': formattedName,
         'avatar_url': fallbackAvatar,
         'xp': 0,
         'level': 1,
@@ -280,10 +306,15 @@ class AuthService extends ChangeNotifier {
       return UserProfile.fromMap(inserted);
     } catch (e) {
       debugPrint('[AuthService] _fetchOrBootstrapProfile error: $e');
+      final rawName = googleUser?.displayName ??
+          user.userMetadata?['full_name'] ??
+          user.userMetadata?['name'] ??
+          user.email?.split('@').first.replaceAll(RegExp(r'[._]'), ' ') ??
+          'Player';
       return UserProfile(
         id: user.id,
         email: user.email ?? '',
-        username: googleUser?.displayName ?? user.email?.split('@').first ?? 'Player',
+        username: capitalizeName(rawName),
         avatarUrl: googleUser?.photoUrl ?? 'preset:king',
       );
     }
