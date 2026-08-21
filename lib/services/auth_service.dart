@@ -17,6 +17,7 @@ class AuthService extends ChangeNotifier {
 
   final SupabaseClient _supabase = Supabase.instance.client;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: googleServerClientId,
     serverClientId: googleServerClientId,
     scopes: ['email', 'profile'],
   );
@@ -54,14 +55,31 @@ class AuthService extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Sign in with native Google Account Sheet
+  /// Sign in with native Google Account Sheet or Web OAuth flow
   Future<UserProfile?> signInWithGoogle() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // 1. Trigger native Google Sign-in flow
-      final googleUser = await _googleSignIn.signIn();
+      // 1. Trigger Google Sign-in flow
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn.signIn();
+      } catch (e) {
+        debugPrint('[AuthService] GoogleSignIn.signIn() failed: $e');
+        if (kIsWeb) {
+          debugPrint('[AuthService] Falling back to Supabase signInWithOAuth for web');
+          await _supabase.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: kIsWeb ? Uri.base.origin : null,
+          );
+          _isLoading = false;
+          notifyListeners();
+          return null;
+        }
+        rethrow;
+      }
+
       if (googleUser == null) {
         // User cancelled the sign-in modal
         _isLoading = false;
@@ -75,6 +93,16 @@ class AuthService extends ChangeNotifier {
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
+        if (kIsWeb) {
+          debugPrint('[AuthService] No ID token on web, falling back to signInWithOAuth');
+          await _supabase.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: kIsWeb ? Uri.base.origin : null,
+          );
+          _isLoading = false;
+          notifyListeners();
+          return null;
+        }
         throw Exception('Google Sign-In failed: No ID token returned.');
       }
 
@@ -256,6 +284,28 @@ class AuthService extends ChangeNotifier {
   static String capitalizeName(String name) => StringUtils.capitalizeWords(name);
 
   Future<UserProfile> _fetchOrBootstrapProfile(User user, [GoogleSignInAccount? googleUser]) async {
+    final rawName = googleUser?.displayName ??
+        user.userMetadata?['full_name'] ??
+        user.userMetadata?['name'] ??
+        user.email?.split('@').first.replaceAll(RegExp(r'[._]'), ' ') ??
+        'Player';
+    final formattedName = capitalizeName(rawName);
+
+    final fallbackAvatar = googleUser?.photoUrl ??
+        user.userMetadata?['avatar_url'] ??
+        user.userMetadata?['picture'] ??
+        'preset:king';
+
+    // Do not insert anonymous users into public.profiles
+    if (user.isAnonymous || (user.email == null || user.email!.isEmpty)) {
+      return UserProfile(
+        id: user.id,
+        email: user.email ?? '',
+        username: formattedName,
+        avatarUrl: fallbackAvatar,
+      );
+    }
+
     try {
       final existing = await _supabase
           .from('profiles')
@@ -265,26 +315,14 @@ class AuthService extends ChangeNotifier {
 
       if (existing != null) {
         final profile = UserProfile.fromMap(existing);
-        final formattedName = StringUtils.capitalizeWords(profile.username);
-        if (formattedName != existing['username'] && formattedName.isNotEmpty) {
+        final existingFormatted = capitalizeName(profile.username);
+        if (existingFormatted != existing['username'] && existingFormatted.isNotEmpty) {
           try {
-            await _supabase.from('profiles').update({'username': formattedName}).eq('id', user.id);
+            await _supabase.from('profiles').update({'username': existingFormatted}).eq('id', user.id);
           } catch (_) {}
         }
-        return profile.copyWith(username: formattedName);
+        return profile.copyWith(username: existingFormatted);
       }
-
-      final rawName = googleUser?.displayName ??
-          user.userMetadata?['full_name'] ??
-          user.userMetadata?['name'] ??
-          user.email?.split('@').first.replaceAll(RegExp(r'[._]'), ' ') ??
-          'Player';
-      final formattedName = capitalizeName(rawName);
-
-      final fallbackAvatar = googleUser?.photoUrl ??
-          user.userMetadata?['avatar_url'] ??
-          user.userMetadata?['picture'] ??
-          'preset:king';
 
       final newProfileMap = {
         'id': user.id,
@@ -306,16 +344,11 @@ class AuthService extends ChangeNotifier {
       return UserProfile.fromMap(inserted);
     } catch (e) {
       debugPrint('[AuthService] _fetchOrBootstrapProfile error: $e');
-      final rawName = googleUser?.displayName ??
-          user.userMetadata?['full_name'] ??
-          user.userMetadata?['name'] ??
-          user.email?.split('@').first.replaceAll(RegExp(r'[._]'), ' ') ??
-          'Player';
       return UserProfile(
         id: user.id,
         email: user.email ?? '',
-        username: capitalizeName(rawName),
-        avatarUrl: googleUser?.photoUrl ?? 'preset:king',
+        username: formattedName,
+        avatarUrl: fallbackAvatar,
       );
     }
   }

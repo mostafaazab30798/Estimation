@@ -145,6 +145,9 @@ class ProfileService {
 
   /// Checks if photo data string is a Base64 encoded image
   static bool isBase64Photo(String photoData) {
+    if (photoData.startsWith('http://') || photoData.startsWith('https://')) {
+      return false;
+    }
     return photoData.startsWith('data:image') ||
         (!photoData.startsWith('preset:') && photoData.length > 50);
   }

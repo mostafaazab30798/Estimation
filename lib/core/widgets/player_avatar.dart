@@ -22,6 +22,42 @@ class PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (photoData.startsWith('http://') || photoData.startsWith('https://')) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: hasBorder ? Border.all(color: borderColor, width: borderWidth) : null,
+          boxShadow: boxShadow ?? AppTheme.glowShadow,
+        ),
+        child: ClipOval(
+          child: Image.network(
+            photoData,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackAvatar();
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: AppTheme.navyDark,
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
     if (ProfileService.isBase64Photo(photoData)) {
       final img = ProfileService.parseBase64Image(photoData);
       if (img != null) {
@@ -38,7 +74,10 @@ class PlayerAvatar extends StatelessWidget {
       }
     }
 
-    // Default or preset avatar
+    return _buildFallbackAvatar();
+  }
+
+  Widget _buildFallbackAvatar() {
     final avatar = ProfileService.presetAvatars.firstWhere(
       (a) => a.id == photoData,
       orElse: () => ProfileService.presetAvatars.first,
