@@ -1,17 +1,19 @@
 // lib/widgets/player_info.dart
 //
-// Player name + score pill shown at each corner of the table.
+// AAA-quality PlayerInfoWidget — premium HUD card for each player position.
+// Preserves the exact same public API and game logic from the original.
+// Visual presentation is completely redesigned.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../core/models/player.dart';
 import '../core/models/game_state.dart';
 import '../theme/app_theme.dart';
-
-// Fix #14: Static const decorations — never re-allocated.
-const _kBorderRadius = BorderRadius.all(Radius.circular(24));
-const _kPillBorderRadius = BorderRadius.all(Radius.circular(12));
+import 'hud/glass_player_card.dart';
+import 'hud/player_avatar_ring.dart';
+import 'hud/rank_ribbon.dart';
+import 'hud/score_display.dart';
+import 'hud/trick_progress_indicator.dart';
+import 'hud/status_badge.dart';
 
 class PlayerInfoWidget extends StatefulWidget {
   final Player player;
@@ -19,6 +21,7 @@ class PlayerInfoWidget extends StatefulWidget {
   final bool isBidder;
   final bool isMe;
   final GameState state;
+  final bool compact;
 
   const PlayerInfoWidget({
     super.key,
@@ -30,45 +33,47 @@ class PlayerInfoWidget extends StatefulWidget {
     this.compact = false,
   });
 
-  final bool compact;
-
   @override
   State<PlayerInfoWidget> createState() => _PlayerInfoWidgetState();
 }
 
 class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
-  late int _displayActual;
-
+  // Delayed trick counter — lets the trick-win animation play before
+  // the score bar updates (same logic as the original widget).
+  // ValueNotifier — drives a ValueListenableBuilder rebuild; no setState needed.
+  late final _displayActual = ValueNotifier<int>(0);
   bool _isWaitingToUpdate = false;
 
   @override
   void initState() {
     super.initState();
-    _displayActual = widget.player.actual;
+    _displayActual.value = widget.player.actual;
+  }
+
+  @override
+  void dispose() {
+    _displayActual.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant PlayerInfoWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.player.actual > _displayActual && !_isWaitingToUpdate) {
+    if (widget.player.actual > _displayActual.value && !_isWaitingToUpdate) {
       _isWaitingToUpdate = true;
       Future.delayed(const Duration(milliseconds: 1000), () {
         if (mounted) {
-          setState(() {
-            _displayActual = widget.player.actual;
-            _isWaitingToUpdate = false;
-          });
+          _displayActual.value = widget.player.actual;
+          _isWaitingToUpdate = false;
         }
       });
-    } else if (widget.player.actual < _displayActual) {
-      _displayActual = widget.player.actual;
+    } else if (widget.player.actual < _displayActual.value) {
+      _displayActual.value = widget.player.actual;
       _isWaitingToUpdate = false;
     }
   }
 
-  // Fix #3: Compute rank once per build using a simple linear scan instead of
-  // creating + sorting a full copy of the player list every single time.
-  // O(n) with zero allocations beyond the loop variable.
+  // O(n) rank computation — same logic as original, zero extra allocations.
   int _computeRankIndex() {
     int rankIndex = 0;
     for (final p in widget.state.players) {
@@ -79,147 +84,320 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     return rankIndex;
   }
 
+  Color _resolveAccentColor(int displayActual) {
+    return AppTheme.avatarRingColor(
+      isCurrentTurn: widget.isCurrentTurn,
+      actual: displayActual,
+      declared: widget.player.declared,
+      tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rankIndex = _computeRankIndex();
-    const rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-    final rankText =
-        rankIndex >= 0 && rankIndex < 4 ? ' - ${rankTitles[rankIndex]}' : '';
+    return ValueListenableBuilder<int>(
+      valueListenable: _displayActual,
+      builder: (context, displayActual, _) {
+        final rankIndex = _computeRankIndex();
+        final accentColor = _resolveAccentColor(displayActual);
+        final isDealer = widget.state.dealerSeatIndex == widget.player.seatIndex;
 
-    return ClipRRect(
-      borderRadius: _kBorderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.compact ? 8 : 12,
-            vertical: widget.compact ? 4 : 8,
+        return RepaintBoundary(
+          child: GlassPlayerCard(
+            isCurrentTurn: widget.isCurrentTurn,
+            accentColor: accentColor,
+            compact: widget.compact,
+            child: widget.compact
+                ? _buildCompact(rankIndex, accentColor, isDealer, displayActual)
+                : _buildFull(rankIndex, accentColor, isDealer, displayActual),
           ),
-          decoration: BoxDecoration(
-            color: widget.isCurrentTurn
-                ? AppTheme.gold.withValues(alpha: 0.25)
-                : AppTheme.navyMid.withValues(alpha: 0.85),
-            borderRadius: _kBorderRadius,
-            border: Border.all(
-              color: widget.isCurrentTurn
-                  ? AppTheme.gold
-                  : Colors.white.withValues(alpha: 0.18),
-              width: widget.isCurrentTurn ? 2.5 : 1.0,
-            ),
-            boxShadow: widget.isCurrentTurn
-                ? AppTheme.neumorphicTurnGlow(AppTheme.gold)
-                : AppTheme.neumorphicExtruded,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        );
+      },
+    );
+  }
+
+  // ── Full layout (portrait / local player) ─────────────────────────────────
+
+  Widget _buildFull(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
+    if (widget.isMe) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Avatar with animated ring and Rank Tag
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              // Avatar
-              Container(
-                width: widget.compact ? 24 : 40,
-                height: widget.compact ? 24 : 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.navyDark,
-                  border: Border.all(
-                    color: widget.isCurrentTurn ? AppTheme.gold : Colors.white24,
-                    width: widget.isCurrentTurn ? 2.0 : 1.0,
-                  ),
-                  boxShadow: widget.isCurrentTurn
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.gold.withValues(alpha: 0.8),
-                            blurRadius: 12,
-                          )
-                        ]
-                      : [],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  widget.player.name.isNotEmpty ? widget.player.name[0].toUpperCase() : '?',
-                  style: TextStyle(
-                    fontSize: widget.compact ? 12 : 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
+              PlayerAvatarRing(
+                photoData: widget.player.photo,
+                playerName: widget.player.name,
+                size: 40,
+                ringColor: accentColor,
+                isCurrentTurn: widget.isCurrentTurn,
+                compact: false,
               ),
-              SizedBox(width: widget.compact ? 6 : 10),
-              // Info
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.isBidder) ...[
-                        Text('🔥',
-                            style: TextStyle(fontSize: widget.compact ? 10 : 12)), // Bidder marker
-                        SizedBox(width: widget.compact ? 2 : 4),
-                      ],
-                      Text(
-                        widget.isMe
-                            ? 'أنا$rankText'
-                            : '${widget.player.name}$rankText',
-                        style: TextStyle(
-                          fontSize: widget.compact ? 10 : 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: widget.compact ? 2 : 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _pill('${widget.player.totalScore} pts', AppTheme.gold, ''),
-                      if (widget.player.declared != null) ...[
-                        SizedBox(width: widget.compact ? 2 : 4),
-                        _pill('$_displayActual/${widget.player.declared}',
-                            Colors.lightBlueAccent, ''),
-                      ],
-                    ],
-                  ),
-                  if (widget.state.phase == GamePhase.voidCheck && !widget.isMe) ...[
-                    const SizedBox(height: 4),
-                    _buildReadyStatus(),
-                  ],
-                ],
-              ),
+              if (rankIndex >= 0 && rankIndex <= 3)
+                Positioned(
+                  bottom: -2,
+                  left: -2,
+                  child: RankRibbon(rankIndex: rankIndex, compact: false),
+                ),
             ],
           ),
+          const SizedBox(width: 10),
+          // Points
+          ScoreDisplay(
+            score: widget.player.totalScore,
+            compact: false,
+          ),
+          if (widget.state.phase == GamePhase.trickTaking ||
+              widget.player.declared != null) ...[
+            const SizedBox(width: 10),
+            TrickProgressIndicator(
+              actual: displayActual,
+              declared: widget.player.declared,
+              tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+              compact: false,
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Avatar with animated ring
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PlayerAvatarRing(
+              photoData: widget.player.photo,
+              playerName: widget.player.name,
+              size: 40,
+              ringColor: accentColor,
+              isCurrentTurn: widget.isCurrentTurn,
+              compact: false,
+            ),
+            if (rankIndex >= 0 && rankIndex <= 3)
+              Positioned(
+                bottom: -2,
+                left: -2,
+                child: RankRibbon(rankIndex: rankIndex, compact: false),
+              ),
+          ],
         ),
-      ),
+
+        const SizedBox(width: 10),
+
+        // Info column
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Name row ─────────────────────────────────────────────
+            _buildNameRow(rankIndex, isDealer, compact: false),
+
+            const SizedBox(height: 5),
+
+            // ── Score + trick progress ────────────────────────────────
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ScoreDisplay(
+                  score: widget.player.totalScore,
+                  compact: false,
+                ),
+                if (widget.state.phase == GamePhase.trickTaking ||
+                    widget.player.declared != null) ...[
+                  const SizedBox(width: 10),
+                  TrickProgressIndicator(
+                    actual: displayActual,
+                    declared: widget.player.declared,
+                    tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+                    compact: false,
+                  ),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 5),
+
+            // ── Status badge ─────────────────────────────────────────
+            StatusBadge(
+              phase: widget.state.phase,
+              player: widget.player,
+              state: widget.state,
+              isCurrentTurn: widget.isCurrentTurn,
+              compact: false,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildReadyStatus() {
-    final isReady = widget.state.voidCheckPassed.contains(widget.player.id);
-    return Text(
-      isReady ? '✅ جاهز' : '⏳ ينتظر...',
-      style: TextStyle(
-        fontSize: 11,
-        color: isReady ? Colors.greenAccent : Colors.white70,
-      ),
+  // ── Compact layout (opponents, landscape) ─────────────────────────────────
+
+  Widget _buildCompact(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
+    if (widget.isMe) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Smaller avatar ring
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              PlayerAvatarRing(
+                photoData: widget.player.photo,
+                playerName: widget.player.name,
+                size: 26,
+                ringColor: accentColor,
+                isCurrentTurn: widget.isCurrentTurn,
+                compact: true,
+              ),
+              if (rankIndex >= 0 && rankIndex <= 3)
+                Positioned(
+                  bottom: -2,
+                  left: -2,
+                  child: RankRibbon(rankIndex: rankIndex, compact: true),
+                ),
+            ],
+          ),
+          const SizedBox(width: 6),
+          ScoreDisplay(
+            score: widget.player.totalScore,
+            compact: true,
+          ),
+          if (widget.state.phase == GamePhase.trickTaking ||
+              widget.player.declared != null) ...[
+            const SizedBox(width: 6),
+            TrickProgressIndicator(
+              actual: displayActual,
+              declared: widget.player.declared,
+              tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+              compact: true,
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Smaller avatar ring
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            PlayerAvatarRing(
+              photoData: widget.player.photo,
+              playerName: widget.player.name,
+              size: 26,
+              ringColor: accentColor,
+              isCurrentTurn: widget.isCurrentTurn,
+              compact: true,
+            ),
+            if (rankIndex >= 0 && rankIndex <= 3)
+              Positioned(
+                bottom: -2,
+                left: -2,
+                child: RankRibbon(rankIndex: rankIndex, compact: true),
+              ),
+          ],
+        ),
+
+        const SizedBox(width: 6),
+
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildNameRow(rankIndex, isDealer, compact: true),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ScoreDisplay(
+                  score: widget.player.totalScore,
+                  compact: true,
+                ),
+                if (widget.player.declared != null) ...[
+                  const SizedBox(width: 6),
+                  TrickProgressIndicator(
+                    actual: displayActual,
+                    declared: widget.player.declared,
+                    tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+                    compact: true,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 3),
+            StatusBadge(
+              phase: widget.state.phase,
+              player: widget.player,
+              state: widget.state,
+              isCurrentTurn: widget.isCurrentTurn,
+              compact: true,
+            ),
+          ],
+        ),
+      ],
     );
   }
-  Widget _pill(String value, Color color, String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: widget.compact ? 4 : 6, vertical: 0),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: _kPillBorderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        label.isEmpty ? value : '$value $label',
-        style: TextStyle(
-            fontSize: widget.compact ? 9 : 11, color: color, fontWeight: FontWeight.w600),
-      ),
+
+  // ── Shared name row ───────────────────────────────────────────────────────
+
+  Widget _buildNameRow(int rankIndex, bool isDealer, {required bool compact}) {
+    final fontSize = compact ? 10.0 : 12.5;
+    final iconSize = compact ? 10.0 : 12.0;
+    final displayName = widget.isMe ? 'أنا' : widget.player.name;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Name text — capped for long strings
+        Flexible(
+          child: Text(
+            displayName,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.cream,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+
+        const SizedBox(width: 4),
+
+        // Dealer icon
+        if (isDealer)
+          Tooltip(
+            message: 'الموزع',
+            child: Icon(Icons.style_rounded,
+                color: AppTheme.steelBlue, size: iconSize),
+          ),
+
+        // Bidder icon
+        if (widget.isBidder)
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: Tooltip(
+              message: 'الكار الكبير',
+              child: Icon(Icons.emoji_events_rounded,
+                  color: AppTheme.playerGold, size: iconSize),
+            ),
+          ),
+      ],
     );
   }
 }

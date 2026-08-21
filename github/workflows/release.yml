@@ -1,0 +1,59 @@
+name: Flutter Android Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build APK and Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: stable
+          cache: true
+
+      # 3. Dependencies
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      # 4. Read version from pubspec.yaml
+      - name: Get app version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
+          VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      # 5. Build APKs
+      - name: Build Release APKs
+        run: flutter build apk --release --split-per-abi
+
+      # 6. Create GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: Release v${{ steps.version.outputs.version_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk

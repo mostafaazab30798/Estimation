@@ -3,46 +3,12 @@
 // Widget for displaying a single playing card using custom assets.
 
 import 'package:flutter/material.dart';
-import '../core/constants.dart' as game;
 import '../core/models/card.dart' as game;
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 
-// ── Asset Mapping ────────────────────────────────────────────────────────────
-
-// Fix #15: Use enum identity comparison instead of string switch (no allocation).
-String _suitCode(game.Suit suit) {
-  switch (suit) {
-    case game.Suit.spade:   return 'S';
-    case game.Suit.heart:   return 'H';
-    case game.Suit.diamond: return 'D';
-    case game.Suit.club:    return 'C';
-  }
-}
-
-String _rankCode(game.Rank rank) {
-  switch (rank) {
-    case game.Rank.two:   return '2';
-    case game.Rank.three: return '3';
-    case game.Rank.four:  return '4';
-    case game.Rank.five:  return '5';
-    case game.Rank.six:   return '6';
-    case game.Rank.seven: return '7';
-    case game.Rank.eight: return '8';
-    case game.Rank.nine:  return '9';
-    case game.Rank.ten:   return '10';
-    case game.Rank.jack:  return 'J';
-    case game.Rank.queen: return 'Q';
-    case game.Rank.king:  return 'K';
-    case game.Rank.ace:   return 'A';
-  }
-}
-
-String _getCardAssetPath(game.PlayingCard? card, String theme) {
-  if (card == null) return 'assets/back-maroon.png';
-  return 'assets/$theme/${_rankCode(card.rank)}_${_suitCode(card.suit)}.png';
-}
+import '../core/utils/card_assets.dart';
 
 // Fix #14: Shared const decorations ───────────────────────────────────────────
 
@@ -104,6 +70,18 @@ class PlayingCardWidget extends StatelessWidget {
                     ],
                   ),
                 ),
+              )
+            else if (playable && !dimmed)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: _kCardBorderRadius,
+                    border: Border.all(
+                      color: AppTheme.gold.withValues(alpha: 0.35),
+                      width: 1.2,
+                    ),
+                  ),
+                ),
               ),
             // Dimming overlay (not playable)
             if (dimmed)
@@ -122,10 +100,10 @@ class PlayingCardWidget extends StatelessWidget {
   }
 
   Widget _buildCardContent(BuildContext context) {
-    final theme = context.watch<GameProvider>().state?.cardTheme ?? 'theme_1';
+    final theme = context.select((GameProvider p) => p.state?.cardTheme ?? 'theme_1');
     final showBack = faceDown || card == null;
     final imagePath =
-        showBack ? 'assets/back-maroon.png' : _getCardAssetPath(card, theme);
+        showBack ? 'assets/back.png' : getCardAssetPath(card, theme);
 
     // Fix #6: cacheWidth / cacheHeight tells Flutter's image cache to decode
     // the PNG at the widget's actual pixel size, not at the full PNG resolution.

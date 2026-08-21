@@ -43,6 +43,7 @@ class GameMessage {
 class ActionType {
   static const String submitBid = 'submitBid';
   static const String passBid = 'passBid';
+  static const String submitDashCall = 'submitDashCall';
 
   static const String approveRedeal = 'approveRedeal';
   static const String rejectRedeal = 'rejectRedeal';
@@ -50,8 +51,11 @@ class ActionType {
   static const String unready = 'unready';              // cancel ready state
   static const String submitDeclaration = 'submitDeclaration';
   static const String playCard = 'playCard';
+  static const String playCardNinetyNine = 'playCardNinetyNine';
   static const String startGame = 'startGame';          // host starts
   static const String nextRound = 'nextRound';
   static const String changeTheme = 'changeTheme';      // host changes card theme
+  static const String requestStateSync = 'requestStateSync'; // client requests immediate full state broadcast
 }
+
 

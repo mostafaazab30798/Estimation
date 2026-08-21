@@ -15,6 +15,7 @@ class GameRoom {
   final int maxPlayers;
   final String hostIp;
   final int wsPort;
+  final String gameType;
   final DateTime createdAt;
   final DateTime? startedAt;
 
@@ -26,6 +27,7 @@ class GameRoom {
     required this.maxPlayers,
     required this.hostIp,
     required this.wsPort,
+    this.gameType = 'kotchina',
     required this.createdAt,
     this.startedAt,
   });
@@ -54,6 +56,7 @@ class GameRoom {
       maxPlayers: json['max_players'] as int,
       hostIp: json['host_ip'] as String,
       wsPort: json['ws_port'] as int,
+      gameType: (json['game_type'] as String?) ?? 'kotchina',
       createdAt: DateTime.parse(json['created_at'] as String),
       startedAt: json['started_at'] != null
           ? DateTime.parse(json['started_at'] as String)

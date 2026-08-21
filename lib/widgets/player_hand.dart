@@ -32,7 +32,14 @@ class PlayerHand extends StatefulWidget {
 }
 
 class _PlayerHandState extends State<PlayerHand> {
-  PlayingCard? _selected;
+  // ValueNotifier — card highlight; no setState needed.
+  final _selected = ValueNotifier<PlayingCard?>(null);
+
+  @override
+  void dispose() {
+    _selected.dispose();
+    super.dispose();
+  }
 
   bool _isPlayable(PlayingCard card) {
     if (!widget.isMyTurn) return false;
@@ -47,65 +54,69 @@ class _PlayerHandState extends State<PlayerHand> {
     }
     if (!_isPlayable(card)) return;
 
-    if (_selected == card) {
+    if (_selected.value == card) {
       // Second tap = confirm play
       widget.onPlayCard(card);
-      setState(() => _selected = null);
+      _selected.value = null;
     } else {
-      setState(() => _selected = card);
+      _selected.value = card;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cards = widget.hand;
+    return ValueListenableBuilder<PlayingCard?>(
+      valueListenable: _selected,
+      builder: (context, selected, _) {
+        final cards = widget.hand;
 
-    if (cards.isEmpty) return const SizedBox(height: 110);
+        if (cards.isEmpty) return const SizedBox(height: 110);
 
-    final media = MediaQuery.of(context);
-    final screenWidth = media.size.width;
-    final screenHeight = media.size.height;
-    final isPortrait = media.orientation == Orientation.portrait;
-    final isTablet = screenWidth >= 600;
+        final media = MediaQuery.of(context);
+        final screenWidth = media.size.width;
+        final screenHeight = media.size.height;
+        final isPortrait = media.orientation == Orientation.portrait;
+        final isTablet = screenWidth >= 600;
 
-    // Responsive available width & card dimensions for both orientations
-    final availableWidth = isPortrait
-        ? (screenWidth - 48).clamp(260.0, screenWidth * 0.88)
-        : (screenWidth - 240).clamp(260.0, screenWidth * 0.70);
+        // Responsive available width & card dimensions for both orientations
+        final availableWidth = isPortrait
+            ? (screenWidth - 48).clamp(260.0, screenWidth * 0.88)
+            : (screenWidth - 240).clamp(260.0, screenWidth * 0.70);
 
-    final cardWidth = isPortrait
-        ? (screenWidth * 0.155).clamp(50.0, isTablet ? 82.0 : 66.0)
-        : (screenHeight * 0.155).clamp(40.0, isTablet ? 70.0 : 55.0);
-    final cardHeight = cardWidth / playingCardAspectRatio;
+        final cardWidth = isPortrait
+            ? (screenWidth * 0.155).clamp(50.0, isTablet ? 82.0 : 66.0)
+            : (screenHeight * 0.155).clamp(40.0, isTablet ? 70.0 : 55.0);
+        final cardHeight = cardWidth / playingCardAspectRatio;
 
-    // Calculate overlap dynamically so they always fit perfectly
-    double overlap = 0.0;
-    if (cards.length > 1) {
-      overlap = (availableWidth - cardWidth) / (cards.length - 1);
-    }
+        // Calculate overlap dynamically so they always fit perfectly
+        double overlap = 0.0;
+        if (cards.length > 1) {
+          overlap = (availableWidth - cardWidth) / (cards.length - 1);
+        }
 
-    // Limit maximum overlap so cards don't spread too far when few are left
-    final maxOverlap = isTablet ? 48.0 : (isPortrait ? 38.0 : 34.0);
-    final actualOverlap = overlap < maxOverlap ? overlap : maxOverlap;
+        // Limit maximum overlap so cards don't spread too far when few are left
+        final maxOverlap = isTablet ? 48.0 : (isPortrait ? 38.0 : 34.0);
+        double actualOverlap = overlap < maxOverlap ? overlap : maxOverlap;
 
-    final totalWidth = cardWidth + (cards.length - 1) * actualOverlap;
-    final stackHeight = cardHeight + (isPortrait ? 32.0 : 16.0);
+        final needsScroll = cards.length > 13;
+        if (needsScroll) {
+          actualOverlap = maxOverlap; // Keep a comfortable overlap for large hands
+        }
 
-    // Fix #7: Compute playability ONCE per card per build.
-    final isTrickTurn =
-        widget.isMyTurn && widget.state?.phase == GamePhase.trickTaking;
-    final playable = List<bool>.generate(
-      cards.length,
-      (i) => _isPlayable(cards[i]),
-    );
+        final totalWidth = cardWidth + (cards.length - 1) * actualOverlap;
+        final stackHeight = cardHeight + (isPortrait ? 32.0 : 16.0);
 
-    final centerIndex = (cards.length - 1) / 2.0;
+        // Fix #7: Compute playability ONCE per card per build.
+        final isTrickTurn =
+            widget.isMyTurn && widget.state?.phase == GamePhase.trickTaking;
+        final playable = List<bool>.generate(
+          cards.length,
+          (i) => _isPlayable(cards[i]),
+        );
 
-    return SizedBox(
-      height: stackHeight,
-      width: totalWidth,
-      child: Center(
-        child: SizedBox(
+        final centerIndex = (cards.length - 1) / 2.0;
+
+        Widget content = SizedBox(
           width: totalWidth,
           child: Stack(
             clipBehavior: Clip.none,
@@ -130,7 +141,7 @@ class _PlayerHandState extends State<PlayerHand> {
                         alignment: Alignment.bottomCenter,
                         child: PlayingCardWidget(
                           card: cards[i],
-                          selected: _selected == cards[i],
+                          selected: selected == cards[i],
                           playable: playable[i],
                           dimmed: isTrickTurn && !playable[i],
                           width: cardWidth,
@@ -142,8 +153,27 @@ class _PlayerHandState extends State<PlayerHand> {
                 ),
             ],
           ),
-        ),
-      ),
+        );
+
+        if (needsScroll) {
+          content = SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: content,
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: stackHeight,
+          width: needsScroll ? availableWidth : totalWidth,
+          child: Center(
+            child: content,
+          ),
+        );
+      },
     );
   }
 }
