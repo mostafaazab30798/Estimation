@@ -17,7 +17,7 @@ class AuthService extends ChangeNotifier {
 
   final SupabaseClient _supabase = Supabase.instance.client;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: googleServerClientId,
+    clientId: kIsWeb ? googleServerClientId : null,
     serverClientId: googleServerClientId,
     scopes: ['email', 'profile'],
   );
