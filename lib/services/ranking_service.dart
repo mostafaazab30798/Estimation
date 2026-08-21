@@ -209,7 +209,7 @@ class RankingService {
   Future<MatchXpResult?> processMatchReward(XpRewardBreakdown breakdown) async {
     final auth = AuthService.instance;
     final profile = auth.currentProfile;
-    if (profile == null) return null;
+    if (profile == null || !auth.isAuthenticated) return null;
 
     final oldXp = profile.xp;
     final oldLevel = profile.level;
@@ -236,7 +236,7 @@ class RankingService {
     );
   }
 
-  /// Fetches global leaderboard players from Supabase
+  /// Fetches global leaderboard players from Supabase (only signed-in players)
   Future<List<LeaderboardPlayer>> fetchLeaderboard({
     int limit = 50,
     LeaderboardSort sort = LeaderboardSort.xp,
@@ -250,9 +250,12 @@ class RankingService {
         orderColumn = 'level';
       }
 
+      // Filter out anonymous sessions (only include authenticated players with email)
       final response = await client
           .from('profiles')
           .select()
+          .neq('email', '')
+          .not('email', 'is', null)
           .order(orderColumn, ascending: false)
           .order('xp', ascending: false)
           .limit(limit)
@@ -271,17 +274,31 @@ class RankingService {
     }
   }
 
-  /// Fetches the user's specific leaderboard rank position
+  /// Fetches the user's specific leaderboard rank position among signed-in players
   Future<int?> fetchUserLeaderboardRank(String userId, {LeaderboardSort sort = LeaderboardSort.xp}) async {
     try {
+      final auth = AuthService.instance;
+      if (!auth.isAuthenticated) return null;
+
       final client = Supabase.instance.client;
-      final myProfileRes = await client.from('profiles').select().eq('id', userId).maybeSingle();
+      final myProfileRes = await client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .neq('email', '')
+          .not('email', 'is', null)
+          .maybeSingle();
       if (myProfileRes == null) return null;
 
       final myXp = (myProfileRes['xp'] as num?)?.toInt() ?? 0;
       final myWins = (myProfileRes['games_won'] as num?)?.toInt() ?? 0;
 
-      var query = client.from('profiles').select('id');
+      var query = client
+          .from('profiles')
+          .select('id')
+          .neq('email', '')
+          .not('email', 'is', null);
+
       if (sort == LeaderboardSort.wins) {
         query = query.gt('games_won', myWins);
       } else {
