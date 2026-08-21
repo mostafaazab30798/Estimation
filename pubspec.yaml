@@ -13,7 +13,7 @@ dependencies:
   google_fonts: ^6.2.1
   uuid: ^4.4.0
   playing_cards_ui: ^0.5.3+13
-  shared_preferences: ^2.5.5
+  shared_preferences: ^2.3.0
   supabase_flutter: ^2.5.0
   google_sign_in: ^6.2.2
   delightful_toast: ^1.1.0
