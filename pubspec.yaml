@@ -1,7 +1,7 @@
 name: estimation
 description: "كوتشينة — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
-version: 1.2.0
+version: 1.3.1
 
 environment:
   sdk: ^3.5.0
@@ -15,6 +15,7 @@ dependencies:
   playing_cards_ui: ^0.5.3+13
   shared_preferences: ^2.5.5
   supabase_flutter: ^2.5.0
+  google_sign_in: ^6.2.2
   delightful_toast: ^1.1.0
   heroine: ^0.7.2
   flutter_animate: ^4.5.2

@@ -21,6 +21,7 @@ import 'modes/ninety_nine/presentation/screens/ninety_nine_game_screen.dart';
 import 'services/audio_service.dart';
 import 'services/reconnection_manager.dart';
 import 'services/device_performance_service.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -65,10 +66,13 @@ void main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
   );
 
+  // Initialize AuthService
+  await AuthService.instance.initialize();
+
   // Start app UI immediately
   runApp(const KotshinaApp());
 
-  // Ensure anonymous user exists for RLS asynchronously in background
+  // Ensure anonymous user exists for RLS asynchronously in background if not authenticated
   final auth = Supabase.instance.client.auth;
   if (auth.currentUser == null) {
     auth.signInAnonymously().catchError((e) {
@@ -109,6 +113,9 @@ class KotshinaApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         // ── Core state ──────────────────────────────────────────────────────
+        ChangeNotifierProvider<AuthService>.value(
+          value: AuthService.instance,
+        ),
         ChangeNotifierProvider<DevicePerformanceService>.value(
           value: DevicePerformanceService.instance,
         ),

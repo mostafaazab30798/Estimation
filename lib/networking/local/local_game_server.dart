@@ -27,6 +27,7 @@ class LocalGameServer {
   String? hostPlayerId;
   String? hostName;
   late String roomId;
+  int maxHumanPlayers = 4;
   int maxPlayers = 4;
   int boundPort = 7890;
 
@@ -58,7 +59,8 @@ class LocalGameServer {
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
-    this.maxPlayers = maxPlayers;
+    maxHumanPlayers = maxPlayers;
+    this.maxPlayers = 4; // Estimation table is always 4 players
 
     final hostPlayer = Player(
       id: hostPlayerId,
@@ -113,7 +115,7 @@ class LocalGameServer {
   int get playerCount => _state.players.length;
 
   void addBotPlayers({int count = 3}) {
-    final toAdd = count.clamp(0, maxPlayers - _state.players.length);
+    final toAdd = count.clamp(0, 4 - _state.players.length);
     for (int i = 1; i <= toAdd; i++) {
       final botId = 'bot_$i';
       final seatIndex = _state.players.length;
@@ -203,7 +205,7 @@ class LocalGameServer {
         _sendErrorToPlayer(playerId, 'اللعبة بدأت بالفعل');
         return;
       }
-      if (_state.players.length >= maxPlayers) {
+      if (_state.players.length >= maxHumanPlayers) {
         _sendErrorToPlayer(playerId, 'الغرفة ممتلئة');
         return;
       }
@@ -249,6 +251,9 @@ class LocalGameServer {
 
       case ActionType.startGame:
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
+          if (_state.players.length < 4) {
+            addBotPlayers(count: 4 - _state.players.length);
+          }
           _state.phase = GamePhase.dealing;
           _doDeal();
         }
@@ -438,13 +443,15 @@ class LocalGameServer {
   // ── Broadcast ────────────────────────────────────────────────
 
   void _broadcastState() {
-    final msg = GameMessage(
-      type: MessageType.stateUpdate,
-      payload: _state.toJson(),
-    ).toJsonString();
-
-    for (final socket in _clientSockets.values) {
+    for (final entry in _clientSockets.entries) {
       try {
+        final playerId = entry.key;
+        final socket = entry.value;
+        final sanitizedPayload = _state.toSanitizedJson(recipientPlayerId: playerId);
+        final msg = GameMessage(
+          type: MessageType.stateUpdate,
+          payload: sanitizedPayload,
+        ).toJsonString();
         socket.sink.add(msg);
       } catch (e) {
         debugPrint('[LocalGameServer] Broadcast frame error: $e');

@@ -6,6 +6,7 @@ import 'package:estimation/core/models/card.dart';
 import 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
 import 'package:estimation/modes/ninety_nine/domain/ninety_nine_card_rules.dart';
 import 'package:estimation/modes/ninety_nine/domain/ninety_nine_game_engine.dart';
+import 'package:estimation/modes/ninety_nine/domain/ninety_nine_bot_ai.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 
 void main() {
@@ -106,5 +107,72 @@ void main() {
       expect(accepted, isTrue);
       expect(state.groundTotal, equals(expectedGround));
     });
+
+    test('At groundTotal 99, only safe cards can be played', () {
+      final state = NinetyNineGameState(
+        hostId: 'p_0',
+        players: [
+          NinetyNinePlayer(
+            id: 'p_0',
+            name: 'Player 0',
+            hand: [
+              const PlayingCard(suit: Suit.spade, rank: Rank.five),
+              const PlayingCard(suit: Suit.heart, rank: Rank.jack),
+            ],
+            isBot: false,
+          ),
+          NinetyNinePlayer(
+            id: 'p_1',
+            name: 'Player 1',
+            hand: [
+              const PlayingCard(suit: Suit.diamond, rank: Rank.four),
+            ],
+            isBot: false,
+          ),
+        ],
+        playerLosses: {'p_0': 0, 'p_1': 0},
+      );
+
+      state.phase = NinetyNinePhase.playing;
+      state.groundTotal = 99;
+      state.currentPlayerIndex = 0;
+
+      // 5 is NOT safe -> rejected
+      final nonSafeCard = const PlayingCard(suit: Suit.spade, rank: Rank.five);
+      final acceptedNonSafe = NinetyNineGameEngine.playCard(state, 'p_0', nonSafeCard);
+      expect(acceptedNonSafe, isFalse);
+
+      // Jack IS safe -> accepted and reduces total to 89
+      final safeCard = const PlayingCard(suit: Suit.heart, rank: Rank.jack);
+      final acceptedSafe = NinetyNineGameEngine.playCard(state, 'p_0', safeCard);
+      expect(acceptedSafe, isTrue);
+      expect(state.groundTotal, equals(89));
+    });
+  });
+
+  group('NinetyNineBotAi Tests', () {
+    test('Bot picks safe card (prefers Jack -10) when groundTotal is 99', () {
+      final hand = [
+        const PlayingCard(suit: Suit.spade, rank: Rank.five),
+        const PlayingCard(suit: Suit.heart, rank: Rank.seven),
+        const PlayingCard(suit: Suit.club, rank: Rank.jack),
+        const PlayingCard(suit: Suit.diamond, rank: Rank.king),
+      ];
+
+      final chosen = NinetyNineBotAi.chooseCard(hand: hand, groundTotal: 99);
+      expect(chosen.rank, equals(Rank.jack));
+    });
+
+    test('Bot saves safe cards when groundTotal < 99', () {
+      final hand = [
+        const PlayingCard(suit: Suit.spade, rank: Rank.five),
+        const PlayingCard(suit: Suit.heart, rank: Rank.seven),
+        const PlayingCard(suit: Suit.club, rank: Rank.jack),
+      ];
+
+      final chosen = NinetyNineBotAi.chooseCard(hand: hand, groundTotal: 40);
+      expect(chosen.rank, equals(Rank.five));
+    });
   });
 }
+

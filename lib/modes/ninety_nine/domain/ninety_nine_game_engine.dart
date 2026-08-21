@@ -56,6 +56,11 @@ class NinetyNineGameEngine {
     final cardIdx = player.hand.indexWhere((c) => c == card);
     if (cardIdx == -1) return false;
 
+    // If ground total is already 99, only safe cards (4, 7, Jack, King) can be played
+    if (state.groundTotal == 99 && !card.isSafeCard) {
+      return false;
+    }
+
     // 1. Remove card from hand
     player.hand.removeAt(cardIdx);
     state.lastPlayedCard = card;

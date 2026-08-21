@@ -1,13 +1,19 @@
 // lib/screens/match_end_screen.dart
 //
-// Final match results screen.
+// Final match results screen with XP awards, level progression, and ranking tiers.
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
+import '../models/rank_tier.dart';
 import '../providers/game_provider.dart';
-import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import '../services/history_service.dart';
 import '../services/audio_service.dart';
+import '../services/ranking_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/level_up_dialog.dart';
+import '../widgets/rank_tier_badge.dart';
 
 class MatchEndScreen extends StatefulWidget {
   final GameState state;
@@ -28,12 +34,16 @@ class _MatchEndScreenState extends State<MatchEndScreen>
   late AnimationController _ctrl;
   late Animation<double> _scale;
   bool _hasSaved = false;
+  XpRewardBreakdown? _rewardBreakdown;
+  MatchXpResult? _xpResult;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _ctrl.forward();
 
@@ -44,12 +54,46 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     } else {
       AudioService.instance.playDefeat();
     }
-    
+
     if (!_hasSaved) {
       _hasSaved = true;
+      _calculateAndAwardXp();
       // Only the host (or offline player) saves match to prevent duplicate records from all 4 clients
       if (widget.provider.role != ConnectionRole.client) {
         HistoryService.saveMatch(widget.state);
+      }
+    }
+  }
+
+  Future<void> _calculateAndAwardXp() async {
+    final breakdown = RankingService.instance.calculateKotshinaReward(
+      state: widget.state,
+      myPlayerId: widget.provider.myPlayerId,
+      myPlayerName: widget.provider.myName,
+    );
+
+    setState(() {
+      _rewardBreakdown = breakdown;
+    });
+
+    final result = await RankingService.instance.processMatchReward(breakdown);
+    if (mounted && result != null) {
+      setState(() {
+        _xpResult = result;
+      });
+
+      if (result.didLevelUp) {
+        Future.delayed(const Duration(milliseconds: 900), () {
+          if (mounted) {
+            LevelUpDialog.show(
+              context,
+              oldLevel: result.oldLevel,
+              newLevel: result.newLevel,
+              oldTier: result.oldTier,
+              newTier: result.newTier,
+            );
+          }
+        });
       }
     }
   }
@@ -66,122 +110,192 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     final sortedPlayers = [...widget.state.players]
       ..sort((a, b) => b.totalScore.compareTo(a.totalScore));
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            colors: [Color(0xFF2E4730), AppTheme.feltGreenDark],
-            radius: 1.5,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        widget.provider.reset();
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (r) => false);
+      },
+      child: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              colors: [Color(0xFF2E4730), AppTheme.feltGreenDark],
+              radius: 1.5,
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  // Trophy animation
-                  ScaleTransition(
-                    scale: _scale,
-                    child: const Text('🏆', style: TextStyle(fontSize: 70)),
-                  ),
-                  const SizedBox(height: 12),
-                  if (winner != null) ...[
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppTheme.gold, Color(0xFFFFF9C4)],
-                      ).createShader(bounds),
-                      child: Text(
-                        'الفائز: ${winner.name}!',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    // Trophy animation
+                    ScaleTransition(
+                      scale: _scale,
+                      child: const Text('🏆', style: TextStyle(fontSize: 64)),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${winner.totalScore} نقطة',
-                      style: const TextStyle(
+                    const SizedBox(height: 8),
+                    if (winner != null) ...[
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [AppTheme.gold, Color(0xFFFFF9C4)],
+                        ).createShader(bounds),
+                        child: Text(
+                          'الفائز: ${winner.name}!',
+                          style: GoogleFonts.cairo(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${winner.totalScore} نقطة',
+                        style: GoogleFonts.cairo(
                           color: AppTheme.gold,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  // Final standings
-                  Text('الترتيب النهائي',
-                      style: Theme.of(context).textTheme.headlineMedium),
-                  const SizedBox(height: 12),
-                  ...sortedPlayers.asMap().entries.map((e) {
-                    final rankIndex = e.key.clamp(0, 3);
-                    final player = e.value;
-                    final ranks = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-                    final rankName = ranks[rankIndex];
-                    final rankColor = AppTheme.rankColors[rankIndex];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: rankColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: rankColor.withValues(alpha: 0.5),
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
                         ),
-                        boxShadow: rankIndex == 0 ? AppTheme.neumorphicTurnGlow(rankColor) : [],
                       ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 95,
-                            child: Text(rankName,
-                                style: TextStyle(
-                                  fontSize: 15,
+                    ],
+
+                    const SizedBox(height: 18),
+
+                    // XP & Ranking Progression Card
+                    if (_rewardBreakdown != null) ...[
+                      _buildXpProgressionCard(),
+                      const SizedBox(height: 18),
+                    ],
+
+                    // Final standings
+                    Text(
+                      'الترتيب النهائي',
+                      style: GoogleFonts.cairo(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.cream,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...sortedPlayers.asMap().entries.map((e) {
+                      final rankIndex = e.key.clamp(0, 3);
+                      final player = e.value;
+                      final ranks = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
+                      final rankName = ranks[rankIndex];
+                      final rankColor = AppTheme.rankColors[rankIndex];
+                      final isMe = player.id == widget.provider.myPlayerId;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: rankColor.withValues(alpha: isMe ? 0.25 : 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isMe ? AppTheme.gold : rankColor.withValues(alpha: 0.5),
+                            width: isMe ? 2.0 : 1.0,
+                          ),
+                          boxShadow: rankIndex == 0 ? AppTheme.neumorphicTurnGlow(rankColor) : [],
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 95,
+                              child: Text(
+                                rankName,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                   color: rankColor,
-                                )),
-                          ),
-                          Expanded(
-                            child: Text(
-                              player.name,
-                              style: TextStyle(
-                                fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      player.name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: isMe ? AppTheme.goldLight : rankColor,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isMe) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.gold,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'أنت',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppTheme.navyDark,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${player.totalScore} نقطة',
+                              style: GoogleFonts.cairo(
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: rankColor,
                               ),
                             ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 20),
+
+                    // Back to home
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.gold,
+                          foregroundColor: AppTheme.navyDark,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          Text(
-                            '${player.totalScore} نقطة',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: rankColor,
-                            ),
+                          elevation: 3,
+                        ),
+                        onPressed: () {
+                          widget.provider.reset();
+                          Navigator.of(context, rootNavigator: true)
+                              .pushNamedAndRemoveUntil('/', (r) => false);
+                        },
+                        child: Text(
+                          'العودة للقائمة الرئيسية',
+                          style: GoogleFonts.cairo(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
                           ),
-                        ],
+                        ),
                       ),
-                    );
-                  }),
-                  const SizedBox(height: 24),
-                  // Back to home
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        widget.provider.reset();
-                        Navigator.of(context, rootNavigator: true)
-                            .pushNamedAndRemoveUntil('/', (r) => false);
-                      },
-                      child: const Text('العودة للقائمة الرئيسية'),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
             ),
           ),
@@ -189,5 +303,158 @@ class _MatchEndScreenState extends State<MatchEndScreen>
       ),
     );
   }
-}
 
+  Widget _buildXpProgressionCard() {
+    final breakdown = _rewardBreakdown!;
+    final auth = AuthService.instance;
+    final profile = auth.currentProfile;
+    final tier = profile?.rankTier ?? RankTier.bronze;
+    final currentLevel = _xpResult?.newLevel ?? profile?.level ?? 1;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.navyDark.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header: Total XP Gain & Tier Badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: AppTheme.gold, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '+${breakdown.totalXp} XP مكافأة الجولة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
+              RankTierBadge(
+                tier: tier,
+                level: currentLevel,
+                compact: true,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 10),
+
+          // Detailed XP Pills
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildXpPill(
+                label: breakdown.rankTitle,
+                xp: breakdown.placementXp,
+                color: AppTheme.rankColors[breakdown.rankIndex],
+              ),
+              if (breakdown.winBonus > 0)
+                _buildXpPill(
+                  label: 'مكافأة الفوز 🏆',
+                  xp: breakdown.winBonus,
+                  color: AppTheme.gold,
+                ),
+              if (breakdown.accuracyBonus > 0)
+                _buildXpPill(
+                  label: 'دقة التوقع 🎯',
+                  xp: breakdown.accuracyBonus,
+                  color: AppTheme.mintSoft,
+                ),
+              if (breakdown.dashBonus > 0)
+                _buildXpPill(
+                  label: 'نداء داش ناجح ⚡',
+                  xp: breakdown.dashBonus,
+                  color: const Color(0xFFFF4081),
+                ),
+              if (breakdown.highScorerBonus > 0)
+                _buildXpPill(
+                  label: 'سكور عالي 🚀',
+                  xp: breakdown.highScorerBonus,
+                  color: const Color(0xFF00E5FF),
+                ),
+            ],
+          ),
+
+          // Progress Bar if user profile exists
+          if (profile != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: profile.levelProgress,
+                minHeight: 7,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(tier.primaryColor),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'المستوى $currentLevel',
+                  style: GoogleFonts.cairo(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white70,
+                  ),
+                ),
+                Text(
+                  '${profile.xp} / ${profile.nextLevelTargetXp} XP',
+                  style: GoogleFonts.cairo(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.goldLight,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildXpPill({
+    required String label,
+    required int xp,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        '$label (+$xp XP)',
+        style: GoogleFonts.cairo(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
+    );
+  }
+}

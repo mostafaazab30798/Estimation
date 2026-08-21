@@ -2,7 +2,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:estimation/core/game_engine.dart';
-import 'package:estimation/core/ai/estimation_bot_ai.dart';
 import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/models/bid.dart';
 import 'package:estimation/core/models/player.dart';

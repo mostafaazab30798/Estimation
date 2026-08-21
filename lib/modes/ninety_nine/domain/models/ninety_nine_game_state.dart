@@ -48,6 +48,19 @@ class NinetyNinePlayer {
         'avatarId': avatarId,
       };
 
+  Map<String, dynamic> toSanitizedJson({bool isSelf = true}) => {
+        'id': id,
+        'name': name,
+        'hand': isSelf
+            ? hand.map((c) => c.toJson()).toList()
+            : List.generate(
+                hand.length,
+                (_) => {'suit': 'spade', 'rank': 'two'},
+              ),
+        'isBot': isBot,
+        'avatarId': avatarId,
+      };
+
   factory NinetyNinePlayer.fromJson(Map<String, dynamic> json) => NinetyNinePlayer(
         id: json['id'] as String,
         name: json['name'] as String,
@@ -93,7 +106,7 @@ class NinetyNineMove {
 
 class NinetyNineGameState {
   int groundTotal;
-  int direction;
+  int direction; // 1 = clockwise, -1 = counter-clockwise
   int currentPlayerIndex;
   int currentRoundNumber;
   List<NinetyNinePlayer> players;
@@ -143,6 +156,26 @@ class NinetyNineGameState {
         'cardTheme': cardTheme,
         'currentRoundNumber': currentRoundNumber,
         'players': players.map((p) => p.toJson()).toList(),
+        'playerLosses': playerLosses,
+        'phase': phase.name,
+        'roundLoserId': roundLoserId,
+        'matchLoserId': matchLoserId,
+        'matchWinnerId': matchWinnerId,
+        'lastPlayedCard': lastPlayedCard?.toJson(),
+        'lastPlayedPlayerName': lastPlayedPlayerName,
+        'moveHistory': moveHistory.map((m) => m.toJson()).toList(),
+        'hostId': hostId,
+      };
+
+  Map<String, dynamic> toSanitizedJson({String? recipientPlayerId}) => {
+        'groundTotal': groundTotal,
+        'direction': direction,
+        'currentPlayerIndex': currentPlayerIndex,
+        'cardTheme': cardTheme,
+        'currentRoundNumber': currentRoundNumber,
+        'players': players
+            .map((p) => p.toSanitizedJson(isSelf: recipientPlayerId != null && p.id == recipientPlayerId))
+            .toList(),
         'playerLosses': playerLosses,
         'phase': phase.name,
         'roundLoserId': roundLoserId,

@@ -26,6 +26,7 @@ class GameServer {
   String? hostPlayerId;
   String? hostName;
   late String roomId;
+  int maxHumanPlayers = 4;
   int maxPlayers = 4;
   
   late GameState _state;
@@ -51,7 +52,8 @@ class GameServer {
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
-    this.maxPlayers = maxPlayers;
+    maxHumanPlayers = maxPlayers;
+    this.maxPlayers = 4; // Estimation table is always 4 players
 
     // Add host as the first player immediately
     final hostPlayer = Player(
@@ -146,9 +148,9 @@ class GameServer {
 
   // ── Bot players ──────────────────────────────────────────────
 
-  /// Add [count] bot players filling remaining seats.
+  /// Add [count] bot players filling remaining seats up to 4.
   void addBotPlayers({int count = 3}) {
-    final toAdd = count.clamp(0, maxPlayers - _state.players.length);
+    final toAdd = count.clamp(0, 4 - _state.players.length);
     for (int i = 1; i <= toAdd; i++) {
       final botId = 'bot_$i';
       final seatIndex = _state.players.length;
@@ -201,7 +203,7 @@ class GameServer {
         _sendError('اللعبة بدأت بالفعل');
         return;
       }
-      if (_state.players.length >= maxPlayers) {
+      if (_state.players.length >= maxHumanPlayers) {
         _sendError('الغرفة ممتلئة');
         return;
       }
@@ -246,11 +248,11 @@ class GameServer {
         _broadcastState();
 
       case ActionType.startGame:
-        // Only the host can start. The player-count check is done in the UI
-        // (via roomPlayers from Supabase), so we trust it here.
+        // Only the host can start. Complete remaining seats with bots so table always has 4 players.
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
-          // Ensure all joined players are in _state; if some are
-          // missing (race condition), we still proceed – the deal fills hands.
+          if (_state.players.length < 4) {
+            addBotPlayers(count: 4 - _state.players.length);
+          }
           _state.phase = GamePhase.dealing;
           _doDeal(); // _doDeal calls _broadcastState internally
         }
@@ -628,8 +630,16 @@ class GameServer {
     this.hostPlayerId = hostPlayerId;
     this.hostName = hostName;
     this.roomId = roomId;
+    maxPlayers = 4;
     _state = state;
     _lastPersistedPhase = state.phase; // Avoid re-persisting the same phase
+
+    _botPlayerIds.clear();
+    for (final p in state.players) {
+      if (p.id.startsWith('bot_')) {
+        _botPlayerIds.add(p.id);
+      }
+    }
 
     _channel = Supabase.instance.client.channel('room_$roomId');
 

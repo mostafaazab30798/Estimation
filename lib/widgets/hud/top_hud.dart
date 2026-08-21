@@ -11,6 +11,7 @@ import '../../core/constants.dart';
 import '../../theme/app_theme.dart';
 import '../performance_blur.dart';
 import '../game_guide_dialog.dart';
+import '../settings_dialog.dart';
 
 class TopHud extends StatelessWidget {
   final GameState state;
@@ -156,9 +157,11 @@ class TopHud extends StatelessWidget {
             _ExitButton(onTap: onExitTap),
             const SizedBox(width: 6),
             const _GuideButton(),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
+            const _SettingsButton(),
+            const SizedBox(width: 8),
             Expanded(child: _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic())),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             if (state.trump != null)
               _TrumpBadge(state: state)
             else
@@ -193,6 +196,8 @@ class TopHud extends StatelessWidget {
         _ExitButton(onTap: onExitTap),
         const SizedBox(width: 6),
         const _GuideButton(),
+        const SizedBox(width: 6),
+        const _SettingsButton(),
         const SizedBox(width: 12),
         _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic()),
         if (state.trump != null) ...[
@@ -255,6 +260,30 @@ class _GuideButton extends StatelessWidget {
             border: Border.all(color: AppTheme.mintSoft.withValues(alpha: 0.3)),
           ),
           child: const Icon(Icons.help_outline_rounded, color: AppTheme.mintSoft, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => SettingsDialog.show(context),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: AppTheme.gold.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+          ),
+          child: const Icon(Icons.settings_outlined, color: AppTheme.gold, size: 18),
         ),
       ),
     );

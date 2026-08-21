@@ -3,6 +3,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'settings_service.dart';
 
 /// Dedicated service managing audio playback and haptic feedback for game events.
 class AudioService {
@@ -20,6 +21,8 @@ class AudioService {
   Future<void> initialize() async {
     if (_initialized) return;
     try {
+      await SettingsService.instance.initialize();
+
       _cardPlayer = AudioPlayer();
       _collectPlayer = AudioPlayer();
       _winPlayer = AudioPlayer();
@@ -33,11 +36,12 @@ class AudioService {
       await _defeatPlayer?.setPlayerMode(PlayerMode.lowLatency);
       await _riskPlayer?.setPlayerMode(PlayerMode.lowLatency);
 
-      await _cardPlayer?.setVolume(0.6);
-      await _collectPlayer?.setVolume(0.8);
-      await _winPlayer?.setVolume(0.9);
-      await _defeatPlayer?.setVolume(0.8);
-      await _riskPlayer?.setVolume(0.9);
+      final vol = SettingsService.instance.sfxVolume;
+      await _cardPlayer?.setVolume(0.6 * vol);
+      await _collectPlayer?.setVolume(0.8 * vol);
+      await _winPlayer?.setVolume(0.9 * vol);
+      await _defeatPlayer?.setVolume(0.8 * vol);
+      await _riskPlayer?.setVolume(0.9 * vol);
 
       // Pre-set audio sources for pre-caching
       await _cardPlayer?.setSource(AssetSource('audio/card_play.mp3'));
@@ -52,18 +56,24 @@ class AudioService {
     }
   }
 
+  void _triggerHaptic(VoidCallback hapticAction) {
+    if (!SettingsService.instance.hapticsEnabled) return;
+    try {
+      hapticAction();
+    } catch (_) {}
+  }
+
   /// Triggers subtle selection haptic and card play sound at ~60% volume.
   Future<void> playCard() async {
-    try {
-      HapticFeedback.selectionClick();
-    } catch (_) {}
+    _triggerHaptic(HapticFeedback.selectionClick);
 
+    if (!SettingsService.instance.sfxEnabled) return;
     try {
       if (_cardPlayer != null) {
         await _cardPlayer!.stop();
         await _cardPlayer!.play(
           AssetSource('audio/card_play.mp3'),
-          volume: 0.6,
+          volume: 0.6 * SettingsService.instance.sfxVolume,
           mode: PlayerMode.lowLatency,
         );
       }
@@ -74,16 +84,15 @@ class AudioService {
 
   /// Triggers light impact haptic and trick collection sound at ~80% volume.
   Future<void> playCollection() async {
-    try {
-      HapticFeedback.lightImpact();
-    } catch (_) {}
+    _triggerHaptic(HapticFeedback.lightImpact);
 
+    if (!SettingsService.instance.sfxEnabled) return;
     try {
       if (_collectPlayer != null) {
         await _collectPlayer!.stop();
         await _collectPlayer!.play(
           AssetSource('audio/collect_cards.mp3'),
-          volume: 0.8,
+          volume: 0.8 * SettingsService.instance.sfxVolume,
           mode: PlayerMode.lowLatency,
         );
       }
@@ -94,16 +103,15 @@ class AudioService {
 
   /// Triggers celebratory haptic and victory fanfare.
   Future<void> playWin() async {
-    try {
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
+    _triggerHaptic(HapticFeedback.heavyImpact);
 
+    if (!SettingsService.instance.sfxEnabled) return;
     try {
       if (_winPlayer != null) {
         await _winPlayer!.stop();
         await _winPlayer!.play(
           AssetSource('audio/win.mp3'),
-          volume: 0.9,
+          volume: 0.9 * SettingsService.instance.sfxVolume,
         );
       }
     } catch (e) {
@@ -113,16 +121,15 @@ class AudioService {
 
   /// Triggers defeat audio cue.
   Future<void> playDefeat() async {
-    try {
-      HapticFeedback.vibrate();
-    } catch (_) {}
+    _triggerHaptic(HapticFeedback.vibrate);
 
+    if (!SettingsService.instance.sfxEnabled) return;
     try {
       if (_defeatPlayer != null) {
         await _defeatPlayer!.stop();
         await _defeatPlayer!.play(
           AssetSource('audio/defeat.mp3'),
-          volume: 0.8,
+          volume: 0.8 * SettingsService.instance.sfxVolume,
         );
       }
     } catch (e) {
@@ -132,16 +139,15 @@ class AudioService {
 
   /// Triggers high-stake Risk/Dash success fanfare.
   Future<void> playRiskWin() async {
-    try {
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
+    _triggerHaptic(HapticFeedback.heavyImpact);
 
+    if (!SettingsService.instance.sfxEnabled) return;
     try {
       if (_riskPlayer != null) {
         await _riskPlayer!.stop();
         await _riskPlayer!.play(
           AssetSource('audio/risk-win.mp3'),
-          volume: 0.9,
+          volume: 0.9 * SettingsService.instance.sfxVolume,
         );
       }
     } catch (e) {

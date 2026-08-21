@@ -164,6 +164,36 @@ class GameState {
         'cardTheme': cardTheme,
       };
 
+  /// Serializes GameState sanitizing all player hands except for [recipientPlayerId].
+  /// Opponents receive dummy cards with identical length, preserving the card count
+  /// without leaking secret cards over the wire.
+  Map<String, dynamic> toSanitizedJson({String? recipientPlayerId}) => {
+        'players': players
+            .map((p) => p.toSanitizedJson(isSelf: recipientPlayerId != null && p.id == recipientPlayerId))
+            .toList(),
+        'phase': phase.name,
+        'roundNumber': roundNumber,
+        'totalRounds': totalRounds,
+        'dealerSeatIndex': dealerSeatIndex,
+        'isDoubleRound': isDoubleRound,
+        'dashCallPassed': dashCallPassed.toList(),
+        'currentHighBid': currentHighBid?.toJson(),
+        'currentHighBidderPlayerId': currentHighBidderPlayerId,
+        'auctionTurnSeatIndex': auctionTurnSeatIndex,
+        'bidderPlayerId': bidderPlayerId,
+        'trump': trump?.name,
+        'trumpSuit': trumpSuit?.name,
+        'currentTrick': currentTrick.map((t) => t.toJson()).toList(),
+        'trickLeaderSeatIndex': trickLeaderSeatIndex,
+        'tricksPlayedThisRound': tricksPlayedThisRound,
+        'currentPlayerSeatIndex': currentPlayerSeatIndex,
+        'lastRoundScoreDeltas': lastRoundScoreDeltas,
+        'voidCheckPassed': voidCheckPassed.toList(),
+        'voidDeclaringPlayerId': voidDeclaringPlayerId,
+        'voidRedealRejections': voidRedealRejections.toList(),
+        'cardTheme': cardTheme,
+      };
+
   factory GameState.fromJson(Map<String, dynamic> json) {
     final trumpName = json['trump'] as String? ?? json['trumpSuit'] as String?;
     final trumpVal = trumpName != null ? Trump.fromString(trumpName) : null;

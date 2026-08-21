@@ -8,10 +8,12 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'dart:math';
 import 'package:estimation/networking/messages.dart';
 import 'package:estimation/core/models/card.dart';
 import '../domain/models/ninety_nine_game_state.dart';
 import '../domain/ninety_nine_game_engine.dart';
+import '../domain/ninety_nine_bot_ai.dart';
 
 class LocalNinetyNineGameServer {
   HttpServer? _server;
@@ -24,6 +26,9 @@ class LocalNinetyNineGameServer {
   String _hostName = '';
   int _maxPlayers = 2;
   int boundPort = 7890;
+  Timer? _botTimer;
+  bool _botProcessing = false;
+  final Random _random = Random();
 
   LocalNinetyNineGameServer({required this.onStateUpdate});
 
@@ -107,7 +112,7 @@ class LocalNinetyNineGameServer {
         return currentAssocId;
 
       case MessageType.heartbeat:
-        socket.sink.add(GameMessage(type: MessageType.heartbeat, payload: {}).toJsonString());
+        socket.sink.add(const GameMessage(type: MessageType.heartbeat, payload: {}).toJsonString());
         return currentAssocId;
 
       default:
@@ -150,6 +155,25 @@ class LocalNinetyNineGameServer {
     _broadcastState();
   }
 
+  int get playerCount => _state.players.length;
+
+  void addBotPlayers({int count = 3}) {
+    final toAdd = count.clamp(0, _maxPlayers - _state.players.length);
+    for (int i = 1; i <= toAdd; i++) {
+      final botIndex = _state.players.length + 1;
+      final botId = 'bot_$botIndex';
+      _state.players.add(NinetyNinePlayer(
+        id: botId,
+        name: 'بوت $i 🤖',
+        hand: [],
+        isBot: true,
+        avatarId: 'avatar_${(i % 6) + 1}',
+      ));
+      _state.playerLosses[botId] = 0;
+    }
+    _broadcastState();
+  }
+
   void _handleLeaveRequest(Map<String, dynamic> payload) {
     final playerId = payload['playerId'] as String? ?? '';
     if (playerId.isEmpty || playerId == _hostId) return;
@@ -171,6 +195,9 @@ class LocalNinetyNineGameServer {
 
       case ActionType.startGame:
         if (playerId == _state.hostId && _state.phase == NinetyNinePhase.waiting) {
+          if (_state.players.length < _maxPlayers) {
+            addBotPlayers(count: _maxPlayers - _state.players.length);
+          }
           NinetyNineGameEngine.dealCardsAndStartRound(_state, roundNumber: 1);
           _broadcastState();
         }
@@ -201,15 +228,51 @@ class LocalNinetyNineGameServer {
 
   void _broadcastState() {
     onStateUpdate(_state);
-    final msg = GameMessage(
-      type: MessageType.stateUpdate,
-      payload: _state.toJson(),
-    ).toJsonString();
 
-    for (final socket in _clientSockets.values) {
+    for (final entry in _clientSockets.entries) {
       try {
+        final playerId = entry.key;
+        final socket = entry.value;
+        final sanitizedPayload = _state.toSanitizedJson(recipientPlayerId: playerId);
+        final msg = GameMessage(
+          type: MessageType.stateUpdate,
+          payload: sanitizedPayload,
+        ).toJsonString();
         socket.sink.add(msg);
       } catch (_) {}
+    }
+
+    _scheduleBotTurnIfNeeded();
+  }
+
+  void _scheduleBotTurnIfNeeded() {
+    if (_state.phase != NinetyNinePhase.playing) return;
+    final currentP = _state.currentPlayer;
+    if (currentP == null || !currentP.isBot) return;
+    if (_botProcessing) return;
+
+    _botProcessing = true;
+    final delay = 750 + _random.nextInt(450);
+    _botTimer?.cancel();
+    _botTimer = Timer(Duration(milliseconds: delay), () {
+      _botProcessing = false;
+      _executeBotTurn();
+    });
+  }
+
+  void _executeBotTurn() {
+    if (_state.phase != NinetyNinePhase.playing) return;
+    final bot = _state.currentPlayer;
+    if (bot == null || !bot.isBot || bot.hand.isEmpty) return;
+
+    final chosenCard = NinetyNineBotAi.chooseCard(
+      hand: bot.hand,
+      groundTotal: _state.groundTotal,
+    );
+
+    final accepted = NinetyNineGameEngine.playCard(_state, bot.id, chosenCard);
+    if (accepted) {
+      _broadcastState();
     }
   }
 
@@ -222,6 +285,8 @@ class LocalNinetyNineGameServer {
   }
 
   Future<void> stop() async {
+    _botTimer?.cancel();
+    _botTimer = null;
     for (final socket in _clientSockets.values) {
       try {
         socket.sink.close();
@@ -232,3 +297,4 @@ class LocalNinetyNineGameServer {
     _server = null;
   }
 }
+

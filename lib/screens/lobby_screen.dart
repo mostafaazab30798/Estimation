@@ -78,8 +78,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     // Navigate to game
-    final isKotchinaStarted = state != null && state.phase != GamePhase.lobby;
-    final isNinetyNineStarted = provider.currentRoom?.gameType == 'ninety_nine' && provider.currentRoom?.status == GameRoomStatus.playing;
+    final isKotchinaStarted = !isNinetyNineMode && state != null && state.phase != GamePhase.lobby;
+    final isNinetyNineStarted = isNinetyNineMode &&
+        ((provider.currentRoom?.status == GameRoomStatus.playing) ||
+         (nnProvider.phase != NinetyNinePhase.waiting));
     
     if ((isKotchinaStarted || isNinetyNineStarted) && !_hasNavigatedToGame) {
       _hasNavigatedToGame = true;
@@ -88,9 +90,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
           if (isNinetyNineStarted) {
              final nnProvider = context.read<NinetyNineGameProvider>();
              nnProvider.setClient(provider.nnClient);
-             provider.nnClient?.onStateUpdate = (state) {
-               nnProvider.syncState(state);
-             };
+             if (provider.nnClient != null) {
+               provider.nnClient?.onStateUpdate = (state) {
+                 nnProvider.syncState(state);
+               };
+             }
              Navigator.pushReplacementNamed(context, '/ninety_nine/game');
           } else {
              Navigator.pushReplacementNamed(context, '/game');
@@ -98,6 +102,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         }
       });
     }
+
 
     // Navigate back on error
     final errorMessage = provider.errorMessage;
@@ -143,7 +148,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
           spacing: 12,
           runSpacing: 16,
           alignment: WrapAlignment.center,
-          children: List.generate(provider.expectedPlayers, (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode)),
+          children: List.generate(
+            isNinetyNineMode ? provider.expectedPlayers : 4,
+            (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode),
+          ),
         ),
       ],
     );
@@ -555,6 +563,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerCount(List<dynamic> players, GameProvider provider) {
+    final isNinetyNine = provider.currentRoom?.gameType == 'ninety_nine';
+    final totalSeats = isNinetyNine ? provider.expectedPlayers : 4;
+    final botSlots = totalSeats - provider.expectedPlayers;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -570,8 +582,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
             border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.5)),
           ),
           child: Text(
-            '${players.length} / ${provider.expectedPlayers}',
-            style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 14, fontWeight: FontWeight.bold),
+            botSlots > 0
+                ? '${players.length} / ${provider.expectedPlayers} (المجموع: 4 مع البوت)'
+                : '${players.length} / ${provider.expectedPlayers}',
+            style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -579,10 +593,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerAvatar(BuildContext context, GameProvider provider, List<dynamic> players, int i, bool isTestMode) {
+    final isNinetyNineMode = provider.currentRoom?.gameType == 'ninety_nine';
+    final isBotReservedSlot = !isNinetyNineMode && !isTestMode && i >= provider.expectedPlayers;
     final occupied = i < players.length;
     final player = occupied ? players[i] : null;
     final isMe = occupied && player.id == provider.myPlayerId;
-    final isBot = occupied && player.id.startsWith('bot_');
+    final isBot = (occupied && player.id.startsWith('bot_')) || isBotReservedSlot;
     final seatColor = _seatColors[i % _seatColors.length];
 
     String? photoData;
@@ -619,15 +635,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.navyDark.withValues(alpha: 0.6),
+                  color: isBotReservedSlot
+                      ? const Color(0xFF4C1D95).withValues(alpha: 0.45)
+                      : AppTheme.navyDark.withValues(alpha: 0.6),
                   border: Border.all(
-                    color: seatColor.withValues(alpha: 0.4),
+                    color: isBotReservedSlot ? AppTheme.gold : seatColor.withValues(alpha: 0.4),
                     width: 2.5,
                   ),
+                  boxShadow: isBotReservedSlot
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.gold.withValues(alpha: 0.25),
+                            blurRadius: 12,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Center(
                   child: Text(
-                    _seatEmojis[i % _seatEmojis.length],
+                    isBotReservedSlot ? '🤖' : _seatEmojis[i % _seatEmojis.length],
                     style: TextStyle(
                       fontSize: 32,
                       color: seatColor.withValues(alpha: 0.6),
@@ -643,7 +669,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             else if (isBot)
               Positioned(
                 bottom: -6,
-                child: _badge('بوت 🤖', AppTheme.accentLight),
+                child: _badge('بوت 🤖', isBotReservedSlot ? AppTheme.gold : AppTheme.accentLight),
               )
             else if (occupied)
               Positioned(
@@ -664,14 +690,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
         SizedBox(
           width: 76,
           child: Text(
-            occupied ? player.name : 'انتظار...',
+            occupied
+                ? player.name
+                : (isBotReservedSlot ? 'لاعب ${i + 1} 🤖' : 'انتظار...'),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.cairo(
               fontSize: 14,
-              fontWeight: occupied ? FontWeight.w700 : FontWeight.w500,
-              color: occupied ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.6),
+              fontWeight: (occupied || isBotReservedSlot) ? FontWeight.w700 : FontWeight.w500,
+              color: occupied
+                  ? AppTheme.white
+                  : (isBotReservedSlot ? AppTheme.goldLight : AppTheme.accentLight.withValues(alpha: 0.6)),
             ),
           ),
         ),

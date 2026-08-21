@@ -1,34 +1,40 @@
 // lib/screens/mode_selection_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
-import '../widgets/performance_blur.dart';
+import '../services/audio_service.dart';
+import '../services/settings_service.dart';
+import '../services/profile_service.dart';
+import '../core/widgets/player_avatar.dart';
 
-// ── Data model ──────────────────────────────────────────────────────────────
+// ── Game Mode Data ────────────────────────────────────────────────────────────
 
 class _ModeData {
   final String title;
-  final String subtitle;
+  final String description;
   final String badgeText;
   final Color accentColor;
-  final Color secondaryAccent;
+  final Color secondaryColor;
   final String symbol;
   final String route;
+  final List<String> tags;
 
   const _ModeData({
     required this.title,
-    required this.subtitle,
+    required this.description,
     required this.badgeText,
     required this.accentColor,
-    required this.secondaryAccent,
+    required this.secondaryColor,
     required this.symbol,
     required this.route,
+    required this.tags,
   });
 }
 
-// ── Screen ───────────────────────────────────────────────────────────────────
+// ── Main Screen ──────────────────────────────────────────────────────────────
 
 class ModeSelectionScreen extends StatefulWidget {
   const ModeSelectionScreen({super.key});
@@ -37,98 +43,57 @@ class ModeSelectionScreen extends StatefulWidget {
   State<ModeSelectionScreen> createState() => _ModeSelectionScreenState();
 }
 
-class _ModeSelectionScreenState extends State<ModeSelectionScreen>
-    with TickerProviderStateMixin {
-  // Entry animation
-  late final AnimationController _entryCtrl;
-  late final Animation<double> _fadeIn;
-  late final Animation<Offset> _slideIn;
-
-  // Ambient pulse
-  late final AnimationController _pulseCtrl;
-  late final Animation<double> _pulseAnim;
-
-  // Staggered card animations
-  late final List<AnimationController> _cardCtrls;
-  late final List<Animation<double>> _cardFades;
-  late final List<Animation<Offset>> _cardSlides;
+class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
+  String _playerName = 'لاعب كوتشينة';
+  String _playerPhoto = ProfileService.presetAvatars.first.id;
 
   static const List<_ModeData> _modes = [
     _ModeData(
       title: 'إستميشن',
-      subtitle: 'اللعبة الكلاسيكية بالمزايدات والتخمين',
-      badgeText: 'كلاسيك',
+      description: 'البولة الرسمية ١٨ جولة • سانز وداش كول وكول عادي',
+      badgeText: 'كلاسيك ♠️',
       accentColor: AppTheme.gold,
-      secondaryAccent: AppTheme.goldLight,
+      secondaryColor: Color(0xFFD97706),
       symbol: '♠',
       route: '/kotchina/home',
+      tags: ['٤ لاعبين', '١٨ جولة', 'ذكاء وتكتيك'],
     ),
     _ModeData(
       title: 'مود الـ 99',
-      subtitle: 'وصّل الأرض لـ99 وإياك تكون الأخير',
-      badgeText: 'جديد 🔥',
+      description: 'وصل مجموع الأرض لـ 99 وتفادى الخسارة السريعة',
+      badgeText: 'حماسي 🔥',
       accentColor: Color(0xFFEF4444),
-      secondaryAccent: Color(0xFFFC8181),
+      secondaryColor: Color(0xFF991B1B),
       symbol: '99',
       route: '/ninety_nine/home',
+      tags: ['٢ - ٧ لاعبين', 'موت مفاجئ', 'إيقاع سريع'],
     ),
   ];
 
   @override
   void initState() {
     super.initState();
-
-    _entryCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
-    _fadeIn = CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic);
-    _slideIn = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _entryCtrl, curve: Curves.easeOutCubic));
-
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 5),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0)
-        .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
-
-    // Per-card staggered controllers
-    _cardCtrls = List.generate(
-      _modes.length,
-      (i) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 600),
-      ),
-    );
-    _cardFades = _cardCtrls.map((c) {
-      return CurvedAnimation(parent: c, curve: Curves.easeOutCubic)
-          as Animation<double>;
-    }).toList();
-    _cardSlides = _cardCtrls.map((c) {
-      return Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
-          .animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
-    }).toList();
-
-    _entryCtrl.forward();
-    _startCardStagger();
+    _loadPlayerProfile();
   }
 
-  Future<void> _startCardStagger() async {
-    for (int i = 0; i < _cardCtrls.length; i++) {
-      await Future.delayed(Duration(milliseconds: 180 + i * 140));
-      if (mounted) _cardCtrls[i].forward();
-    }
+  Future<void> _loadPlayerProfile() async {
+    try {
+      final name = await ProfileService.getProfileName();
+      final photo = await ProfileService.getProfilePhoto();
+      if (mounted && name.isNotEmpty) {
+        setState(() {
+          _playerName = name;
+          _playerPhoto = photo;
+        });
+      }
+    } catch (_) {}
   }
 
-  @override
-  void dispose() {
-    _entryCtrl.dispose();
-    _pulseCtrl.dispose();
-    for (final c in _cardCtrls) {
-      c.dispose();
-    }
-    super.dispose();
+  void _openProfile() async {
+    HapticFeedback.selectionClick();
+    AudioService.instance.playCard();
+    await Navigator.pushNamed(context, '/profile');
+    _loadPlayerProfile();
   }
 
   @override
@@ -141,20 +106,18 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Background ──────────────────────────────────────────
+          // Background wallpaper
           Positioned.fill(
             child: Image.asset(
               'assets/wallpapers/w1.jpg',
               fit: BoxFit.cover,
-              alignment: Alignment.center,
-              gaplessPlayback: true,
               errorBuilder: (_, __, ___) => Container(
                 decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
               ),
             ),
           ),
 
-          // ── Dark overlay ────────────────────────────────────────
+          // Deep modern glass gradient overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -162,182 +125,203 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.62),
-                    AppTheme.deepNavy.withValues(alpha: 0.90),
-                    AppTheme.deepNavy,
+                    Colors.black.withValues(alpha: 0.60),
+                    AppTheme.deepNavy.withValues(alpha: 0.88),
+                    AppTheme.deepNavy.withValues(alpha: 0.98),
                   ],
-                  stops: const [0.0, 0.55, 1.0],
+                  stops: const [0.0, 0.45, 1.0],
                 ),
               ),
             ),
           ),
 
-          // ── Ambient orbs ────────────────────────────────────────
-          AnimatedBuilder(
-            animation: _pulseAnim,
-            builder: (_, __) {
-              final t = _pulseAnim.value;
-              return Stack(
-                children: [
-                  // Gold orb — top right
-                  Positioned(
-                    top: -80 + t * 20,
-                    right: -80 + t * 10,
-                    child: _Orb(
-                      size: 320,
-                      color: AppTheme.gold.withValues(alpha: 0.12 + t * 0.06),
-                    ),
-                  ),
-                  // Red orb — bottom left
-                  Positioned(
-                    bottom: -80 + (1 - t) * 20,
-                    left: -80 + (1 - t) * 10,
-                    child: _Orb(
-                      size: 280,
-                      color: const Color(0xFFEF4444)
-                          .withValues(alpha: 0.10 + (1 - t) * 0.05),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          // ── Main content ────────────────────────────────────────
+          // Main content
           SafeArea(
-            child: FadeTransition(
-              opacity: _fadeIn,
-              child: SlideTransition(
-                position: _slideIn,
-                child: isLandscape
-                    ? _buildLandscapeLayout(context)
-                    : _buildPortraitLayout(context),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Portrait ─────────────────────────────────────────────────────────────
-
-  Widget _buildPortraitLayout(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 16),
-        _buildHeader(),
-        const SizedBox(height: 28),
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
               children: [
-                for (int i = 0; i < _modes.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 16),
-                  _buildModeCard(i, context),
-                ],
-                const SizedBox(height: 24),
+                // Top Bar (Profile + Sound)
+                _buildTopBar(),
+
+                // Compact Modern Title Header
+                _buildCompactHeader(),
+
+                // Center Mode Cards
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isLandscape ? 860 : 460,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        child: isLandscape
+                            ? _buildLandscapeModes(context)
+                            : _buildPortraitModes(context),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Compact Footer
+                _buildSuitFooter(),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // ── Landscape ────────────────────────────────────────────────────────────
+  // ── Top Bar ────────────────────────────────────────────────────────────────
 
-  Widget _buildLandscapeLayout(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 16),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Profile Capsule (Avatar + Name)
+          InkWell(
+            onTap: _openProfile,
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.navyDark.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppTheme.gold.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.gold, width: 1.4),
+                    ),
+                    child: PlayerAvatar(
+                      photoData: _playerPhoto,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _playerName,
+                    style: GoogleFonts.cairo(
+                      color: AppTheme.cream,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.tune_rounded,
+                    color: AppTheme.gold.withValues(alpha: 0.8),
+                    size: 14,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Sound Quick Toggle
+          ListenableBuilder(
+            listenable: SettingsService.instance,
+            builder: (context, _) {
+              final sfx = SettingsService.instance.sfxEnabled;
+              return InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  SettingsService.instance.setSfxEnabled(!sfx);
+                  if (!sfx) AudioService.instance.playCard();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.navyDark.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: sfx
+                          ? AppTheme.gold.withValues(alpha: 0.3)
+                          : Colors.white12,
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    sfx ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    color: sfx ? AppTheme.gold : Colors.white54,
+                    size: 18,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Compact Header ─────────────────────────────────────────────────────────
+
+  Widget _buildCompactHeader() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Left — header
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 24, right: 8),
-                  child: _buildHeader(),
+              Text(
+                'اختر نمط اللعب',
+                style: GoogleFonts.cairo(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.white,
+                  letterSpacing: 0.5,
                 ),
               ),
-              // Right — cards
-              Expanded(
-                flex: 5,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(8, 0, 20, 16),
-                  child: Column(
-                    children: [
-                      for (int i = 0; i < _modes.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 14),
-                        _buildModeCard(i, context),
-                      ],
-                    ],
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppTheme.gold.withValues(alpha: 0.4),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  'مودات كوتشينة 🎴',
+                  style: GoogleFonts.cairo(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.goldLight,
                   ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
-    );
-  }
-
-  // ── Header ───────────────────────────────────────────────────────────────
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Eyebrow label
-          Row(
-            children: [
-              Container(
-                width: 3,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppTheme.gold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'استميشن مالتيبلاير',
-                style: GoogleFonts.cairo(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.gold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 2),
           Text(
-            'اختر\nمود اللعب',
+            'استمتع باللعب الفردي مع البوتات أو تنافس أونلاين ومحلياً',
             style: GoogleFonts.cairo(
-              fontSize: 34,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-              color: AppTheme.cream,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'اختر المود المفضل واستمتع بالتحدي',
-            style: GoogleFonts.cairo(
-              fontSize: 13,
+              fontSize: 11.5,
               color: AppTheme.steelBlue,
-              height: 1.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -345,78 +329,93 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     );
   }
 
-  // ── Mode card ────────────────────────────────────────────────────────────
+  // ── Portrait Modes ─────────────────────────────────────────────────────────
 
-  Widget _buildModeCard(int index, BuildContext context) {
-    return FadeTransition(
-      opacity: _cardFades[index],
-      child: SlideTransition(
-        position: _cardSlides[index],
-        child: _ModeCard(
-          mode: _modes[index],
-          onTap: () => Navigator.pushNamed(context, _modes[index].route),
+  Widget _buildPortraitModes(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < _modes.length; i++) ...[
+          if (i > 0) const SizedBox(height: 14),
+          _SleekModeCard(
+            mode: _modes[i],
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              AudioService.instance.playCard();
+              Navigator.pushNamed(context, _modes[i].route);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Landscape Modes ────────────────────────────────────────────────────────
+
+  Widget _buildLandscapeModes(BuildContext context) {
+    return Row(
+      children: [
+        for (int i = 0; i < _modes.length; i++) ...[
+          if (i > 0) const SizedBox(width: 16),
+          Expanded(
+            child: _SleekModeCard(
+              mode: _modes[i],
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                AudioService.instance.playCard();
+                Navigator.pushNamed(context, _modes[i].route);
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ── Compact Suit Footer ────────────────────────────────────────────────────
+
+  Widget _buildSuitFooter() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text('♠', style: TextStyle(fontSize: 13, color: AppTheme.accentLight)),
+            SizedBox(width: 12),
+            Text('♥', style: TextStyle(fontSize: 13, color: AppTheme.suitRed)),
+            SizedBox(width: 12),
+            Text('♦', style: TextStyle(fontSize: 13, color: AppTheme.suitRed)),
+            SizedBox(width: 12),
+            Text('♣', style: TextStyle(fontSize: 13, color: AppTheme.accentLight)),
+          ],
         ),
       ),
     );
   }
 }
 
-// ── Orb helper ───────────────────────────────────────────────────────────────
+// ── Sleek Modern Mode Card ───────────────────────────────────────────────────
 
-class _Orb extends StatelessWidget {
-  final double size;
-  final Color color;
-  const _Orb({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, Colors.transparent],
-          stops: const [0.0, 1.0],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Mode Card ────────────────────────────────────────────────────────────────
-
-class _ModeCard extends StatefulWidget {
+class _SleekModeCard extends StatefulWidget {
   final _ModeData mode;
   final VoidCallback onTap;
 
-  const _ModeCard({required this.mode, required this.onTap});
+  const _SleekModeCard({required this.mode, required this.onTap});
 
   @override
-  State<_ModeCard> createState() => _ModeCardState();
+  State<_SleekModeCard> createState() => _SleekModeCardState();
 }
 
-class _ModeCardState extends State<_ModeCard>
-    with SingleTickerProviderStateMixin {
+class _SleekModeCardState extends State<_SleekModeCard> {
   bool _isPressed = false;
-  late final AnimationController _shimmerCtrl;
-  late final Animation<double> _shimmerAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _shimmerCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-    _shimmerAnim = CurvedAnimation(parent: _shimmerCtrl, curve: Curves.linear);
-  }
-
-  @override
-  void dispose() {
-    _shimmerCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -430,258 +429,193 @@ class _ModeCardState extends State<_ModeCard>
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 130),
-        curve: Curves.easeOutCubic,
+        scale: _isPressed ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 120),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                mode.accentColor.withValues(alpha: _isPressed ? 0.20 : 0.10),
+                AppTheme.navyDark.withValues(alpha: 0.85),
+                AppTheme.navyDark.withValues(alpha: 0.95),
+              ],
+            ),
+            border: Border.all(
+              color: _isPressed
+                  ? mode.accentColor.withValues(alpha: 0.85)
+                  : mode.accentColor.withValues(alpha: 0.35),
+              width: _isPressed ? 1.6 : 1.1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: mode.accentColor
-                    .withValues(alpha: _isPressed ? 0.28 : 0.12),
-                blurRadius: _isPressed ? 30 : 16,
-                offset: const Offset(0, 8),
+                color: mode.accentColor.withValues(alpha: _isPressed ? 0.35 : 0.12),
+                blurRadius: _isPressed ? 24 : 14,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: PerformanceBlur(
-              borderRadius: BorderRadius.circular(20),
-              sigmaX: 14,
-              sigmaY: 14,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: AppTheme.deepNavy.withValues(alpha: 0.55),
-                  border: Border.all(
-                    color: _isPressed
-                        ? mode.accentColor.withValues(alpha: 0.55)
-                        : mode.accentColor.withValues(alpha: 0.22),
-                    width: _isPressed ? 1.5 : 1.0,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    // Subtle shimmer sweep
-                    Positioned.fill(
-                      child: AnimatedBuilder(
-                        animation: _shimmerAnim,
-                        builder: (_, __) {
-                          final dx = _shimmerAnim.value * 2 - 0.5;
-                          return ShaderMask(
-                            shaderCallback: (bounds) {
-                              return LinearGradient(
-                                begin: Alignment(dx - 0.6, -1),
-                                end: Alignment(dx + 0.6, 1),
-                                colors: [
-                                  Colors.transparent,
-                                  mode.accentColor.withValues(alpha: 0.04),
-                                  Colors.transparent,
-                                ],
-                              ).createShader(bounds);
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    // Content
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 20),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Symbol icon
-                          _SymbolBadge(
-                            symbol: mode.symbol,
-                            accentColor: mode.accentColor,
-                            isPressed: _isPressed,
-                          ),
-                          const SizedBox(width: 18),
-
-                          // Text content
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Badge + Title row
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        mode.title,
-                                        style: GoogleFonts.cairo(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.cream,
-                                          height: 1.2,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _BadgePill(
-                                      text: mode.badgeText,
-                                      color: mode.accentColor,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-
-                                // Subtitle
-                                Text(
-                                  mode.subtitle,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 12.5,
-                                    color: AppTheme.steelBlue,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Arrow
-                          const SizedBox(width: 12),
-                          Align(
-                            alignment: Alignment.center,
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              transform: Matrix4.translationValues(
-                                  _isPressed ? -3 : 0, 0, 0),
-                              child: Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                color:
-                                    mode.accentColor.withValues(alpha: 0.85),
-                                size: 16,
-                              ),
-                            ),
-                          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top Row: Emblem + Title + Badge + Arrow Pill
+              Row(
+                children: [
+                  // Emblem Circle/Square
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          mode.accentColor.withValues(alpha: 0.3),
+                          mode.secondaryColor.withValues(alpha: 0.15),
                         ],
                       ),
-                    ),
-
-                    // Bottom accent line
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: 2.5,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.transparent,
-                              mode.accentColor.withValues(alpha: 0.6),
-                              mode.secondaryAccent.withValues(alpha: 0.4),
-                              Colors.transparent,
-                            ],
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(20),
-                            bottomRight: Radius.circular(20),
-                          ),
+                      border: Border.all(
+                        color: mode.accentColor.withValues(alpha: 0.5),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: mode.accentColor.withValues(alpha: 0.25),
+                          blurRadius: 8,
                         ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      mode.symbol,
+                      style: GoogleFonts.cairo(
+                        fontSize: mode.symbol == '99' ? 20 : 24,
+                        fontWeight: FontWeight.w900,
+                        color: mode.accentColor,
+                        height: 1,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Title + Subtitle description
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              mode.title,
+                              style: GoogleFonts.cairo(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: mode.accentColor.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: mode.accentColor.withValues(alpha: 0.4),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                mode.badgeText,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: mode.accentColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          mode.description,
+                          style: GoogleFonts.cairo(
+                            fontSize: 11.5,
+                            color: AppTheme.steelBlue,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Action Chevron Pill
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: mode.accentColor.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: mode.accentColor.withValues(alpha: 0.35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: mode.accentColor,
+                      size: 14,
+                    ),
+                  ),
+                ],
               ),
-            ),
+
+              const SizedBox(height: 12),
+
+              // Feature Tags Row
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: mode.tags.map((tag) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      tag,
+                      style: GoogleFonts.cairo(
+                        fontSize: 10.5,
+                        color: AppTheme.cream.withValues(alpha: 0.85),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-
-// ── Symbol badge ─────────────────────────────────────────────────────────────
-
-class _SymbolBadge extends StatelessWidget {
-  final String symbol;
-  final Color accentColor;
-  final bool isPressed;
-
-  const _SymbolBadge({
-    required this.symbol,
-    required this.accentColor,
-    required this.isPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isNumber = symbol == '99';
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: accentColor.withValues(alpha: isPressed ? 0.20 : 0.12),
-        border: Border.all(
-          color: accentColor.withValues(alpha: isPressed ? 0.60 : 0.35),
-          width: 1.2,
-        ),
-        boxShadow: isPressed
-            ? [
-                BoxShadow(
-                  color: accentColor.withValues(alpha: 0.25),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        symbol,
-        style: GoogleFonts.cairo(
-          fontSize: isNumber ? 22 : 30,
-          fontWeight: FontWeight.w900,
-          color: accentColor,
-          height: 1,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Badge pill ───────────────────────────────────────────────────────────────
-
-class _BadgePill extends StatelessWidget {
-  final String text;
-  final Color color;
-  const _BadgePill({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: color.withValues(alpha: 0.40), width: 0.8),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.cairo(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-

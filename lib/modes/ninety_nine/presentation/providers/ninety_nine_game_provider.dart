@@ -10,6 +10,8 @@ export 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_stat
 import 'package:estimation/modes/ninety_nine/networking/ninety_nine_game_client.dart';
 import 'package:estimation/networking/messages.dart';
 
+import 'package:estimation/services/audio_service.dart';
+
 class NinetyNineGameProvider extends ChangeNotifier {
   static const int maxLosses = 5;
   Timer? _botTimer;
@@ -29,6 +31,7 @@ class NinetyNineGameProvider extends ChangeNotifier {
   String? _lastPlayedPlayerName;
   List<NinetyNineMove> _moveHistory = [];
   NinetyNineGameClient? _client;
+  void Function(String action, [Map<String, dynamic>? data])? onSendAction;
   String? _myPlayerId;
   bool get isOnline => _client != null;
 
@@ -98,13 +101,46 @@ class NinetyNineGameProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  // ── Client Actions ───────────────────────────────────────────
+  // ── Actions ──────────────────────────────────────────────────
 
   void playCard(String playerId, PlayingCard card) {
-    _client?.sendAction(ActionType.playCardNinetyNine, {'card': card.toJson()});
+    AudioService.instance.playCard();
+    if (onSendAction != null) {
+      onSendAction!(ActionType.playCardNinetyNine, {'card': card.toJson()});
+    } else if (_client != null) {
+      _client!.sendAction(ActionType.playCardNinetyNine, {'card': card.toJson()});
+    }
   }
 
   void advanceToNextRound() {
-    _client?.sendAction(ActionType.nextRound);
+    if (onSendAction != null) {
+      onSendAction!(ActionType.nextRound);
+    } else if (_client != null) {
+      _client!.sendAction(ActionType.nextRound);
+    }
+  }
+
+  void reset() {
+    _botTimer?.cancel();
+    _botTimer = null;
+    _groundTotal = 0;
+    _direction = 1;
+    _currentPlayerIndex = 0;
+    _currentRoundNumber = 1;
+    _players = [];
+    _playerLosses = {};
+    _phase = NinetyNinePhase.waiting;
+    _cardTheme = 'theme_1';
+    _roundLoser = null;
+    _matchLoser = null;
+    _matchWinner = null;
+    _lastPlayedCard = null;
+    _lastPlayedPlayerName = null;
+    _moveHistory = [];
+    _client = null;
+    onSendAction = null;
+    _myPlayerId = null;
+    notifyListeners();
   }
 }
+

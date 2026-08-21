@@ -48,6 +48,38 @@ extension NinetyNineCardEffect on PlayingCard {
     }
   }
 
+  /// Short badge text for card overlay pill in 99 hand visualization
+  String get badgeLabel {
+    switch (rank) {
+      case Rank.four:
+        return '+0 🛡️';
+      case Rank.seven:
+        return '🔄';
+      case Rank.king:
+        return '👑 99';
+      case Rank.jack:
+        return '-10 🛡️';
+      case Rank.queen:
+        return '+10';
+      case Rank.ace:
+        return '+1';
+      case Rank.two:
+        return '+2';
+      case Rank.three:
+        return '+3';
+      case Rank.five:
+        return '+5';
+      case Rank.six:
+        return '+6';
+      case Rank.eight:
+        return '+8';
+      case Rank.nine:
+        return '+9';
+      case Rank.ten:
+        return '+10';
+    }
+  }
+
   /// Calculates the new ground total after applying this card's effect to [currentGround].
   int applyEffect(int currentGround) {
     switch (rank) {
@@ -62,21 +94,22 @@ extension NinetyNineCardEffect on PlayingCard {
       case Rank.queen:
         return (currentGround + 10).clamp(0, 99);
       case Rank.ace:
-        return currentGround + 1;
+        return (currentGround + 1).clamp(0, 99);
       case Rank.two:
-        return currentGround + 2;
+        return (currentGround + 2).clamp(0, 99);
       case Rank.three:
-        return currentGround + 3;
+        return (currentGround + 3).clamp(0, 99);
       case Rank.five:
-        return currentGround + 5;
+        return (currentGround + 5).clamp(0, 99);
       case Rank.six:
-        return currentGround + 6;
+        return (currentGround + 6).clamp(0, 99);
       case Rank.eight:
-        return currentGround + 8;
+        return (currentGround + 8).clamp(0, 99);
       case Rank.nine:
-        return currentGround + 9;
+        return (currentGround + 9).clamp(0, 99);
       case Rank.ten:
-        return currentGround + 10;
+        return (currentGround + 10).clamp(0, 99);
     }
   }
 }
+

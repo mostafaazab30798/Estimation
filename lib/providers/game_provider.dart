@@ -56,7 +56,14 @@ class GameProvider extends ChangeNotifier {
   GameClient? _client;
   NinetyNineGameServer? _nnServer;
   NinetyNineGameClient? _nnClient;
-  NinetyNineGameProvider? nnProvider;
+  NinetyNineGameProvider? _nnProvider;
+  NinetyNineGameProvider? get nnProvider => _nnProvider;
+  set nnProvider(NinetyNineGameProvider? provider) {
+    _nnProvider = provider;
+    _nnProvider?.onSendAction = (action, [data]) {
+      _sendAction(action, data ?? {});
+    };
+  }
 
   String? _myPlayerId; // Supabase auth uid
   String _myName = '';
@@ -510,7 +517,9 @@ class GameProvider extends ChangeNotifier {
       final dummyRoomId = 'test_99_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
       await _nnServer!.start(name, myPlayerId, dummyRoomId, myPhoto, maxPlayers: totalPlayers);
-      // Wait for dummy start
+      if (totalPlayers > 1) {
+        _nnServer!.addBotPlayers(count: totalPlayers - 1);
+      }
       _status = ConnectionStatus.connected;
       notifyListeners();
     } catch (e) {
@@ -673,6 +682,8 @@ class GameProvider extends ChangeNotifier {
 
         if (_localServer != null && _localServer!.playerCount < 4 && _currentRoom!.gameType == 'kotchina') {
           _localServer!.addBotPlayers(count: 4 - _localServer!.playerCount);
+        } else if (_localNnServer != null && _localNnServer!.playerCount < _expectedPlayers) {
+          _localNnServer!.addBotPlayers(count: _expectedPlayers - _localNnServer!.playerCount);
         }
 
         _sendAction(ActionType.startGame);
@@ -693,12 +704,15 @@ class GameProvider extends ChangeNotifier {
           if (!is99 && _server!.playerCount < 4) {
             _server!.addBotPlayers(count: 4 - _server!.playerCount);
           }
-        } else if (_nnServer != null && _roomPlayers.isNotEmpty) {
-          // Sync room players into the 99-mode server before dealing cards.
-          // Without this the server only has the host and deals to 1 player.
-          _nnServer!.syncPlayersFromRoom(
-            _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
-          );
+        } else if (_nnServer != null) {
+          if (_roomPlayers.isNotEmpty) {
+            _nnServer!.syncPlayersFromRoom(
+              _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
+            );
+          }
+          if (_nnServer!.playerCount < _expectedPlayers) {
+            _nnServer!.addBotPlayers(count: _expectedPlayers - _nnServer!.playerCount);
+          }
         }
         _sendAction(ActionType.startGame);
         await _lobbyRepo.startGame(_currentRoom!.id);
@@ -777,6 +791,7 @@ class GameProvider extends ChangeNotifier {
 
   Future<void> reset() async {
     await _sessionService.clearSession();
+    _nnProvider?.reset();
     final myId = myPlayerId;
     if (_currentRoom != null && myId.isNotEmpty) {
       try {

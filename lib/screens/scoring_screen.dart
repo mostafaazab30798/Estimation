@@ -158,104 +158,245 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
           : const _WaitingForHostChip(),
     );
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background Wallpaper
-          Positioned.fill(
-            child: Image.asset(
-              'assets/wallpapers/w2.jpg',
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              filterQuality: FilterQuality.medium,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit(context, provider);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background Wallpaper
+            Positioned.fill(
+              child: Image.asset(
+                'assets/wallpapers/w2.jpg',
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.medium,
+              ),
             ),
-          ),
-          // Dark Gradient Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.navyDark.withValues(alpha: 0.55),
-                    AppTheme.navyDark.withValues(alpha: 0.82),
-                  ],
+            // Dark Gradient Overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppTheme.navyDark.withValues(alpha: 0.55),
+                      AppTheme.navyDark.withValues(alpha: 0.82),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          // Glass Blur
-          Positioned.fill(
-            child: PerformanceBlur(
-              sigmaX: 6,
-              sigmaY: 6,
-              fallbackColor: Colors.black.withValues(alpha: 0.2),
-              child: const SizedBox.expand(),
+            // Glass Blur
+            Positioned.fill(
+              child: PerformanceBlur(
+                sigmaX: 6,
+                sigmaY: 6,
+                fallbackColor: Colors.black.withValues(alpha: 0.2),
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-          // Content
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: isPortrait
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
+            // Content
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: isPortrait
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  headerSection,
+                                  const SizedBox(height: 18),
+                                  scoreTableWidget,
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          actionSection,
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 4,
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 headerSection,
-                                const SizedBox(height: 18),
-                                scoreTableWidget,
+                                const Spacer(),
+                                actionSection,
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        actionSection,
-                      ],
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              headerSection,
-                              const Spacer(),
-                              actionSection,
-                            ],
+                          Container(
+                            width: 1.5,
+                            margin: const EdgeInsets.symmetric(vertical: 24),
+                            color: Colors.white.withValues(alpha: 0.12),
                           ),
-                        ),
-                        Container(
-                          width: 1.5,
-                          margin: const EdgeInsets.symmetric(vertical: 24),
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          flex: 6,
-                          child: Center(
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: scoreTableWidget,
+                          const SizedBox(width: 24),
+                          Expanded(
+                            flex: 6,
+                            child: Center(
+                              child: SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                child: scoreTableWidget,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmExit(BuildContext context, GameProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 380,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xF02A4560), Color(0xF01D3348)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppTheme.steelBlue.withValues(alpha: 0.2),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 32,
+                spreadRadius: 4,
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.playerRed.withValues(alpha: 0.15),
+                  border: Border.all(
+                      color: AppTheme.playerRed.withValues(alpha: 0.3)),
+                ),
+                child: const Icon(Icons.exit_to_app_rounded,
+                    color: AppTheme.playerRed, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'مغادرة اللعبة',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.cream,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.steelBlue,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.pop(ctx),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.steelBlue.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: AppTheme.steelBlue.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          'إلغاء',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.cream,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        provider.reset();
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamedAndRemoveUntil('/', (route) => false);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.playerRed, Color(0xFFB03050)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.playerRed.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'مغادرة',
+                          style: GoogleFonts.cairo(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

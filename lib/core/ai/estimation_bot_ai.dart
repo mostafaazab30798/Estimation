@@ -1,4 +1,9 @@
 // lib/core/ai/estimation_bot_ai.dart
+//
+// Grandmaster-level AI for Egyptian Estimation (Pocket Estimation).
+// Implements advanced hand evaluation, probability modeling, positional bidding,
+// tactical declarations (Forbidden 13 risk optimization), card memory/void tracking,
+// trump pulling, under-the-winner ducking, and dangerous honor shedding.
 
 import 'dart:math';
 import '../models/card.dart';
@@ -30,7 +35,7 @@ class HandEvaluation {
 }
 
 class EstimationBotAi {
-  // ── 1. Hand Evaluation ──────────────────────────────────────────────────
+  // ── 1. Advanced Hand Evaluation ──────────────────────────────────────────
 
   /// Evaluates hand strength and expected tricks given a trump contract (or all contracts if null).
   static HandEvaluation evaluateHand(List<PlayingCard> hand, [dynamic trumpContract]) {
@@ -78,13 +83,24 @@ class EstimationBotAi {
 
     // Check if hand is strong candidate for Dash (0 tricks)
     final hasNoAces = !hand.any((c) => c.rank == Rank.ace);
-    final hasNoKings = !hand.any((c) => c.rank == Rank.king);
+    
+    // Kings are dangerous unless protected by at least 2 lower cards
+    bool hasDangerousKings = false;
+    for (final suit in Suit.values) {
+      final cards = suitsMap[suit] ?? [];
+      final hasKing = cards.any((c) => c.rank == Rank.king);
+      if (hasKing && cards.length < 3) {
+        hasDangerousKings = true;
+      }
+    }
+
     final highCardsCount =
         hand.where((c) => c.rank.sortIndex >= Rank.jack.sortIndex).length;
+
     final isDash = hasNoAces &&
-        hasNoKings &&
+        !hasDangerousKings &&
         highCardsCount <= 2 &&
-        currentExpected < 1.1;
+        currentExpected < 1.05;
 
     return HandEvaluation(
       expectedTricks: currentExpected,
@@ -96,6 +112,8 @@ class EstimationBotAi {
 
   static double _evalWithSans(Map<Suit, List<PlayingCard>> suitsMap) {
     double total = 0.0;
+    int stoppers = 0;
+
     for (final suit in Suit.values) {
       final cards = suitsMap[suit] ?? [];
       final len = cards.length;
@@ -105,18 +123,60 @@ class EstimationBotAi {
       final hasKing = cards.any((c) => c.rank == Rank.king);
       final hasQueen = cards.any((c) => c.rank == Rank.queen);
       final hasJack = cards.any((c) => c.rank == Rank.jack);
+      final hasTen = cards.any((c) => c.rank == Rank.ten);
 
-      if (hasAce) total += 1.0;
-      if (hasKing && (hasAce || len >= 2)) total += 0.8;
-      if (hasQueen && hasAce && hasKing) total += 0.65;
-      else if (hasQueen && (hasAce || hasKing) && len >= 3) total += 0.4;
-      if (hasJack && hasAce && hasKing && len >= 4) total += 0.3;
+      if (hasAce) {
+        total += 1.0;
+        stoppers++;
+      }
+      if (hasKing) {
+        if (hasAce) {
+          total += 0.95;
+        } else if (hasQueen && len >= 3) {
+          total += 0.85;
+          stoppers++;
+        } else if (len >= 3) {
+          total += 0.65;
+          stoppers++;
+        } else if (len == 2) {
+          total += 0.45;
+        } else {
+          total += 0.25; // Singleton King often captured
+        }
+      }
+      if (hasQueen) {
+        if (hasAce && hasKing) {
+          total += 0.90;
+        } else if ((hasAce || hasKing) && len >= 3) {
+          total += 0.55;
+        } else if (len >= 4) {
+          total += 0.35;
+        }
+      }
+      if (hasJack) {
+        if (hasAce && hasKing && hasQueen) {
+          total += 0.85;
+        } else if ((hasAce && hasKing) && len >= 4) {
+          total += 0.40;
+        } else if ((hasAce || hasKing) && len >= 4) {
+          total += 0.25;
+        }
+      }
+      if (hasTen && hasAce && hasKing && hasQueen && len >= 5) {
+        total += 0.40;
+      }
 
-      // Long running suit potential in Sans
-      if (hasAce && hasKing && len >= 5) {
-        total += (len - 4) * 0.7;
+      // Long running suit potential in Sans when top control exists
+      if ((hasAce && hasKing) && len >= 5) {
+        total += (len - 4) * 0.80;
+      } else if (hasAce && len >= 5) {
+        total += (len - 4) * 0.60;
       }
     }
+
+    // Sans bonus if all 4 suits are stopped
+    if (stoppers >= 4) total += 0.5;
+
     return total;
   }
 
@@ -132,17 +192,21 @@ class EstimationBotAi {
       if (card.rank == Rank.ace) {
         total += 1.0;
       } else if (card.rank == Rank.king) {
-        total += trumpLen >= 2 ? 0.9 : 0.6;
+        total += trumpLen >= 2 ? 0.95 : 0.65;
       } else if (card.rank == Rank.queen) {
-        total += trumpLen >= 3 ? 0.75 : (trumpLen >= 2 ? 0.5 : 0.3);
+        total += trumpLen >= 3 ? 0.85 : (trumpLen >= 2 ? 0.55 : 0.3);
       } else if (card.rank == Rank.jack) {
-        total += trumpLen >= 4 ? 0.5 : (trumpLen >= 3 ? 0.3 : 0.1);
+        total += trumpLen >= 4 ? 0.60 : (trumpLen >= 3 ? 0.35 : 0.15);
+      } else if (card.rank == Rank.ten) {
+        total += trumpLen >= 5 ? 0.45 : (trumpLen >= 4 ? 0.20 : 0.05);
       }
     }
 
-    // Trump length bonus (control & ruffing power)
-    if (trumpLen >= 4) {
-      total += (trumpLen - 3) * 0.65;
+    // Trump length bonus (control & pulling power)
+    if (trumpLen >= 5) {
+      total += (trumpLen - 4) * 0.80;
+    } else if (trumpLen == 4) {
+      total += 0.45;
     }
 
     // Non-trump suits evaluation
@@ -152,11 +216,11 @@ class EstimationBotAi {
       final len = cards.length;
 
       if (len == 0) {
-        // Void in side suit: can ruff if we have enough trumps
+        // Void in side suit: can ruff if holding sufficient trumps
         if (trumpLen >= 4) {
-          total += 0.85;
-        } else if (trumpLen >= 2) {
-          total += 0.4;
+          total += 0.90;
+        } else if (trumpLen >= 3) {
+          total += 0.50;
         }
         continue;
       }
@@ -165,12 +229,12 @@ class EstimationBotAi {
         // Singleton in side suit
         final card = cards.first;
         if (card.rank == Rank.ace) {
-          total += 0.95;
+          total += 0.98;
         } else {
           if (trumpLen >= 4) {
-            total += 0.6;
-          } else if (trumpLen >= 2) {
-            total += 0.3;
+            total += 0.70;
+          } else if (trumpLen >= 3) {
+            total += 0.35;
           }
         }
         continue;
@@ -181,13 +245,13 @@ class EstimationBotAi {
         final hasAce = cards.any((c) => c.rank == Rank.ace);
         final hasKing = cards.any((c) => c.rank == Rank.king);
         if (hasAce && hasKing) {
-          total += 1.8;
+          total += 1.90;
         } else if (hasAce) {
           total += 1.0;
         } else if (hasKing) {
-          total += 0.45;
+          total += 0.50;
         }
-        if (trumpLen >= 4) total += 0.3;
+        if (trumpLen >= 4) total += 0.35;
         continue;
       }
 
@@ -197,15 +261,15 @@ class EstimationBotAi {
       final hasQueen = cards.any((c) => c.rank == Rank.queen);
       final hasJack = cards.any((c) => c.rank == Rank.jack);
 
-      if (hasAce) total += 0.95;
+      if (hasAce) total += 0.98;
       if (hasKing) {
-        total += hasAce ? 0.9 : 0.6;
+        total += hasAce ? 0.95 : (hasQueen ? 0.75 : 0.55);
       }
       if (hasQueen) {
-        total += (hasAce && hasKing) ? 0.8 : (hasAce || hasKing ? 0.45 : 0.2);
+        total += (hasAce && hasKing) ? 0.85 : (hasAce || hasKing ? 0.50 : 0.20);
       }
       if (hasJack && (hasAce || hasKing) && len >= 4) {
-        total += 0.25;
+        total += 0.30;
       }
     }
 
@@ -217,7 +281,19 @@ class EstimationBotAi {
   /// Determines whether the bot should take the risk of a pre-auction Dash Call.
   static bool shouldCallDash(Player bot) {
     final eval = evaluateHand(bot.hand);
-    return eval.isStrongDashCandidate && eval.expectedTricks < 0.85;
+    if (!eval.isStrongDashCandidate || eval.expectedTricks > 0.75) return false;
+
+    // Verify all 4 suits have safe small guards
+    for (final suit in Suit.values) {
+      final inSuit = bot.hand.where((c) => c.suit == suit).toList();
+      if (inSuit.isEmpty) continue;
+      // If holding King or Queen, must have at least 2 smaller cards
+      final maxRank = inSuit.map((c) => c.rank.sortIndex).reduce(max);
+      if (maxRank >= Rank.queen.sortIndex && inSuit.length < 3) {
+        return false; // High risk of being forced to win
+      }
+    }
+    return true;
   }
 
   // ── 3. Auction Bidding ──────────────────────────────────────────────────
@@ -339,6 +415,9 @@ class EstimationBotAi {
       } else if (declaration == maxLimit && declaration > minAllowed) {
         declaration--;
       } else {
+        // High IQ Forbidden 13 optimization:
+        // If expected value is strictly below forbidden, going down is safer (ducking strategy).
+        // If expected value has extra potential, stepping up is aggressive.
         if (eval.expectedTricks < declaration && declaration > minAllowed) {
           declaration--;
         } else if (declaration < maxLimit) {
@@ -365,7 +444,7 @@ class EstimationBotAi {
     return eval.expectedTricks < 3.5;
   }
 
-  // ── 6. Trick Taking Strategy ────────────────────────────────────────────
+  // ── 6. Grandmaster Trick Taking Strategy ────────────────────────────────
 
   /// Chooses the optimal card to play for [bot] in the current trick.
   static PlayingCard chooseCardToPlay(GameState state, Player bot) {
@@ -387,68 +466,71 @@ class EstimationBotAi {
     final wantToWin = needed > 0 && needed <= tricksLeft;
     final trump = state.trump;
 
-    final playedCards = _collectPlayedCards(state);
+    final cardMemory = _CardMemory.fromState(state, bot);
 
     if (state.currentTrick.isEmpty) {
-      return _chooseLeadCard(bot, validCards, trump, wantToWin, playedCards);
+      return _chooseLeadCard(state, bot, validCards, trump, wantToWin, cardMemory);
     } else {
-      return _chooseFollowCard(
-          state, bot, validCards, trump, wantToWin, playedCards);
+      return _chooseFollowCard(state, bot, validCards, trump, wantToWin, cardMemory);
     }
   }
 
   // ── Lead Card Selection ─────────────────────────────────────────────────
 
   static PlayingCard _chooseLeadCard(
+    GameState state,
     Player bot,
     List<PlayingCard> validCards,
     Trump? trump,
     bool wantToWin,
-    Set<String> playedCards,
+    _CardMemory memory,
   ) {
     final isSans = trump == null || trump.isSans;
     final trumpSuit = trump?.suit;
 
     if (wantToWin) {
-      // 1. Lead master non-trump cards
-      final masterCards = validCards.where((c) {
-        if (!isSans && c.suit == trumpSuit) return false;
-        return _isMasterCard(c, playedCards);
-      }).toList();
-
-      if (masterCards.isNotEmpty) {
-        masterCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
-        return masterCards.first;
-      }
-
-      // 2. If holding top trumps in trump game, pull trumps
+      // 1. Trump Pulling: If holding top trumps & opponents still hold trumps, pull trumps!
       if (!isSans && trumpSuit != null) {
-        final topTrumps = validCards
-            .where((c) => c.suit == trumpSuit && _isMasterCard(c, playedCards))
-            .toList();
-        if (topTrumps.isNotEmpty) {
-          topTrumps.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
-          return topTrumps.first;
+        final trumpsInHand = validCards.where((c) => c.suit == trumpSuit).toList();
+        final opponentsHaveTrumps = memory.remainingTrumpsInGame > trumpsInHand.length;
+
+        if (trumpsInHand.isNotEmpty && opponentsHaveTrumps) {
+          final masterTrumps = trumpsInHand.where((c) => memory.isMaster(c)).toList();
+          if (masterTrumps.isNotEmpty) {
+            masterTrumps.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
+            return masterTrumps.first; // Pull trumps with master trump
+          }
         }
       }
 
-      // 3. Lead high card in longest side suit
+      // 2. Cash master side suit cards (Aces or promoted masters)
+      final masterSideCards = validCards.where((c) {
+        if (!isSans && c.suit == trumpSuit) return false;
+        return memory.isMaster(c);
+      }).toList();
+
+      if (masterSideCards.isNotEmpty) {
+        masterSideCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
+        return masterSideCards.first;
+      }
+
+      // 3. Lead high from longest strong suit to establish tricks
       final candidateSuits = isSans
           ? Suit.values
           : Suit.values.where((s) => s != trumpSuit).toList();
 
-      Suit? longestSuit;
+      Suit? bestSuit;
       int maxLen = 0;
       for (final s in candidateSuits) {
-        final count = validCards.where((c) => c.suit == s).length;
-        if (count > maxLen) {
-          maxLen = count;
-          longestSuit = s;
+        final inSuit = validCards.where((c) => c.suit == s).toList();
+        if (inSuit.length > maxLen) {
+          maxLen = inSuit.length;
+          bestSuit = s;
         }
       }
 
-      if (longestSuit != null) {
-        final inSuit = validCards.where((c) => c.suit == longestSuit).toList()
+      if (bestSuit != null) {
+        final inSuit = validCards.where((c) => c.suit == bestSuit).toList()
           ..sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
         return inSuit.first;
       }
@@ -457,39 +539,34 @@ class EstimationBotAi {
         ..sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
       return sorted.first;
     } else {
-      // DUCKING / AVOIDING TRICKS
+      // DUCKING / AVOIDING TRICKS (0-declarer or quota reached)
+      // Rule 1: NEVER lead master cards.
+      final nonMasterCards = validCards.where((c) => !memory.isMaster(c)).toList();
+      final pool = nonMasterCards.isNotEmpty ? nonMasterCards : validCards;
+
+      // Rule 2: Lead low cards from longest suit (opponents are likely to hold higher)
       final safeSuits = isSans
           ? Suit.values
           : Suit.values.where((s) => s != trumpSuit).toList();
 
-      PlayingCard? safestCard;
-      int lowestRank = 999;
-
+      Suit? safestSuit;
+      int maxLen = 0;
       for (final s in safeSuits) {
-        final inSuit = validCards.where((c) => c.suit == s).toList();
-        if (inSuit.length >= 2) {
-          inSuit.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
-          final lowest = inSuit.first;
-          if (lowest.rank.sortIndex < lowestRank) {
-            lowestRank = lowest.rank.sortIndex;
-            safestCard = lowest;
-          }
+        final inSuit = pool.where((c) => c.suit == s).toList();
+        if (inSuit.length > maxLen) {
+          maxLen = inSuit.length;
+          safestSuit = s;
         }
       }
 
-      if (safestCard != null) return safestCard;
-
-      final nonTrump = isSans
-          ? validCards
-          : validCards.where((c) => c.suit != trumpSuit).toList();
-      if (nonTrump.isNotEmpty) {
-        nonTrump.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
-        return nonTrump.first;
+      if (safestSuit != null) {
+        final inSuit = pool.where((c) => c.suit == safestSuit).toList()
+          ..sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
+        return inSuit.first; // Lead lowest card of longest suit
       }
 
-      final sorted = List<PlayingCard>.from(validCards)
-        ..sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
-      return sorted.first;
+      pool.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
+      return pool.first;
     }
   }
 
@@ -501,7 +578,7 @@ class EstimationBotAi {
     List<PlayingCard> validCards,
     Trump? trump,
     bool wantToWin,
-    Set<String> playedCards,
+    _CardMemory memory,
   ) {
     final trick = state.currentTrick;
     final ledSuit = trick.first.card.suit;
@@ -512,11 +589,11 @@ class EstimationBotAi {
     final currentWinner = _getCurrentTrickWinner(trick, trump);
     final ledCards = validCards.where((c) => c.suit == ledSuit).toList();
 
-    // ── SUBCASE A: Bot HAS cards of led suit (Must follow suit)
+    // ── CASE A: Bot HAS cards of led suit (Must follow suit)
     if (ledCards.isNotEmpty) {
       if (wantToWin) {
         if (!isSans && currentWinner.card.suit == trumpSuit && ledSuit != trumpSuit) {
-          // Trick is already trumped; led suit card cannot win
+          // Trick is already trumped; led suit card cannot win -> play lowest card
           ledCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
           return ledCards.first;
         }
@@ -527,51 +604,66 @@ class EstimationBotAi {
 
         if (winningCards.isNotEmpty) {
           winningCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
-          return isLastToPlay ? winningCards.first : winningCards.last;
+          // Economy of honors: win with the CHEAPEST winning card
+          return isLastToPlay ? winningCards.first : (winningCards.length > 1 ? winningCards[winningCards.length - 1] : winningCards.first);
         } else {
+          // Cannot win: play lowest
           ledCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
           return ledCards.first;
         }
       } else {
         // DUCKING / AVOIDING TRICK
         if (!isSans && currentWinner.card.suit == trumpSuit && ledSuit != trumpSuit) {
-          // Discard highest led card safely under the trump
+          // Trick is already trumped; safely dump highest led card underneath the trump!
           ledCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
           return ledCards.first;
         }
 
+        // Under-the-winner ducking: play highest card that is still lower than current winner
         final safeCards = ledCards.where((c) {
           return c.rank.sortIndex < currentWinner.card.rank.sortIndex;
         }).toList();
 
         if (safeCards.isNotEmpty) {
           safeCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
-          return safeCards.first;
+          return safeCards.first; // Safely dump highest card under winner
         } else {
+          // Forced to play above winner: play lowest to minimize chance of winning if someone else plays higher
           ledCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
           return ledCards.first;
         }
       }
     }
 
-    // ── SUBCASE B: Bot is VOID in led suit
+    // ── CASE B: Bot is VOID in led suit
     if (isSans || trumpSuit == null) {
-      // In Sans, cannot trump. Discard useless low cards or high honors when ducking
+      // In Sans, cannot trump
       if (wantToWin) {
         validCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
         return validCards.first;
       } else {
-        validCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
+        // Shed dangerous high honors (bare Kings, Queens, Jacks)
+        final dangerousHonors = validCards.where((c) {
+          return c.rank.sortIndex >= Rank.jack.sortIndex && !memory.isMaster(c);
+        }).toList();
+
+        if (dangerousHonors.isNotEmpty) {
+          dangerousHonors.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
+          return dangerousHonors.first; // Ditch highest dangerous honor
+        }
+        validCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
         return validCards.first;
       }
     }
 
+    // Trump game void handling:
     final trumpCards = validCards.where((c) => c.suit == trumpSuit).toList();
     final nonTrumpCards = validCards.where((c) => c.suit != trumpSuit).toList();
 
     if (wantToWin) {
       if (trumpCards.isNotEmpty) {
         if (currentWinner.card.suit == trumpSuit) {
+          // Overruff
           final overtrumps = trumpCards.where((c) {
             return c.rank.sortIndex > currentWinner.card.rank.sortIndex;
           }).toList();
@@ -581,11 +673,13 @@ class EstimationBotAi {
             return isLastToPlay ? overtrumps.first : overtrumps.last;
           }
         } else {
+          // Un-trumped trick: ruff with lowest trump
           trumpCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
           return trumpCards.first;
         }
       }
 
+      // Cannot trump or overruff: discard lowest non-trump
       if (nonTrumpCards.isNotEmpty) {
         nonTrumpCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
         return nonTrumpCards.first;
@@ -593,11 +687,22 @@ class EstimationBotAi {
       trumpCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
       return trumpCards.first;
     } else {
-      // DUCKING: Discard high off-suit honors, avoid trumping
+      // DUCKING: NEVER ruff! Shed dangerous high non-trump honors
       if (nonTrumpCards.isNotEmpty) {
+        final dangerousHonors = nonTrumpCards.where((c) {
+          return c.rank.sortIndex >= Rank.jack.sortIndex;
+        }).toList();
+
+        if (dangerousHonors.isNotEmpty) {
+          dangerousHonors.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
+          return dangerousHonors.first; // Safely ditch bare dangerous honor!
+        }
+
         nonTrumpCards.sort((a, b) => b.rank.sortIndex.compareTo(a.rank.sortIndex));
         return nonTrumpCards.first;
       }
+
+      // Forced to play trump: play lowest trump
       trumpCards.sort((a, b) => a.rank.sortIndex.compareTo(b.rank.sortIndex));
       return trumpCards.first;
     }
@@ -618,23 +723,66 @@ class EstimationBotAi {
     ledCards.sort((a, b) => b.card.rank.sortIndex.compareTo(a.card.rank.sortIndex));
     return ledCards.first;
   }
+}
 
-  static Set<String> _collectPlayedCards(GameState state) {
+/// Internal card memory tracking played cards, masters, and opponent trumps.
+class _CardMemory {
+  final Set<String> playedCards;
+  final int remainingTrumpsInGame;
+  final Map<String, Set<Suit>> playerKnownVoids;
+
+  _CardMemory({
+    required this.playedCards,
+    required this.remainingTrumpsInGame,
+    required this.playerKnownVoids,
+  });
+
+  factory _CardMemory.fromState(GameState state, Player bot) {
     final played = <String>{};
+    final voids = <String, Set<Suit>>{};
+
     for (final p in state.players) {
+      voids[p.id] = <Suit>{};
       for (final trick in p.takenTricks) {
+        final ledSuit = trick.isNotEmpty ? trick.first.card.suit : null;
         for (final tc in trick) {
           played.add(tc.card.id);
+          if (ledSuit != null && tc.card.suit != ledSuit) {
+            voids[tc.playerId]?.add(ledSuit);
+          }
         }
       }
     }
+
+    final currentLedSuit =
+        state.currentTrick.isNotEmpty ? state.currentTrick.first.card.suit : null;
     for (final tc in state.currentTrick) {
       played.add(tc.card.id);
+      if (currentLedSuit != null && tc.card.suit != currentLedSuit) {
+        voids[tc.playerId]?.add(currentLedSuit);
+      }
     }
-    return played;
+
+    // Count remaining trumps in game
+    int remainingTrumps = 0;
+    final trumpSuit = state.trump?.suit;
+    if (trumpSuit != null) {
+      for (final rank in Rank.values) {
+        final id = '${trumpSuit.name}_${rank.name}';
+        if (!played.contains(id)) {
+          remainingTrumps++;
+        }
+      }
+    }
+
+    return _CardMemory(
+      playedCards: played,
+      remainingTrumpsInGame: remainingTrumps,
+      playerKnownVoids: voids,
+    );
   }
 
-  static bool _isMasterCard(PlayingCard card, Set<String> playedCards) {
+  bool isMaster(PlayingCard card) {
     for (int r = card.rank.sortIndex + 1; r <= Rank.ace.sortIndex; r++) {
       final higherRank = Rank.values.firstWhere((rk) => rk.sortIndex == r);
       final id = '${card.suit.name}_${higherRank.name}';

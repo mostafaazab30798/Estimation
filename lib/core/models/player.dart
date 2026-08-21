@@ -61,6 +61,30 @@ class Player {
         'totalScore': totalScore,
       };
 
+  /// Serializes player data. When [isSelf] is false, private hand cards are
+  /// masked to prevent opponents from reading secret cards over network broadcasts.
+  Map<String, dynamic> toSanitizedJson({bool isSelf = true}) => {
+        'id': id,
+        'name': name,
+        'seatIndex': seatIndex,
+        'photo': photo,
+        'hand': isSelf
+            ? hand.map((c) => c.toJson()).toList()
+            : List.generate(
+                hand.length,
+                (_) => {'suit': 'spade', 'rank': 'two'},
+              ),
+        'takenTricks': takenTricks
+            .map((trick) => trick.map((tc) => tc.toJson()).toList())
+            .toList(),
+        'declared': declared,
+        'actual': actual,
+        'hasPassed': hasPassed,
+        'isDashCall': isDashCall,
+        'isRisk': isRisk,
+        'totalScore': totalScore,
+      };
+
   factory Player.fromJson(Map<String, dynamic> json) {
     final p = Player(
       id: json['id'] as String,

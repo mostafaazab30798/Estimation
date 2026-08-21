@@ -13,10 +13,16 @@ import 'package:estimation/widgets/hud/game_background.dart';
 import 'package:estimation/widgets/hud/casino_table.dart';
 import 'package:estimation/screens/game_screen.dart' show HiddenCardFan;
 
+import 'package:estimation/providers/game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_top_hud.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_player_info.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_player_hand.dart';
+import 'package:estimation/services/ranking_service.dart';
+import 'package:estimation/services/history_service.dart';
+import 'package:estimation/services/auth_service.dart';
+import 'package:estimation/widgets/level_up_dialog.dart';
+import 'package:estimation/widgets/rank_tier_badge.dart';
 
 class NinetyNineGameScreen extends StatefulWidget {
   const NinetyNineGameScreen({super.key});
@@ -506,6 +512,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
       hand: hand,
       isMyTurn: isMyTurn,
       phase: game.phase,
+      groundTotal: game.groundTotal,
       onPlayCard: (card) {
         game.playCard(localP.id, card);
       },
@@ -652,6 +659,61 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     );
   }
 
+  bool _hasSaved99Match = false;
+  XpRewardBreakdown? _ninetyNineXp;
+
+  void _awardNinetyNineRewards(NinetyNineGameProvider game) {
+    if (_hasSaved99Match) return;
+    _hasSaved99Match = true;
+
+    final winner = game.matchWinner;
+    final localPlayer = game.localPlayer;
+    if (winner == null || localPlayer == null) return;
+
+    final isWinner = winner.id == localPlayer.id;
+    final roundsSurvived = game.currentRoundNumber;
+
+    final breakdown = RankingService.instance.calculateNinetyNineReward(
+      won: isWinner,
+      roundsSurvived: roundsSurvived,
+    );
+
+    setState(() {
+      _ninetyNineXp = breakdown;
+    });
+
+    // Save match record to Supabase history
+    final record = MatchRecord(
+      date: DateTime.now().toIso8601String(),
+      winnerName: winner.name,
+      winnerScore: 0,
+      gameType: 'ninety_nine',
+      players: game.players.map((p) {
+        final losses = game.getPlayerLosses(p.id);
+        final rank = p.id == winner.id ? 'الفائز 👑' : 'خسائر: $losses';
+        return PlayerResult(name: p.name, score: losses, rankTitle: rank);
+      }).toList(),
+    );
+    HistoryService.saveMatchRecordDirect(record);
+
+    // Process XP & Level Up
+    RankingService.instance.processMatchReward(breakdown).then((result) {
+      if (mounted && result != null && result.didLevelUp) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) {
+            LevelUpDialog.show(
+              context,
+              oldLevel: result.oldLevel,
+              newLevel: result.newLevel,
+              oldTier: result.oldTier,
+              newTier: result.newTier,
+            );
+          }
+        });
+      }
+    });
+  }
+
   // ── Match Outcome Celebration Overlay ───────────────────────────────────
   Widget _buildMatchOutcomeOverlay(
     BuildContext context,
@@ -659,6 +721,10 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
   ) {
     final winner = game.matchWinner!;
     final loser = game.matchLoser!;
+    _awardNinetyNineRewards(game);
+
+    final auth = AuthService.instance;
+    final profile = auth.currentProfile;
 
     return Container(
       color: Colors.black.withValues(alpha: 0.92),
@@ -710,9 +776,44 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                 fontSize: 14,
               ),
             ),
+            if (_ninetyNineXp != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome_rounded, color: AppTheme.gold, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      '+${_ninetyNineXp!.totalXp} XP مكافأة 99',
+                      style: GoogleFonts.cairo(
+                        color: AppTheme.gold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (profile != null) ...[
+                      const SizedBox(width: 10),
+                      RankTierBadge(tier: profile.rankTier, level: profile.level, compact: true),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                context.read<NinetyNineGameProvider>().reset();
+                context.read<GameProvider>().reset();
+                Navigator.of(context, rootNavigator: true)
+                    .pushNamedAndRemoveUntil('/', (route) => false);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.gold.withValues(alpha: 0.2),
                 foregroundColor: AppTheme.gold,
@@ -828,8 +929,10 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                   Expanded(
                     child: InkWell(
                       onTap: () {
-                        Navigator.pop(ctx);
-                        Navigator.pop(context);
+                        context.read<NinetyNineGameProvider>().reset();
+                        context.read<GameProvider>().reset();
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamedAndRemoveUntil('/', (route) => false);
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(

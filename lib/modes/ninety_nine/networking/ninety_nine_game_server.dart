@@ -10,6 +10,9 @@ import '../domain/models/ninety_nine_game_state.dart';
 import '../domain/ninety_nine_game_engine.dart';
 import 'package:estimation/features/lobby/data/lobby_repository.dart';
 
+import 'dart:math';
+import '../domain/ninety_nine_bot_ai.dart';
+
 class NinetyNineGameServer {
   final SupabaseClient _supabase = Supabase.instance.client;
   RealtimeChannel? _channel;
@@ -21,6 +24,9 @@ class NinetyNineGameServer {
   String _hostId = '';
   String _hostName = '';
   int _maxPlayers = 2;
+  Timer? _botTimer;
+  bool _botProcessing = false;
+  final Random _random = Random();
 
 
   NinetyNineGameServer({required this.onStateUpdate});
@@ -198,6 +204,26 @@ class NinetyNineGameServer {
 
   }
 
+  int get playerCount => _state.players.length;
+
+  /// Add [count] bot players to fill the game up to [_maxPlayers].
+  void addBotPlayers({int count = 3}) {
+    final toAdd = count.clamp(0, _maxPlayers - _state.players.length);
+    for (int i = 1; i <= toAdd; i++) {
+      final botIndex = _state.players.length + 1;
+      final botId = 'bot_$botIndex';
+      _state.players.add(NinetyNinePlayer(
+        id: botId,
+        name: 'بوت $i 🤖',
+        hand: [],
+        isBot: true,
+        avatarId: 'avatar_${(i % 6) + 1}',
+      ));
+      _state.playerLosses[botId] = 0;
+    }
+    _broadcastState();
+  }
+
   // ── Player action handler ─────────────────────────────────────────────────
 
   void _handlePlayerAction(Map<String, dynamic> payload) {
@@ -212,6 +238,9 @@ class NinetyNineGameServer {
       case ActionType.startGame:
         if (playerId == _state.hostId &&
             _state.phase == NinetyNinePhase.waiting) {
+          if (_state.players.length < _maxPlayers) {
+            addBotPlayers(count: _maxPlayers - _state.players.length);
+          }
           NinetyNineGameEngine.dealCardsAndStartRound(_state, roundNumber: 1);
           _broadcastState();
         }
@@ -256,6 +285,42 @@ class NinetyNineGameServer {
       event: 'state',
       payload: _state.toJson(),
     );
+
+    // Check if next turn belongs to a bot
+    _scheduleBotTurnIfNeeded();
+  }
+
+  // ── Bot AI Automation ────────────────────────────────────────────────────
+
+  void _scheduleBotTurnIfNeeded() {
+    if (_state.phase != NinetyNinePhase.playing) return;
+    final currentP = _state.currentPlayer;
+    if (currentP == null || !currentP.isBot) return;
+    if (_botProcessing) return;
+
+    _botProcessing = true;
+    final delay = 750 + _random.nextInt(450);
+    _botTimer?.cancel();
+    _botTimer = Timer(Duration(milliseconds: delay), () {
+      _botProcessing = false;
+      _executeBotTurn();
+    });
+  }
+
+  void _executeBotTurn() {
+    if (_state.phase != NinetyNinePhase.playing) return;
+    final bot = _state.currentPlayer;
+    if (bot == null || !bot.isBot || bot.hand.isEmpty) return;
+
+    final chosenCard = NinetyNineBotAi.chooseCard(
+      hand: bot.hand,
+      groundTotal: _state.groundTotal,
+    );
+
+    final accepted = NinetyNineGameEngine.playCard(_state, bot.id, chosenCard);
+    if (accepted) {
+      _broadcastState();
+    }
   }
 
   // ── Host direct action (called by GameProvider for host actions) ──────────
@@ -298,6 +363,8 @@ class NinetyNineGameServer {
   }
 
   Future<void> stop() async {
+    _botTimer?.cancel();
+    _botTimer = null;
     await _roomPlayersSub?.cancel();
     _roomPlayersSub = null;
     if (_channel != null) {
@@ -306,3 +373,4 @@ class NinetyNineGameServer {
     }
   }
 }
+
