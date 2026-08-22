@@ -114,26 +114,45 @@ jobs:
 
 
       # ============================================================
-      # 6. Build Release APK
-      #
-      # This creates:
-      #
-      # app-arm64-v8a-release.apk
-      # app-armeabi-v7a-release.apk
-      # app-x86_64-release.apk
+      # 6. Configure Keystore for Release Signing
       # ============================================================
-      - name: Build Release APKs
-        run: flutter build apk --release --split-per-abi
+      - name: Setup Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Decoding release keystore..."
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
 
+            echo "Creating key.properties..."
+            cat <<EOF > android/key.properties
+            storePassword=$KEYSTORE_PASSWORD
+            keyPassword=$KEY_PASSWORD
+            keyAlias=$KEY_ALIAS
+            storeFile=upload-keystore.jks
+            EOF
+            echo "✅ Keystore and key.properties configured."
+          else
+            echo "⚠️ ANDROID_KEYSTORE_BASE64 secret not found, proceeding with default signing."
+          fi
 
       # ============================================================
-      # 7. Verify APK
+      # 7. Build Standard Universal Release APK
+      # ============================================================
+      - name: Build Standard Universal Release APK
+        run: flutter build apk --release
+
+      # ============================================================
+      # 8. Verify APK
       # ============================================================
       - name: Verify APK
         shell: bash
         run: |
-
-          APK_PATH="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
 
           echo "Checking APK..."
 
@@ -143,84 +162,34 @@ jobs:
           fi
 
           echo "✅ APK found successfully."
-
           ls -lh "$APK_PATH"
 
-
       # ============================================================
-      # 8. Create GitHub Release
+      # 9. Create GitHub Release
       # ============================================================
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-
-          # Example:
-          # v1.4.2
           tag_name: v${{ steps.version.outputs.version_name }}
-
-          # Example:
-          # Release v1.4.2
           name: Release v${{ steps.version.outputs.version_name }}
-
-          # Use release_notes.md as GitHub Release body
           body_path: release_notes.md
-
-          # GitHub can also generate additional notes
           generate_release_notes: true
-
-          # Mark this release as latest
           make_latest: true
-
-          # Upload ARM64 APK
           files: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-
+            build/app/outputs/flutter-apk/app-release.apk
 
       # ============================================================
-      # 9. Update Supabase
-      #
-      # Table:
-      #
-      # app_version
-      #
-      # Row:
-      #
-      # id = 1
-      #
-      # Updated fields:
-      #
-      # latest_version
-      # version_code
-      # release_notes
-      # download_url
-      # updated_at
-      #
-      # NOT changed:
-      #
-      # is_force_update
-      # minimum_supported_version
+      # 10. Update Supabase
       # ============================================================
       - name: Update Supabase
         shell: bash
-
         env:
-
-          # Supabase project URL
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-
-          # Supabase Service Role Key
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-          # Version from pubspec.yaml
           VERSION_NAME: ${{ steps.version.outputs.version_name }}
-
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
-
-          # Release notes
           RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
-
-          # GitHub APK download URL
-          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version_name }}/app-arm64-v8a-release.apk
+          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version_name }}/app-release.apk
 
         run: |
 
