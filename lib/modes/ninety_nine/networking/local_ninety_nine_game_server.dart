@@ -58,7 +58,7 @@ class LocalNinetyNineGameServer {
       playerLosses: {hostId: 0},
     );
 
-    final handler = webSocketHandler((WebSocketChannel webSocket) {
+    final handler = webSocketHandler((WebSocketChannel webSocket, _) {
       _handleNewSocket(webSocket);
     });
 

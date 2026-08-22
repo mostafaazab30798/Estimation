@@ -16,11 +16,7 @@ class AuthService extends ChangeNotifier {
       '989099900816-4hbq8amala6g74aa4gooogu46rnagv96.apps.googleusercontent.com';
 
   final SupabaseClient _supabase = Supabase.instance.client;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb ? googleServerClientId : null,
-    serverClientId: googleServerClientId,
-    scopes: ['email', 'profile'],
-  );
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   UserProfile? _currentProfile;
   bool _isLoading = false;
@@ -34,6 +30,16 @@ class AuthService extends ChangeNotifier {
 
   /// Initializes auth listener and loads profile if already logged in
   Future<void> initialize() async {
+    if (!kIsWeb) {
+      try {
+        await _googleSignIn.initialize(
+          serverClientId: googleServerClientId,
+        );
+      } catch (e) {
+        debugPrint('[AuthService] GoogleSignIn.initialize error: $e');
+      }
+    }
+
     _authSubscription = _supabase.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
       if (session != null && session.user.isAnonymous == false) {
@@ -55,62 +61,38 @@ class AuthService extends ChangeNotifier {
     super.dispose();
   }
 
-  /// Sign in with native Google Account Sheet or Web OAuth flow
+  /// Sign in with native Google Account Sheet on Android/iOS, and Web OAuth on Web
   Future<UserProfile?> signInWithGoogle() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // 1. Trigger Google Sign-in flow
-      GoogleSignInAccount? googleUser;
-      try {
-        googleUser = await _googleSignIn.signIn();
-      } catch (e) {
-        debugPrint('[AuthService] GoogleSignIn.signIn() failed: $e');
-        if (kIsWeb) {
-          debugPrint('[AuthService] Falling back to Supabase signInWithOAuth for web');
-          await _supabase.auth.signInWithOAuth(
-            OAuthProvider.google,
-            redirectTo: kIsWeb ? Uri.base.origin : null,
-          );
-          _isLoading = false;
-          notifyListeners();
-          return null;
-        }
-        rethrow;
-      }
-
-      if (googleUser == null) {
-        // User cancelled the sign-in modal
+      if (kIsWeb) {
+        // Web: Use direct Supabase OAuth redirect to stay on the current origin
+        await _supabase.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: Uri.base.origin,
+        );
         _isLoading = false;
         notifyListeners();
         return null;
       }
 
-      // 2. Obtain tokens
-      final googleAuth = await googleUser.authentication;
-      final accessToken = googleAuth.accessToken;
+      // Mobile (Android / iOS): Use native Google Account Bottom Sheet
+      final googleUser = await _googleSignIn.authenticate();
+
+      // Obtain tokens
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
-        if (kIsWeb) {
-          debugPrint('[AuthService] No ID token on web, falling back to signInWithOAuth');
-          await _supabase.auth.signInWithOAuth(
-            OAuthProvider.google,
-            redirectTo: kIsWeb ? Uri.base.origin : null,
-          );
-          _isLoading = false;
-          notifyListeners();
-          return null;
-        }
         throw Exception('Google Sign-In failed: No ID token returned.');
       }
 
-      // 3. Exchange tokens with Supabase Auth
+      // Exchange tokens with Supabase Auth
       final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
-        accessToken: accessToken,
       );
 
       final user = response.user;

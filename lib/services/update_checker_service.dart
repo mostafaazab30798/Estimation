@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Keep this in sync with the `version` field in pubspec.yaml (the part before `+`).
 /// Example: if pubspec has `version: 0.1.2+5`, set this to '0.1.2'.
-const String kAppVersion = '1.4.1';
+const String kAppVersion = '1.5.0';
 
 class UpdateInfo {
   final bool updateAvailable;

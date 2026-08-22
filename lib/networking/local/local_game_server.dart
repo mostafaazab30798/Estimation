@@ -71,7 +71,7 @@ class LocalGameServer {
     _state = GameEngine.createInitialState([hostPlayer]);
 
     // Start Shelf WebSocket HTTP server
-    final handler = webSocketHandler((WebSocketChannel webSocket) {
+    final handler = webSocketHandler((WebSocketChannel webSocket, _) {
       _handleNewSocket(webSocket);
     });
 

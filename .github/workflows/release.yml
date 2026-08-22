@@ -14,45 +14,273 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout
+
+      # ============================================================
+      # 1. Checkout repository
+      # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # ============================================================
       # 2. Setup Flutter
+      # ============================================================
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      # 3. Dependencies
+
+      # ============================================================
+      # 3. Get Flutter dependencies
+      # ============================================================
       - name: Flutter Pub Get
         run: flutter pub get
 
+
+      # ============================================================
       # 4. Read version from pubspec.yaml
+      #
+      # Example:
+      # version: 1.4.2+15
+      #
+      # version_name = 1.4.2
+      # version_code = 15
+      # ============================================================
       - name: Get app version
         id: version
         shell: bash
         run: |
+
           VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+
           VERSION_NAME=$(echo "$VERSION" | cut -d'+' -f1)
           VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
+
+          echo "======================================"
+          echo "Flutter Version Information"
+          echo "======================================"
+
+          echo "Full Version : $VERSION"
+          echo "Version Name : $VERSION_NAME"
+          echo "Version Code : $VERSION_CODE"
+
+          echo "======================================"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
-      # 5. Build APKs
+
+      # ============================================================
+      # 5. Read Release Notes
+      #
+      # Release notes should be stored in:
+      #
+      # release_notes.md
+      #
+      # If the file doesn't exist, a default message will be used.
+      # ============================================================
+      - name: Get release notes
+        id: notes
+        shell: bash
+        run: |
+
+          if [ -f release_notes.md ]; then
+
+            echo "Release notes file found."
+
+            {
+              echo 'notes<<EOF'
+              cat release_notes.md
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+
+          else
+
+            echo "Release notes file not found."
+            echo "Using default release notes."
+
+            {
+              echo 'notes<<EOF'
+              echo '🎉 تحديث جديد للتطبيق'
+              echo ''
+              echo 'تحسينات عامة وإصلاحات.'
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+
+          fi
+
+
+      # ============================================================
+      # 6. Build Release APK
+      #
+      # This creates:
+      #
+      # app-arm64-v8a-release.apk
+      # app-armeabi-v7a-release.apk
+      # app-x86_64-release.apk
+      # ============================================================
       - name: Build Release APKs
         run: flutter build apk --release --split-per-abi
 
-      # 6. Create GitHub Release
+
+      # ============================================================
+      # 7. Verify APK
+      # ============================================================
+      - name: Verify APK
+        shell: bash
+        run: |
+
+          APK_PATH="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+
+          echo "Checking APK..."
+
+          if [ ! -f "$APK_PATH" ]; then
+            echo "❌ APK not found!"
+            exit 1
+          fi
+
+          echo "✅ APK found successfully."
+
+          ls -lh "$APK_PATH"
+
+
+      # ============================================================
+      # 8. Create GitHub Release
+      # ============================================================
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+
+          # Example:
+          # v1.4.2
           tag_name: v${{ steps.version.outputs.version_name }}
+
+          # Example:
+          # Release v1.4.2
           name: Release v${{ steps.version.outputs.version_name }}
+
+          # Use release_notes.md as GitHub Release body
+          body_path: release_notes.md
+
+          # GitHub can also generate additional notes
           generate_release_notes: true
+
+          # Mark this release as latest
           make_latest: true
+
+          # Upload ARM64 APK
           files: |
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+
+
+      # ============================================================
+      # 9. Update Supabase
+      #
+      # Table:
+      #
+      # app_version
+      #
+      # Row:
+      #
+      # id = 1
+      #
+      # Updated fields:
+      #
+      # latest_version
+      # version_code
+      # release_notes
+      # download_url
+      # updated_at
+      #
+      # NOT changed:
+      #
+      # is_force_update
+      # minimum_supported_version
+      # ============================================================
+      - name: Update Supabase
+        shell: bash
+
+        env:
+
+          # Supabase project URL
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+
+          # Supabase Service Role Key
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+          # Version from pubspec.yaml
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+
+          # Release notes
+          RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
+
+          # GitHub APK download URL
+          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version_name }}/app-arm64-v8a-release.apk
+
+        run: |
+
+          echo "======================================"
+          echo "Updating Supabase"
+          echo "======================================"
+
+          echo "Version       : $VERSION_NAME"
+          echo "Version Code  : $VERSION_CODE"
+          echo "Download URL  : $DOWNLOAD_URL"
+
+          echo "======================================"
+
+
+          # --------------------------------------------------------
+          # Create JSON payload
+          # --------------------------------------------------------
+
+          PAYLOAD=$(jq -n \
+            --arg version "$VERSION_NAME" \
+            --argjson version_code "$VERSION_CODE" \
+            --arg notes "$RELEASE_NOTES" \
+            --arg url "$DOWNLOAD_URL" \
+            '{
+              latest_version: $version,
+              version_code: $version_code,
+              release_notes: $notes,
+              download_url: $url,
+              updated_at: (now | todateiso8601)
+            }'
+          )
+
+
+          echo "Supabase payload:"
+          echo "$PAYLOAD"
+
+          echo "======================================"
+
+
+          # --------------------------------------------------------
+          # Update Supabase
+          # --------------------------------------------------------
+
+          RESPONSE=$(curl \
+            --silent \
+            --show-error \
+            --fail-with-body \
+            -X PATCH \
+            "${SUPABASE_URL}/rest/v1/app_version?id=eq.1" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "$PAYLOAD"
+          )
+
+
+          echo "Supabase response:"
+          echo "$RESPONSE"
+
+          echo "======================================"
+          echo "✅ Supabase updated successfully!"
+          echo "======================================"
