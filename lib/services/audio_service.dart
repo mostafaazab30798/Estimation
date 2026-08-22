@@ -1,9 +1,10 @@
-// lib/services/audio_service.dart
-
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'settings_service.dart';
+import '../core/events/estimation_event_bus.dart';
+import '../core/events/estimation_game_events.dart';
 
 /// Dedicated service managing audio playback and haptic feedback for game events.
 class AudioService {
@@ -155,8 +156,49 @@ class AudioService {
     }
   }
 
+  StreamSubscription? _eventSub;
+
+  /// Binds AudioService to the EstimationEventBus to automatically trigger sound cues on game events.
+  void bindToEventBus({String? currentUserId}) {
+    _eventSub?.cancel();
+    _eventSub = EstimationEventBus.instance.events.listen((event) {
+      playEventAudio(event, currentUserId: currentUserId);
+    });
+  }
+
+  /// Triggers sound effects and haptics mapped to an EstimationGameEvent.
+  void playEventAudio(EstimationGameEvent event, {String? currentUserId}) {
+    if (event is TrickWon) {
+      playCollection();
+    } else if (event is RiskDeclaration || event is DashCallSucceeded) {
+      playRiskWin();
+    } else if (event is PerfectEstimate) {
+      if (currentUserId == null || event.playerId == currentUserId) {
+        playWin();
+      }
+    } else if (event is DeclarationMissed) {
+      if (currentUserId == null || event.playerId == currentUserId) {
+        playDefeat();
+      }
+    } else if (event is DashCallFailed) {
+      if (currentUserId == null || event.playerId == currentUserId) {
+        playDefeat();
+      }
+    } else if (event is ForbiddenDeclarationAttempt) {
+      _triggerHaptic(HapticFeedback.vibrate);
+    } else if (event is DoubleRoundStarted || event is FinalRoundStarted) {
+      playRiskWin();
+    } else if (event is MatchCompleted) {
+      if (currentUserId == null || event.winner.id == currentUserId) {
+        playWin();
+      }
+    }
+  }
+
   /// Cleanly disposes audio players.
   void dispose() {
+    _eventSub?.cancel();
+    _eventSub = null;
     _cardPlayer?.dispose();
     _collectPlayer?.dispose();
     _winPlayer?.dispose();

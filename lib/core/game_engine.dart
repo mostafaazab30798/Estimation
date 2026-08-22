@@ -439,6 +439,40 @@ class GameEngine {
       deltas[p.id] = delta;
     }
 
+    // Record round history snapshot
+    final playerRecords = <PlayerRoundRecord>[];
+    for (final p in state.players) {
+      final declared = p.declared ?? 0;
+      final actual = p.actual;
+      final isBidder = p.id == state.bidderPlayerId;
+      final isDashCall = p.isDashCall;
+      final isRisk = p.isRisk;
+      final delta = deltas[p.id] ?? 0;
+      final isSuccess = isDashCall ? (actual == 0) : (actual == declared);
+
+      playerRecords.add(PlayerRoundRecord(
+        playerId: p.id,
+        playerName: p.name,
+        declared: declared,
+        actual: actual,
+        scoreDelta: delta,
+        totalScoreAfterRound: p.totalScore,
+        isBidder: isBidder,
+        isDashCall: isDashCall,
+        isRisk: isRisk,
+        isSuccess: isSuccess,
+      ));
+    }
+
+    state.roundHistory.removeWhere((r) => r.roundNumber == state.roundNumber);
+    state.roundHistory.add(RoundHistoryRecord(
+      roundNumber: state.roundNumber,
+      bidderPlayerId: state.bidderPlayerId,
+      winningBid: state.currentHighBid,
+      trump: state.trump,
+      playerRecords: playerRecords,
+    ));
+
     state.lastRoundScoreDeltas = deltas;
     state.isDoubleRound = false; // Reset multiplier after scoring applied
     return deltas;

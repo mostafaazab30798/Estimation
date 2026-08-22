@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/ai/estimation_bot_ai.dart';
+import '../core/constants.dart';
 import '../core/game_engine.dart';
 import '../core/models/bid.dart';
 import '../core/models/card.dart';
@@ -35,9 +36,11 @@ class GameServer {
   // Tracks the last phase we saved to DB; we only persist on transitions.
   GamePhase? _lastPersistedPhase;
 
-  // ── Turn Timer Support ─────────────────────────────────────────
+  // ── Turn & Bot Timers ───────────────────────────────────────────
+  bool _isStopped = false;
   Timer? _turnTimer;
-  static const Duration _kTurnTimeout = Duration(seconds: 45);
+  Timer? _botTimer;
+  Timer? _trickTimer;
 
   // ── Bot support ──────────────────────────────────────────────
   final Set<String> _botPlayerIds = {};
@@ -49,6 +52,7 @@ class GameServer {
   // ── Lifecycle ────────────────────────────────────────────────
 
   Future<void> start(String hostName, String hostPlayerId, String roomId, String hostPhoto, {int maxPlayers = 4}) async {
+    _isStopped = false;
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
@@ -138,8 +142,13 @@ class GameServer {
   }
 
   Future<void> stop() async {
+    _isStopped = true;
     _turnTimer?.cancel();
     _turnTimer = null;
+    _botTimer?.cancel();
+    _botTimer = null;
+    _trickTimer?.cancel();
+    _trickTimer = null;
     await _channel?.unsubscribe();
     _channel = null;
   }
@@ -240,6 +249,7 @@ class GameServer {
   // ── Action handler ───────────────────────────────────────────
 
   void _handlePlayerAction(Map<String, dynamic> payload) {
+    if (_isStopped) return;
     final action = payload['action'] as String;
     final playerId = payload['playerId'] as String;
 
@@ -370,7 +380,9 @@ class GameServer {
             if (finished) {
                _broadcastState(); // Broadcast immediately to show the 4th card
                _persistSnapshotAndHands();
-               Future.delayed(const Duration(seconds: 2), () {
+               _trickTimer?.cancel();
+               _trickTimer = Timer(const Duration(seconds: 2), () {
+                 if (_isStopped) return;
                  GameEngine.resolveTrick(_state);
                  if (_state.phase == GamePhase.scoring) {
                     GameEngine.computeAndApplyScores(_state);
@@ -413,6 +425,7 @@ class GameServer {
   }
 
   void _doDeal() {
+    if (_isStopped) return;
     // Determine dealer for this round
     _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
 
@@ -441,6 +454,7 @@ class GameServer {
   }
 
   void _triggerRedeal() {
+    if (_isStopped) return;
     for (final p in _state.players) {
       p.resetForRound();
     }
@@ -459,6 +473,9 @@ class GameServer {
   // ── Broadcast ────────────────────────────────────────────────
 
   void _broadcastState() {
+    if (_isStopped) return;
+    _prepareTurnTimer();
+
     final payload = _state.toJson();
     _channel?.sendBroadcastMessage(
       event: 'state',
@@ -466,7 +483,7 @@ class GameServer {
     );
     onStateUpdate(_state);
     _scheduleBotTurn();
-    _resetTurnTimer();
+    _startTurnTimer();
 
     // Persist a snapshot on phase change or phase snapshot updates
     if (_state.phase != _lastPersistedPhase) {
@@ -476,42 +493,77 @@ class GameServer {
   }
 
   void _persistSnapshotAndHands() {
+    if (_isStopped) return;
     _persistPhaseSnapshot();
     _saveHandCards();
   }
 
   // ── Turn Timeout Handling ─────────────────────────────────────
 
-  void _resetTurnTimer() {
+  void _prepareTurnTimer() {
     _turnTimer?.cancel();
     _turnTimer = null;
+    if (_isStopped) {
+      _state.turnDeadlineEpochMs = null;
+      return;
+    }
+
+    Duration? timeout;
+    if (_state.phase == GamePhase.dashCall) {
+      timeout = kDashCallTurnTimeout;
+    } else if (_state.phase == GamePhase.auction) {
+      timeout = kAuctionTurnTimeout;
+    } else if (_state.phase == GamePhase.declarations) {
+      final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
+      if (activePlayer.declared == null) {
+        timeout = kDeclarationTurnTimeout;
+      }
+    } else if (_state.phase == GamePhase.trickTaking) {
+      if (_state.currentTrick.length < maxPlayers) {
+        timeout = kTrickTurnTimeout;
+      }
+    }
+
+    if (timeout != null) {
+      _state.turnDurationSeconds = timeout.inSeconds;
+      _state.turnDeadlineEpochMs = DateTime.now().millisecondsSinceEpoch + timeout.inMilliseconds;
+    } else {
+      _state.turnDeadlineEpochMs = null;
+    }
+  }
+
+  void _startTurnTimer() {
+    _turnTimer?.cancel();
+    _turnTimer = null;
+    if (_isStopped) return;
 
     if (_state.phase == GamePhase.dashCall) {
       final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
       if (!_botPlayerIds.contains(activePlayer.id)) {
-        _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
+        _turnTimer = Timer(kDashCallTurnTimeout, _handleTurnTimeout);
       }
     } else if (_state.phase == GamePhase.auction) {
       final activePlayer = _state.playerBySeat(_state.auctionTurnSeatIndex);
       if (!_botPlayerIds.contains(activePlayer.id)) {
-        _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
+        _turnTimer = Timer(kAuctionTurnTimeout, _handleTurnTimeout);
       }
     } else if (_state.phase == GamePhase.declarations) {
       final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
       if (activePlayer.declared == null && !_botPlayerIds.contains(activePlayer.id)) {
-        _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
+        _turnTimer = Timer(kDeclarationTurnTimeout, _handleTurnTimeout);
       }
     } else if (_state.phase == GamePhase.trickTaking) {
       if (_state.currentTrick.length < maxPlayers) {
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
         if (!_botPlayerIds.contains(activePlayer.id)) {
-          _turnTimer = Timer(_kTurnTimeout, _handleTurnTimeout);
+          _turnTimer = Timer(kTrickTurnTimeout, _handleTurnTimeout);
         }
       }
     }
   }
 
   void _handleTurnTimeout() {
+    if (_isStopped) return;
     debugPrint('[Server] Turn timeout triggered for phase: ${_state.phase.name}');
     switch (_state.phase) {
       case GamePhase.dashCall:
@@ -627,6 +679,7 @@ class GameServer {
     required String hostName,
     required String roomId,
   }) async {
+    _isStopped = false;
     this.hostPlayerId = hostPlayerId;
     this.hostName = hostName;
     this.roomId = roomId;
@@ -694,18 +747,21 @@ class GameServer {
   // ── Bot AI ───────────────────────────────────────────────────
 
   void _scheduleBotTurn() {
-    if (_botProcessing || _botPlayerIds.isEmpty) return;
+    if (_isStopped || _botProcessing || _botPlayerIds.isEmpty) return;
     if (!_isBotTurnNeeded()) return;
 
     _botProcessing = true;
     final delay = 600 + _rng.nextInt(600);
-    Future.delayed(Duration(milliseconds: delay), () {
+    _botTimer?.cancel();
+    _botTimer = Timer(Duration(milliseconds: delay), () {
       _botProcessing = false;
+      if (_isStopped) return;
       _executeBotAction();
     });
   }
 
   bool _isBotTurnNeeded() {
+    if (_isStopped) return false;
     switch (_state.phase) {
       case GamePhase.voidCheck:
         if (_state.voidDeclaringPlayerId != null) {
@@ -743,6 +799,7 @@ class GameServer {
   }
 
   void _executeBotAction() {
+    if (_isStopped) return;
     switch (_state.phase) {
       case GamePhase.voidCheck:
         if (_state.voidDeclaringPlayerId != null) {

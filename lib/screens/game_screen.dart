@@ -20,12 +20,17 @@ import '../widgets/bid_dialog.dart';
 import '../widgets/dash_call_dialog.dart';
 import '../widgets/declaration_dialog.dart';
 import '../widgets/tricks_dialog.dart';
+import '../widgets/double_round_overlay.dart';
+import '../widgets/fixed_trump_round_overlay.dart';
 import '../widgets/reconnection_banner.dart';
 import '../widgets/hud/game_background.dart';
 import '../widgets/hud/casino_table.dart';
 import '../widgets/hud/top_hud.dart';
 import '../widgets/hud/ready_phase_overlay.dart';
 import '../widgets/hud/local_player_ready_button.dart';
+import '../widgets/hud/game_event_banner.dart';
+import '../widgets/hud/turn_timer_badge.dart';
+import '../services/audio_service.dart';
 import '../services/reconnection_manager.dart';
 import 'scoring_screen.dart';
 import 'match_end_screen.dart';
@@ -43,6 +48,10 @@ class _GameScreenState extends State<GameScreen> {
   bool _declarationDialogOpen = false;
   bool _delayingScoring = false;
   bool _showEmotes = false;
+  bool _showDoubleRoundOverlay = false;
+  int? _lastAnnouncedDoubleRound;
+  bool _showFixedTrumpOverlay = false;
+  int? _lastAnnouncedFixedRound;
   String? _floatingEmote;
   Timer? _emoteTimer;
 
@@ -50,6 +59,12 @@ class _GameScreenState extends State<GameScreen> {
   // when the relevant state actually changes, not on every rebuild.
   GamePhase? _lastPhase;
   bool _lastIsMyTurn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AudioService.instance.bindToEventBus();
+  }
 
   void _triggerEmote(String emote) {
     setState(() {
@@ -137,6 +152,18 @@ class _GameScreenState extends State<GameScreen> {
       return MatchEndScreen(state: state, provider: provider);
     }
 
+    // Trigger Double Round presentation when an all-pass doubles the round
+    if (state.isDoubleRound && _lastAnnouncedDoubleRound != state.roundNumber) {
+      _lastAnnouncedDoubleRound = state.roundNumber;
+      _showDoubleRoundOverlay = true;
+    }
+
+    // Trigger Fixed Trump Round presentation when entering a championship fixed trump round (rounds 14-18)
+    if (state.fixedTrump != null && _lastAnnouncedFixedRound != state.roundNumber) {
+      _lastAnnouncedFixedRound = state.roundNumber;
+      _showFixedTrumpOverlay = true;
+    }
+
     _maybeShowDialogs(provider, state, isMyTurn);
 
     final media = MediaQuery.of(context);
@@ -194,6 +221,33 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
                   ),
+
+                  // ── Live Contextual Game Events Banner ────────────
+                  Positioned(
+                    top: isPortrait ? 58 : 68,
+                    left: 16,
+                    right: 16,
+                    child: const Center(
+                      child: GameEventBanner(),
+                    ),
+                  ),
+
+                  // ── Active Local Turn Timer above player hand (Non-overlapping) ───
+                  if (state.phase == GamePhase.trickTaking && isMyTurn)
+                    Positioned(
+                      bottom: isPortrait ? 215 : 132,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) => TurnTimerBadge(
+                            state: prov.state!,
+                            isMyTurn: true,
+                            compact: true,
+                          ),
+                        ),
+                      ),
+                    ),
 
                   // ── Center Trick Area ─────────────────────────────
                   Align(
@@ -465,6 +519,36 @@ class _GameScreenState extends State<GameScreen> {
                 ],
               ),
             ),
+
+            // ── Double Round Overlay (All-Pass Presentation) ──────────
+            if (_showDoubleRoundOverlay)
+              Positioned.fill(
+                child: DoubleRoundOverlay(
+                  onDismissed: () {
+                    if (mounted) {
+                      setState(() {
+                        _showDoubleRoundOverlay = false;
+                      });
+                    }
+                  },
+                ),
+              ),
+
+            // ── Fixed Trump Round Overlay (Championship Rounds 14-18) ───
+            if (_showFixedTrumpOverlay && state.fixedTrump != null)
+              Positioned.fill(
+                child: FixedTrumpRoundOverlay(
+                  roundNumber: state.roundNumber,
+                  fixedTrump: state.fixedTrump!,
+                  onDismissed: () {
+                    if (mounted) {
+                      setState(() {
+                        _showFixedTrumpOverlay = false;
+                      });
+                    }
+                  },
+                ),
+              ),
           ],
         ),
       ),
@@ -884,6 +968,9 @@ class _GameScreenState extends State<GameScreen> {
             : null,
         fixedTrump: state.fixedTrump,
         roundNumber: state.roundNumber,
+        isDoubleRound: state.isDoubleRound,
+        deadlineEpochMs: state.turnDeadlineEpochMs,
+        durationSeconds: state.turnDurationSeconds,
         onBid: (bid) {
           provider.submitBid(bid);
         },

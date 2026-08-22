@@ -266,20 +266,7 @@ class _TrickAreaState extends State<TrickArea>
                 alignment: Alignment.center,
                 clipBehavior: Clip.none,
                 children: [
-                  // Trump indicator
-                  if (widget.state.trumpSuit != null)
-                    Positioned(
-                      child: Text(
-                        widget.state.trumpSuit!.label,
-                        style: TextStyle(
-                          fontSize: size * 0.15,
-                          color: AppTheme.gold.withValues(alpha: 0.3),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
-                  // 2. Cards — normal play OR sweep
+                  // Cards — normal play OR sweep
                   if (!isSweeping)
                     Stack(
                       alignment: Alignment.center,

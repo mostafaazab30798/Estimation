@@ -135,6 +135,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                 ringColor: accentColor,
                 isCurrentTurn: widget.isCurrentTurn,
                 compact: false,
+                turnDurationSeconds: widget.state.turnDurationSeconds,
+                turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
               ),
               if (rankIndex >= 0 && rankIndex <= 3)
                 Positioned(
@@ -179,6 +181,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               ringColor: accentColor,
               isCurrentTurn: widget.isCurrentTurn,
               compact: false,
+              turnDurationSeconds: widget.state.turnDurationSeconds,
+              turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
             ),
             if (rankIndex >= 0 && rankIndex <= 3)
               Positioned(
@@ -258,6 +262,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                 ringColor: accentColor,
                 isCurrentTurn: widget.isCurrentTurn,
                 compact: true,
+                turnDurationSeconds: widget.state.turnDurationSeconds,
+                turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
               ),
               if (rankIndex >= 0 && rankIndex <= 3)
                 Positioned(
@@ -301,6 +307,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               ringColor: accentColor,
               isCurrentTurn: widget.isCurrentTurn,
               compact: true,
+              turnDurationSeconds: widget.state.turnDurationSeconds,
+              turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
             ),
             if (rankIndex >= 0 && rankIndex <= 3)
               Positioned(

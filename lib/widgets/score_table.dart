@@ -190,7 +190,21 @@ class ScoreTable extends StatelessWidget {
           // Won / Actual (Flex 2)
           Expanded(
             flex: 2,
-            child: _cell('${player.actual}'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _cell(
+                  '${player.actual}',
+                  color: (player.declared != null && player.declared == player.actual)
+                      ? const Color(0xFF00E676)
+                      : null,
+                ),
+                if (player.declared != null && player.declared == player.actual) ...[
+                  const SizedBox(width: 3),
+                  const Text('🎯', style: TextStyle(fontSize: 10)),
+                ],
+              ],
+            ),
           ),
 
           // Round Score Delta Pill (Flex 2)
@@ -250,11 +264,11 @@ class ScoreTable extends StatelessWidget {
         ),
       );
 
-  Widget _cell(String text) => Text(
+  Widget _cell(String text, {Color? color}) => Text(
         text,
         textAlign: TextAlign.center,
         style: GoogleFonts.cairo(
-          color: AppTheme.cream.withValues(alpha: 0.9),
+          color: color ?? AppTheme.cream.withValues(alpha: 0.9),
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),

@@ -1,7 +1,7 @@
 name: estimation
 description: "كوتشينة — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
-version: 1.5.0+16
+version: 1.6.0+17
 environment:
   sdk: ^3.5.0
 

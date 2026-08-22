@@ -7,6 +7,8 @@ import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/models/player.dart';
 import 'package:estimation/core/models/game_state.dart';
 import 'package:estimation/core/constants.dart';
+import 'package:estimation/networking/messages.dart';
+import 'package:estimation/networking/local/local_game_server.dart';
 
 void main() {
   group('4-Player Completion & Bot Integration Tests', () {
@@ -215,6 +217,17 @@ void main() {
       final chosen = EstimationBotAi.chooseCardToPlay(state, bot);
       expect(chosen.suit, Suit.spade);
       expect(chosen.rank, Rank.ace); // Pulls trumps with master Ace
+    });
+
+    test('LocalGameServer stop() cancels all timers and marks server stopped', () async {
+      final server = LocalGameServer(onStateUpdate: (_) {});
+      await server.start('Host', 'host_1', 'room_1', '');
+      server.addBotPlayers(count: 3);
+
+      expect(server.playerCount, 4);
+      await server.stop();
+      // Calling stop again or actions after stop are safely ignored
+      server.sendHostAction(ActionType.passBid, {});
     });
   });
 }

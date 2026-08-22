@@ -5,11 +5,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
+import '../core/models/comeback_event.dart';
 import '../models/rank_tier.dart';
 import '../providers/game_provider.dart';
 import '../services/auth_service.dart';
 import '../services/history_service.dart';
 import '../services/audio_service.dart';
+import '../services/estimation_stats_service.dart';
 import '../services/ranking_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/level_up_dialog.dart';
@@ -58,6 +60,11 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     if (!_hasSaved) {
       _hasSaved = true;
       _calculateAndAwardXp();
+      EstimationStatsService.instance.recordMatch(
+        state: widget.state,
+        playerName: widget.provider.myName,
+        playerId: widget.provider.myPlayerId,
+      );
       // Only the host (or offline player) saves match to prevent duplicate records from all 4 clients
       if (widget.provider.role != ConnectionRole.client) {
         HistoryService.saveMatch(widget.state);
@@ -173,6 +180,9 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                       _buildXpProgressionCard(),
                       const SizedBox(height: 18),
                     ],
+
+                    // Match Highlights / Comeback Moments
+                    _buildMatchHighlightsSection(),
 
                     // Final standings
                     Text(
@@ -392,6 +402,12 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                   xp: breakdown.highScorerBonus,
                   color: const Color(0xFF00E5FF),
                 ),
+              if (breakdown.comebackBonus > 0)
+                _buildXpPill(
+                  label: 'ريمونتادا أسطورية 🔥',
+                  xp: breakdown.comebackBonus,
+                  color: const Color(0xFFFF5722),
+                ),
             ],
           ),
 
@@ -455,6 +471,165 @@ class _MatchEndScreenState extends State<MatchEndScreen>
           color: color,
         ),
       ),
+    );
+  }
+
+  Widget _buildMatchHighlightsSection() {
+    final List<ComebackEvent> allHighlights = [];
+    for (int r = 1; r <= widget.state.roundHistory.length; r++) {
+      allHighlights.addAll(
+        ComebackDetector.detectRoundComebacks(state: widget.state, roundNumber: r),
+      );
+    }
+
+    if (allHighlights.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E2838).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFFF7043).withValues(alpha: 0.45),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('🔥', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'أبرز أحداث وريمونتادات المباراة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFFFFAB91),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...allHighlights.map((event) {
+                final isMe = event.playerId == widget.provider.myPlayerId;
+                Color accentColor;
+                switch (event.type) {
+                  case ComebackType.majorComeback:
+                    accentColor = const Color(0xFFFF5722);
+                    break;
+                  case ComebackType.finalRoundComeback:
+                    accentColor = AppTheme.gold;
+                    break;
+                  case ComebackType.rankSurge:
+                    accentColor = const Color(0xFF00E676);
+                    break;
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'ج ${event.roundNumber}',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(event.iconEmoji, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  event.playerName,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isMe ? AppTheme.goldLight : Colors.white,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 5),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.gold,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'أنت',
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.navyDark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              event.subtitleAr,
+                              style: GoogleFonts.cairo(
+                                fontSize: 11.5,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (event.pointsDeficitOvercome > 0)
+                        Text(
+                          '+${event.pointsDeficitOvercome} نقطة',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: accentColor,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

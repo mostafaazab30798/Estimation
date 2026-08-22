@@ -23,6 +23,8 @@ class PlayerAvatarRing extends StatefulWidget {
   final Color ringColor;
   final bool isCurrentTurn;
   final bool compact;
+  final int turnDurationSeconds;
+  final int? turnDeadlineEpochMs;
 
   const PlayerAvatarRing({
     super.key,
@@ -32,6 +34,8 @@ class PlayerAvatarRing extends StatefulWidget {
     this.ringColor = AppTheme.playerBlue,
     this.isCurrentTurn = false,
     this.compact = false,
+    this.turnDurationSeconds = 10,
+    this.turnDeadlineEpochMs,
   });
 
   @override
@@ -55,22 +59,36 @@ class _PlayerAvatarRingState extends State<PlayerAvatarRing>
 
     _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
 
-    // 45s turn timeout visual timer
     _turnTimerCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 45),
+      duration: Duration(seconds: widget.turnDurationSeconds),
     );
 
     if (widget.isCurrentTurn) {
-      _turnTimerCtrl.forward(from: 0.0);
+      _startTurnAnimation();
     }
+  }
+
+  void _startTurnAnimation() {
+    _turnTimerCtrl.duration = Duration(seconds: widget.turnDurationSeconds);
+    double initialProgress = 0.0;
+    if (widget.turnDeadlineEpochMs != null) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final remainingMs = widget.turnDeadlineEpochMs! - now;
+      final totalMs = widget.turnDurationSeconds * 1000;
+      if (totalMs > 0) {
+        final elapsedMs = totalMs - remainingMs;
+        initialProgress = (elapsedMs / totalMs).clamp(0.0, 1.0);
+      }
+    }
+    _turnTimerCtrl.forward(from: initialProgress);
   }
 
   @override
   void didUpdateWidget(covariant PlayerAvatarRing oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isCurrentTurn && !oldWidget.isCurrentTurn) {
-      _turnTimerCtrl.forward(from: 0.0);
+    if (widget.isCurrentTurn && (!oldWidget.isCurrentTurn || oldWidget.turnDeadlineEpochMs != widget.turnDeadlineEpochMs)) {
+      _startTurnAnimation();
     } else if (!widget.isCurrentTurn && oldWidget.isCurrentTurn) {
       _turnTimerCtrl.stop();
       _turnTimerCtrl.reset();

@@ -129,4 +129,9 @@ const int kPlayerCount = 4;
 /// Number of tricks per round
 const int kTricksPerRound = 13;
 
-
+/// ── Turn Timing Constants (1 minute for all phases) ───────────
+const Duration kAuctionTurnTimeout = Duration(seconds: 60);
+const Duration kDeclarationTurnTimeout = Duration(seconds: 60);
+const Duration kTrickTurnTimeout = Duration(seconds: 60);
+const Duration kDashCallTurnTimeout = Duration(seconds: 60);
+const int kTurnWarningThresholdSeconds = 5;

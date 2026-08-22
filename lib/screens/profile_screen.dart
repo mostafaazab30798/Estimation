@@ -12,6 +12,7 @@ import '../services/settings_service.dart';
 import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 import '../models/rank_tier.dart';
+import '../models/estimation_statistics.dart';
 import '../widgets/rank_tier_badge.dart';
 import 'leaderboard_screen.dart';
 import '../theme/app_theme.dart';
@@ -767,8 +768,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Tab 0: Profile & Stats ─────────────────────────────────────────────────
 
   Widget _buildProfileTab(_ProfileViewModel vm) {
-    final winRate = vm.stats.totalMatches > 0
-        ? ((vm.stats.wins / vm.stats.totalMatches) * 100).toStringAsFixed(1)
+    final estStats = vm.stats.estimationStats;
+    final totalGames = estStats.gamesPlayed > 0 ? estStats.gamesPlayed : vm.stats.totalMatches;
+    final totalWins = estStats.gamesPlayed > 0 ? estStats.gamesWon : vm.stats.wins;
+    final winRate = totalGames > 0
+        ? ((totalWins / totalGames) * 100).toStringAsFixed(1)
         : '0.0';
 
     return SingleChildScrollView(
@@ -909,15 +913,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             builder: (context, auth, _) => _buildGoogleAuthCard(auth),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Career Stats Grid
+          // ── Hero Accuracy Metric Card ───────────────────────────────────────
+          _buildDeclarationAccuracyHeroCard(vm.stats.estimationStats),
+
+          const SizedBox(height: 24),
+
+          // ── Section 1: Match Performance & Win Streaks ─────────────────────
+          _buildSectionHeader('أداء المباريات والسلاسل', Icons.military_tech_rounded, AppTheme.gold),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _buildStatCard(
                   title: 'إجمالي الانتصارات',
-                  value: '${vm.stats.wins}',
+                  value: '$totalWins',
                   icon: Icons.emoji_events_rounded,
                   color: AppTheme.gold,
                 ),
@@ -926,7 +937,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: _buildStatCard(
                   title: 'المباريات الملعوبة',
-                  value: '${vm.stats.totalMatches}',
+                  value: '$totalGames',
                   icon: Icons.style_rounded,
                   color: AppTheme.mintSoft,
                 ),
@@ -947,15 +958,389 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildStatCard(
-                  title: 'أعلى سكور',
-                  value: '${vm.stats.maxScore}',
-                  icon: Icons.trending_up_rounded,
-                  color: const Color(0xFF5B8FE8),
+                  title: 'أطول سلسلة فوز',
+                  value: '${estStats.longestWinningStreak}',
+                  icon: Icons.local_fire_department_rounded,
+                  color: const Color(0xFFFF7043),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _buildWideStatCard(
+            title: 'أفضل ريمونتادا (تعويض الفارق)',
+            value: estStats.bestComeback > 0 ? '+${estStats.bestComeback} نقطة' : '—',
+            icon: Icons.replay_circle_filled_rounded,
+            color: const Color(0xFFAB47BC),
+            subtitle: 'أكبر فارق نقاط تم تعويضه خلال الجولات لتحقيق المركز الأول',
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'ريمونتادا كبرى (4th→1st)',
+                  value: '${estStats.majorComebacks}',
+                  icon: Icons.whatshot_rounded,
+                  color: const Color(0xFFFF5722),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'ريمونتادا الجولة الأخيرة',
+                  value: '${estStats.finalRoundComebacks}',
+                  icon: Icons.military_tech_rounded,
+                  color: AppTheme.gold,
+                ),
+              ),
+            ],
+          ),
+
           const SizedBox(height: 24),
+
+          // ── Section 2: Rounds, Tricks & Declarations ───────────────────────
+          _buildSectionHeader('الجولات والتقديرات', Icons.psychology_rounded, AppTheme.mintSoft),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'إجمالي الجولات',
+                  value: '${estStats.totalRounds}',
+                  icon: Icons.sync_rounded,
+                  color: const Color(0xFF42A5F5),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'إجمالي اللمّات',
+                  value: '${estStats.totalTricks}',
+                  icon: Icons.layers_rounded,
+                  color: const Color(0xFF26A69A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'متوسط التصريح',
+                  value: estStats.totalRounds > 0 ? estStats.averageDeclaredTricks.toStringAsFixed(1) : '—',
+                  icon: Icons.record_voice_over_rounded,
+                  color: const Color(0xFFFFA726),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'متوسط اللم الفعلي',
+                  value: estStats.totalRounds > 0 ? estStats.averageActualTricks.toStringAsFixed(1) : '—',
+                  icon: Icons.pan_tool_alt_rounded,
+                  color: const Color(0xFF66BB6A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'تقديرات دقيقة (ناجحة)',
+                  value: '${estStats.perfectEstimates}',
+                  icon: Icons.check_circle_rounded,
+                  color: const Color(0xFF4CAF50),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'تصريحات فاشلة',
+                  value: '${estStats.failedDeclarations}',
+                  icon: Icons.cancel_rounded,
+                  color: const Color(0xFFEF5350),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Section 3: Bidding & High Scores ──────────────────────────────
+          _buildSectionHeader('المزايدات والأرقام القياسية', Icons.stars_rounded, AppTheme.goldLight),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'أعلى مزايدة ناجحة',
+                  value: estStats.highestSuccessfulBid > 0 ? '${estStats.highestSuccessfulBid}' : '—',
+                  icon: Icons.gavel_rounded,
+                  color: AppTheme.gold,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'أعلى تصريح ناجح',
+                  value: estStats.highestSuccessfulDeclaration > 0 ? '${estStats.highestSuccessfulDeclaration}' : '—',
+                  icon: Icons.flag_rounded,
+                  color: const Color(0xFF29B6F6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  title: 'أعلى سكور بجولة',
+                  value: estStats.highestScoreInOneRound != 0
+                      ? (estStats.highestScoreInOneRound > 0
+                          ? '+${estStats.highestScoreInOneRound}'
+                          : '${estStats.highestScoreInOneRound}')
+                      : (vm.stats.maxScore != 0 ? '${vm.stats.maxScore}' : '—'),
+                  icon: Icons.arrow_circle_up_rounded,
+                  color: const Color(0xFF66BB6A),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildStatCard(
+                  title: 'أقل سكور بجولة',
+                  value: estStats.lowestScoreInOneRound != 0 ? '${estStats.lowestScoreInOneRound}' : '—',
+                  icon: Icons.arrow_circle_down_rounded,
+                  color: const Color(0xFFE57373),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  // ── Hero Declaration Accuracy Card ─────────────────────────────────────────
+
+  Widget _buildDeclarationAccuracyHeroCard(EstimationStatistics stats) {
+    final accuracy = stats.totalDeclarations > 0 ? stats.declarationAccuracy : 0.0;
+    final accuracyStr = accuracy.toStringAsFixed(1);
+    final ratio = accuracy / 100.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1B2A4A),
+            AppTheme.navyDark,
+            const Color(0xFF0F1E36),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: AppTheme.gold.withValues(alpha: 0.45),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.gold.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.gold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                ),
+                child: const Text('🎯', style: TextStyle(fontSize: 26)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'دقة التقدير',
+                          style: GoogleFonts.cairo(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.cream,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.gold.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                          ),
+                          child: Text(
+                            'المعيار الذهبي',
+                            style: GoogleFonts.cairo(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.goldLight,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'نسبة إصابة التقدير الدقيق من إجمالي الجولات',
+                      style: GoogleFonts.cairo(
+                        fontSize: 11,
+                        color: AppTheme.steelBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$accuracyStr%',
+                style: GoogleFonts.cairo(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.gold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.gold),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '🎯 تقديرات دقيقة: ${stats.perfectEstimates}',
+                style: GoogleFonts.cairo(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF4CAF50),
+                ),
+              ),
+              Text(
+                'إجمالي التصريحات: ${stats.totalDeclarations}',
+                style: GoogleFonts.cairo(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white60,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: GoogleFonts.cairo(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.cream,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: AppTheme.glassDecoration(
+        borderRadius: 20,
+        borderColor: color.withValues(alpha: 0.3),
+        fillColor: AppTheme.navyDark.withValues(alpha: 0.6),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.cairo(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.cream,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.cairo(
+                    fontSize: 10.5,
+                    color: AppTheme.steelBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: GoogleFonts.cairo(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -1315,6 +1700,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Tab 1: Match History ───────────────────────────────────────────────────
 
   Widget _buildHistoryTab(_ProfileViewModel vm) {
+    final isAuth = AuthService.instance.isAuthenticated;
     final list = vm.filteredHistory;
 
     return Column(
@@ -1346,38 +1732,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         // History Content
         Expanded(
-          child: list.isEmpty
+          child: !isAuth
               ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.history_toggle_off_rounded,
-                        size: 54,
-                        color: Colors.white.withValues(alpha: 0.2),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'لا توجد مباريات مسجلة بعد',
-                        style: GoogleFonts.cairo(
-                          color: AppTheme.steelBlue,
-                          fontSize: 15,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.cloud_off_rounded,
+                          size: 54,
+                          color: AppTheme.gold.withValues(alpha: 0.7),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        Text(
+                          'سجل المباريات متاح فقط للحسابات المسجلة',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.cream,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'سجّل الدخول باستخدام حساب Google لحفظ سجل مبارياتك ومزامنتها سحابياً.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.steelBlue,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            vm.setTab(0);
+                          },
+                          icon: const Icon(Icons.login_rounded, size: 18),
+                          label: Text(
+                            'الانتقال لتسجيل الدخول',
+                            style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.gold,
+                            foregroundColor: AppTheme.navyDark,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
-              : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: list.length > 20 ? 20 : list.length,
-                  itemBuilder: (context, index) {
-                    return _ExpandableMatchCard(
-                      item: list[index],
-                      currentUserName: _nameController.text.trim(),
-                    );
-                  },
-                ),
+              : list.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.history_toggle_off_rounded,
+                            size: 54,
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'لا توجد مباريات مسجلة بعد',
+                            style: GoogleFonts.cairo(
+                              color: AppTheme.steelBlue,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: list.length > 20 ? 20 : list.length,
+                      itemBuilder: (context, index) {
+                        return _ExpandableMatchCard(
+                          item: list[index],
+                          currentUserName: _nameController.text.trim(),
+                        );
+                      },
+                    ),
         ),
       ],
     );

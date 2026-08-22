@@ -54,11 +54,16 @@ class GameState {
 
   // ── Round scores (populated at end of round) ───────────────
   Map<String, int> lastRoundScoreDeltas; // playerId → score delta
+  List<RoundHistoryRecord> roundHistory; // chronological list of all played rounds
 
   // ── Void-check ─────────────────────────────────────────────
   Set<String> voidCheckPassed; // player IDs who confirmed no redeal needed
   String? voidDeclaringPlayerId; // player ID who declared a void suit
   Set<String> voidRedealRejections; // player IDs who rejected the redeal
+
+  // ── Turn Timer (Authoritative) ─────────────────────────────
+  int turnDurationSeconds;       // Standard duration for current phase (15s or 10s)
+  int? turnDeadlineEpochMs;      // Timestamp in epoch ms when active turn expires
 
   // ── Theme ──────────────────────────────────────────────────
   String cardTheme;
@@ -82,13 +87,17 @@ class GameState {
     this.tricksPlayedThisRound = 0,
     this.currentPlayerSeatIndex = 0,
     Map<String, int>? lastRoundScoreDeltas,
+    List<RoundHistoryRecord>? roundHistory,
     Set<String>? voidCheckPassed,
     this.voidDeclaringPlayerId,
     Set<String>? voidRedealRejections,
+    this.turnDurationSeconds = 60,
+    this.turnDeadlineEpochMs,
     this.cardTheme = 'theme_1',
   })  : dashCallPassed = dashCallPassed ?? {},
         currentTrick = currentTrick ?? [],
         lastRoundScoreDeltas = lastRoundScoreDeltas ?? {},
+        roundHistory = roundHistory ?? [],
         voidCheckPassed = voidCheckPassed ?? {},
         voidRedealRejections = voidRedealRejections ?? {} {
     if (trump == null && trumpSuit != null) {
@@ -158,9 +167,12 @@ class GameState {
         'tricksPlayedThisRound': tricksPlayedThisRound,
         'currentPlayerSeatIndex': currentPlayerSeatIndex,
         'lastRoundScoreDeltas': lastRoundScoreDeltas,
+        'roundHistory': roundHistory.map((r) => r.toJson()).toList(),
         'voidCheckPassed': voidCheckPassed.toList(),
         'voidDeclaringPlayerId': voidDeclaringPlayerId,
         'voidRedealRejections': voidRedealRejections.toList(),
+        'turnDurationSeconds': turnDurationSeconds,
+        'turnDeadlineEpochMs': turnDeadlineEpochMs,
         'cardTheme': cardTheme,
       };
 
@@ -188,9 +200,12 @@ class GameState {
         'tricksPlayedThisRound': tricksPlayedThisRound,
         'currentPlayerSeatIndex': currentPlayerSeatIndex,
         'lastRoundScoreDeltas': lastRoundScoreDeltas,
+        'roundHistory': roundHistory.map((r) => r.toJson()).toList(),
         'voidCheckPassed': voidCheckPassed.toList(),
         'voidDeclaringPlayerId': voidDeclaringPlayerId,
         'voidRedealRejections': voidRedealRejections.toList(),
+        'turnDurationSeconds': turnDurationSeconds,
+        'turnDeadlineEpochMs': turnDeadlineEpochMs,
         'cardTheme': cardTheme,
       };
 
@@ -227,13 +242,113 @@ class GameState {
       currentPlayerSeatIndex: json['currentPlayerSeatIndex'] as int? ?? 0,
       lastRoundScoreDeltas: Map<String, int>.from(
           json['lastRoundScoreDeltas'] as Map<String, dynamic>? ?? {}),
+      roundHistory: (json['roundHistory'] as List<dynamic>?)
+              ?.map((r) => RoundHistoryRecord.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
       voidCheckPassed: Set<String>.from(
           json['voidCheckPassed'] as List<dynamic>? ?? []),
       voidDeclaringPlayerId: json['voidDeclaringPlayerId'] as String?,
       voidRedealRejections: json['voidRedealRejections'] != null 
           ? Set<String>.from(json['voidRedealRejections'] as List<dynamic>)
           : null,
+      turnDurationSeconds: json['turnDurationSeconds'] as int? ?? 60,
+      turnDeadlineEpochMs: json['turnDeadlineEpochMs'] as int?,
       cardTheme: json['cardTheme'] as String? ?? 'theme_1',
+    );
+  }
+}
+
+class PlayerRoundRecord {
+  final String playerId;
+  final String playerName;
+  final int declared;
+  final int actual;
+  final int scoreDelta;
+  final int totalScoreAfterRound;
+  final bool isBidder;
+  final bool isDashCall;
+  final bool isRisk;
+  final bool isSuccess; // actual == declared
+
+  const PlayerRoundRecord({
+    required this.playerId,
+    required this.playerName,
+    required this.declared,
+    required this.actual,
+    required this.scoreDelta,
+    required this.totalScoreAfterRound,
+    this.isBidder = false,
+    this.isDashCall = false,
+    this.isRisk = false,
+    required this.isSuccess,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'playerId': playerId,
+        'playerName': playerName,
+        'declared': declared,
+        'actual': actual,
+        'scoreDelta': scoreDelta,
+        'totalScoreAfterRound': totalScoreAfterRound,
+        'isBidder': isBidder,
+        'isDashCall': isDashCall,
+        'isRisk': isRisk,
+        'isSuccess': isSuccess,
+      };
+
+  factory PlayerRoundRecord.fromJson(Map<String, dynamic> json) {
+    return PlayerRoundRecord(
+      playerId: json['playerId'] as String? ?? '',
+      playerName: json['playerName'] as String? ?? '',
+      declared: json['declared'] as int? ?? 0,
+      actual: json['actual'] as int? ?? 0,
+      scoreDelta: json['scoreDelta'] as int? ?? 0,
+      totalScoreAfterRound: json['totalScoreAfterRound'] as int? ?? 0,
+      isBidder: json['isBidder'] as bool? ?? false,
+      isDashCall: json['isDashCall'] as bool? ?? false,
+      isRisk: json['isRisk'] as bool? ?? false,
+      isSuccess: json['isSuccess'] as bool? ?? false,
+    );
+  }
+}
+
+class RoundHistoryRecord {
+  final int roundNumber;
+  final String? bidderPlayerId;
+  final Bid? winningBid;
+  final Trump? trump;
+  final List<PlayerRoundRecord> playerRecords;
+
+  const RoundHistoryRecord({
+    required this.roundNumber,
+    this.bidderPlayerId,
+    this.winningBid,
+    this.trump,
+    required this.playerRecords,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'roundNumber': roundNumber,
+        'bidderPlayerId': bidderPlayerId,
+        'winningBid': winningBid?.toJson(),
+        'trump': trump?.name,
+        'playerRecords': playerRecords.map((r) => r.toJson()).toList(),
+      };
+
+  factory RoundHistoryRecord.fromJson(Map<String, dynamic> json) {
+    final trumpName = json['trump'] as String?;
+    return RoundHistoryRecord(
+      roundNumber: json['roundNumber'] as int? ?? 1,
+      bidderPlayerId: json['bidderPlayerId'] as String?,
+      winningBid: json['winningBid'] != null
+          ? Bid.fromJson(json['winningBid'] as Map<String, dynamic>)
+          : null,
+      trump: trumpName != null ? Trump.fromString(trumpName) : null,
+      playerRecords: (json['playerRecords'] as List<dynamic>?)
+              ?.map((r) => PlayerRoundRecord.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 }

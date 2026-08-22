@@ -103,8 +103,12 @@ class ReconnectionManager extends ChangeNotifier
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
+        _onAppPaused();
       case AppLifecycleState.detached:
         _onAppPaused();
+        if (_gameProvider.isTestMode || _gameProvider.isLocal) {
+          _gameProvider.reset();
+        }
       case AppLifecycleState.resumed:
         _onAppResumed();
       case AppLifecycleState.inactive:
@@ -115,6 +119,11 @@ class ReconnectionManager extends ChangeNotifier
 
   Future<void> _onAppPaused() async {
     _stopHeartbeat();
+    if (_gameProvider.isTestMode) {
+      debugPrint('[Reconnection] Test mode game detected on pause — stopping game server & resetting');
+      await _gameProvider.reset();
+      return;
+    }
     final roomId = _gameProvider.currentRoom?.id;
     if (roomId == null || roomId.startsWith('local_') || _gameProvider.isLocal) return;
     try {

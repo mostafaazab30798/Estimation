@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
 import '../core/widgets/player_avatar.dart';
+import '../core/events/estimation_event_dispatcher.dart';
 import '../theme/app_theme.dart';
+import 'hud/turn_timer_badge.dart';
 
 class DeclarationDialog extends StatefulWidget {
   final void Function(int declared) onSubmit;
@@ -97,24 +99,73 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header Title
-              Text(
-                'كم لمة تتوقع؟',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                textAlign: TextAlign.center,
+              // Header Title with Timer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'كم لمة تتوقع؟',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                  ),
+                  TurnTimerBadge(
+                    customPhaseLabel: 'DECLARATION',
+                    isMyTurn: true,
+                    compact: true,
+                    explicitDurationSeconds: state?.turnDurationSeconds ?? 15,
+                    explicitDeadlineEpochMs: state?.turnDeadlineEpochMs,
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
-              Text(
-                'حدد عدد اللمات التي ستربحها هذه الجولة',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
-                textAlign: TextAlign.center,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'حدد عدد اللمات التي ستربحها هذه الجولة',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
+                ),
               ),
+              if (state?.isDoubleRound == true) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFFF9100).withValues(alpha: 0.25),
+                        const Color(0xFFFFD700).withValues(alpha: 0.15),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.6),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('⚡', style: TextStyle(fontSize: 12)),
+                      SizedBox(width: 4),
+                      Text(
+                        '⚡ ×2 ROUND (جولة مضاعفة النقاط)',
+                        style: TextStyle(
+                          color: Color(0xFFFFD54F),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               // ── Other Players Info Cards (Left, Top, Right) ──
               if (leftPlayer != null && topPlayer != null && rightPlayer != null) ...[
@@ -214,7 +265,15 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                               final isDisabled = isForbidden || isBelowMin || isAboveMax;
                               final isSelected = declared == i;
                               return GestureDetector(
-                                onTap: isDisabled ? null : () => _declared.value = i,
+                                onTap: isForbidden
+                                    ? () {
+                                        if (widget.me != null) {
+                                          EstimationEventDispatcher.instance
+                                              .notifyForbiddenDeclarationAttempt(
+                                                  widget.me!, i);
+                                        }
+                                      }
+                                    : (isDisabled ? null : () => _declared.value = i),
                                 child: Opacity(
                                   opacity: isDisabled ? 0.25 : 1.0,
                                   child: AnimatedContainer(

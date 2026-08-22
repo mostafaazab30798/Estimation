@@ -320,49 +320,12 @@ class _RoundPhaseCenter extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            if (isFixedRound) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD97706).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🔒', style: TextStyle(fontSize: 10)),
-                    const SizedBox(width: 3),
-                    Text(
-                      'ثابت',
-                      style: GoogleFonts.cairo(
-                        color: const Color(0xFFFDE68A),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            if (isFixedRound && state.fixedTrump != null) ...[
+              _FixedTrumpBadge(roundNumber: state.roundNumber, fixedTrump: state.fixedTrump!),
               const SizedBox(width: 6),
             ],
             if (state.isDoubleRound) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.suitRed.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.suitRed.withValues(alpha: 0.6)),
-                ),
-                child: Text(
-                  '🔥 x2',
-                  style: GoogleFonts.cairo(
-                    color: const Color(0xFFFF8A80),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              const _DoubleRoundBadge(),
               const SizedBox(width: 6),
             ],
             Container(
@@ -559,6 +522,159 @@ class _UnderOverBadge extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _DoubleRoundBadge extends StatefulWidget {
+  const _DoubleRoundBadge();
+
+  @override
+  State<_DoubleRoundBadge> createState() => _DoubleRoundBadgeState();
+}
+
+class _DoubleRoundBadgeState extends State<_DoubleRoundBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _glow = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (context, _) {
+        final glowVal = _glow.value;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFFFF9100).withValues(alpha: 0.25 + 0.15 * glowVal),
+                const Color(0xFFFFD700).withValues(alpha: 0.20 + 0.10 * glowVal),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.6 + 0.4 * glowVal),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF9100).withValues(alpha: 0.3 * glowVal),
+                blurRadius: 10 * glowVal,
+                spreadRadius: 1 * glowVal,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('⚡', style: TextStyle(fontSize: 10)),
+              const SizedBox(width: 3),
+              Text(
+                '×2 ROUND',
+                style: GoogleFonts.cairo(
+                  color: const Color(0xFFFFD54F),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FixedTrumpBadge extends StatelessWidget {
+  final int roundNumber;
+  final Trump fixedTrump;
+
+  const _FixedTrumpBadge({required this.roundNumber, required this.fixedTrump});
+
+  String _suitSymbol() {
+    switch (fixedTrump) {
+      case Trump.sans:
+        return '♟';
+      case Trump.spade:
+        return '♠';
+      case Trump.heart:
+        return '♥';
+      case Trump.diamond:
+        return '♦';
+      case Trump.club:
+        return '♣';
+    }
+  }
+
+  String _nameEn() {
+    switch (fixedTrump) {
+      case Trump.sans:
+        return 'SANS';
+      case Trump.spade:
+        return 'SPADE';
+      case Trump.heart:
+        return 'HEART';
+      case Trump.diamond:
+        return 'DIAMOND';
+      case Trump.club:
+        return 'CLUB';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSans = fixedTrump == Trump.sans;
+    final isRed = fixedTrump.color == SuitColor.red;
+    final borderColor = isSans
+        ? const Color(0xFFA855F7)
+        : (isRed ? const Color(0xFFF43F5E) : const Color(0xFF38BDF8));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: borderColor.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor.withValues(alpha: 0.65), width: 1.1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('🔒', style: TextStyle(fontSize: 10)),
+          const SizedBox(width: 3),
+          Text(
+            '${_suitSymbol()} ${_nameEn()}',
+            style: GoogleFonts.cinzel(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

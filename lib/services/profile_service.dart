@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/utils/string_utils.dart';
 import 'history_service.dart';
 
+import '../models/estimation_statistics.dart';
+import 'estimation_stats_service.dart';
+
 class PresetAvatar {
   final String id;
   final String label;
@@ -31,6 +34,7 @@ class PlayerStats {
   final int subKingCount;
   final int subKozCount;
   final int kozCount;
+  final EstimationStatistics estimationStats;
 
   const PlayerStats({
     required this.totalMatches,
@@ -43,6 +47,7 @@ class PlayerStats {
     required this.subKingCount,
     required this.subKozCount,
     required this.kozCount,
+    this.estimationStats = const EstimationStatistics(),
   });
 
   factory PlayerStats.empty() {
@@ -57,6 +62,7 @@ class PlayerStats {
       subKingCount: 0,
       subKozCount: 0,
       kozCount: 0,
+      estimationStats: EstimationStatistics(),
     );
   }
 }
@@ -226,10 +232,34 @@ class ProfileService {
       }
     }
 
-    if (totalMatches == 0) return PlayerStats.empty();
+    if (totalMatches == 0) {
+      final estStats = await EstimationStatsService.instance.getStats(playerName);
+      return PlayerStats(
+        totalMatches: estStats.gamesPlayed,
+        wins: estStats.gamesWon,
+        winRate: estStats.winRate,
+        totalScore: 0,
+        avgScore: 0.0,
+        maxScore: 0,
+        kingCount: estStats.gamesWon,
+        subKingCount: 0,
+        subKozCount: 0,
+        kozCount: 0,
+        estimationStats: estStats,
+      );
+    }
 
     final winRate = (wins / totalMatches) * 100;
     final avgScore = totalScore / totalMatches;
+    var estStats = await EstimationStatsService.instance.getStats(playerName);
+
+    // If local estimation stats are blank but matches exist in history, backfill gamesPlayed/won
+    if (estStats.gamesPlayed == 0 && totalMatches > 0) {
+      estStats = estStats.copyWith(
+        gamesPlayed: totalMatches,
+        gamesWon: wins,
+      );
+    }
 
     return PlayerStats(
       totalMatches: totalMatches,
@@ -242,6 +272,7 @@ class ProfileService {
       subKingCount: subKingCount,
       subKozCount: subKozCount,
       kozCount: kozCount,
+      estimationStats: estStats,
     );
   }
 

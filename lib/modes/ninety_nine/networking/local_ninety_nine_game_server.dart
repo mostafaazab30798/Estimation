@@ -28,6 +28,7 @@ class LocalNinetyNineGameServer {
   int boundPort = 7890;
   Timer? _botTimer;
   bool _botProcessing = false;
+  bool _isStopped = false;
   final Random _random = Random();
 
   LocalNinetyNineGameServer({required this.onStateUpdate});
@@ -40,6 +41,7 @@ class LocalNinetyNineGameServer {
     required int maxPlayers,
     int port = 7890,
   }) async {
+    _isStopped = false;
     _hostId = hostId;
     _hostName = hostName;
     _maxPlayers = maxPlayers;
@@ -227,6 +229,7 @@ class LocalNinetyNineGameServer {
   }
 
   void _broadcastState() {
+    if (_isStopped) return;
     onStateUpdate(_state);
 
     for (final entry in _clientSockets.entries) {
@@ -246,7 +249,7 @@ class LocalNinetyNineGameServer {
   }
 
   void _scheduleBotTurnIfNeeded() {
-    if (_state.phase != NinetyNinePhase.playing) return;
+    if (_isStopped || _state.phase != NinetyNinePhase.playing) return;
     final currentP = _state.currentPlayer;
     if (currentP == null || !currentP.isBot) return;
     if (_botProcessing) return;
@@ -256,12 +259,13 @@ class LocalNinetyNineGameServer {
     _botTimer?.cancel();
     _botTimer = Timer(Duration(milliseconds: delay), () {
       _botProcessing = false;
+      if (_isStopped) return;
       _executeBotTurn();
     });
   }
 
   void _executeBotTurn() {
-    if (_state.phase != NinetyNinePhase.playing) return;
+    if (_isStopped || _state.phase != NinetyNinePhase.playing) return;
     final bot = _state.currentPlayer;
     if (bot == null || !bot.isBot || bot.hand.isEmpty) return;
 
@@ -277,6 +281,7 @@ class LocalNinetyNineGameServer {
   }
 
   void sendHostAction(String action, Map<String, dynamic> extra) {
+    if (_isStopped) return;
     _handlePlayerAction({
       'action': action,
       'playerId': _hostId,
@@ -285,6 +290,7 @@ class LocalNinetyNineGameServer {
   }
 
   Future<void> stop() async {
+    _isStopped = true;
     _botTimer?.cancel();
     _botTimer = null;
     for (final socket in _clientSockets.values) {

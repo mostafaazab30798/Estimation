@@ -6,12 +6,16 @@ import 'package:flutter/material.dart';
 import '../core/constants.dart';
 import '../core/models/bid.dart';
 import '../theme/app_theme.dart';
+import 'hud/turn_timer_badge.dart';
 
 class BidDialog extends StatefulWidget {
   final Bid? currentHighBid;
   final String? bidderName;
   final Trump? fixedTrump;
   final int roundNumber;
+  final bool isDoubleRound;
+  final int? deadlineEpochMs;
+  final int? durationSeconds;
   final void Function(Bid bid) onBid;
   final VoidCallback onPass;
 
@@ -21,6 +25,9 @@ class BidDialog extends StatefulWidget {
     this.bidderName,
     this.fixedTrump,
     this.roundNumber = 1,
+    this.isDoubleRound = false,
+    this.deadlineEpochMs,
+    this.durationSeconds,
     required this.onBid,
     required this.onPass,
   });
@@ -42,6 +49,21 @@ class _BidDialogState extends State<BidDialog> {
     }
     if (widget.currentHighBid == null) return count >= kMinBidTricks;
     return bid.beats(widget.currentHighBid!);
+  }
+
+  String _fixedTrumpTitle(Trump trump) {
+    switch (trump) {
+      case Trump.sans:
+        return 'SANS ROUND';
+      case Trump.spade:
+        return 'SPADE ROUND';
+      case Trump.heart:
+        return 'HEART ROUND';
+      case Trump.diamond:
+        return 'DIAMOND ROUND';
+      case Trump.club:
+        return 'CLUB ROUND';
+    }
   }
 
   @override
@@ -110,9 +132,22 @@ class _BidDialogState extends State<BidDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'المزاد',
-                            style: Theme.of(context).textTheme.headlineMedium,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'المزاد',
+                                style: Theme.of(context).textTheme.headlineMedium,
+                              ),
+                              const SizedBox(width: 10),
+                              TurnTimerBadge(
+                                customPhaseLabel: 'AUCTION',
+                                explicitDurationSeconds: widget.durationSeconds ?? 15,
+                                explicitDeadlineEpochMs: widget.deadlineEpochMs,
+                                isMyTurn: true,
+                                compact: true,
+                              ),
+                            ],
                           ),
                           if (widget.currentHighBid != null)
                             Flexible(
@@ -135,19 +170,105 @@ class _BidDialogState extends State<BidDialog> {
                             ),
                         ],
                       ),
+                      if (widget.isDoubleRound) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFFFF9100).withValues(alpha: 0.25),
+                                const Color(0xFFFFD700).withValues(alpha: 0.15),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFFFD700).withValues(alpha: 0.6),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('⚡', style: TextStyle(fontSize: 13)),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'جولة مضاعفة (⚡ ×2 ROUND) — النقاط مضاعفة',
+                                  style: TextStyle(
+                                    color: Color(0xFFFFD54F),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (widget.fixedTrump != null) ...[
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                           decoration: BoxDecoration(
-                            color: AppTheme.accentBlue.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.3)),
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF1E293B).withValues(alpha: 0.8),
+                                const Color(0xFF0F172A).withValues(alpha: 0.9),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.6),
+                              width: 1.2,
+                            ),
                           ),
-                          child: Text(
-                            '📌 لون الجولة إجباري: ${widget.fixedTrump!.arabicName} (لا يمكن تغييره إلا بطلب 8 لمات فأكثر)',
-                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11),
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('👑', style: TextStyle(fontSize: 12)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'ROUND ${widget.roundNumber} • ${_fixedTrumpTitle(widget.fixedTrump!)}',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD700),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 11.5,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Text('🔒', style: TextStyle(fontSize: 11)),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Trump is fixed to ${widget.fixedTrump!.name.toUpperCase()}. Bid 8+ to override.',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                'الحكم إجباري: ${widget.fixedTrump!.arabicName} (اطلب ٨ لمات أو أكثر لتغيير الحكم)',
+                                style: const TextStyle(
+                                  color: Color(0xFFFDE68A),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
                         ),
                       ],

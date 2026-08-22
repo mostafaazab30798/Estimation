@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/models/game_state.dart';
+import '../core/models/comeback_event.dart';
 import '../models/rank_tier.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
@@ -19,6 +20,7 @@ class XpRewardBreakdown {
   final int accuracyBonus;
   final int dashBonus;
   final int highScorerBonus;
+  final int comebackBonus;
   final String rankTitle;
   final int rankIndex; // 0 = King, 1 = Sub-King, 2 = Sub-Kooz, 3 = Kooz
   final bool won;
@@ -29,13 +31,19 @@ class XpRewardBreakdown {
     this.accuracyBonus = 0,
     this.dashBonus = 0,
     this.highScorerBonus = 0,
+    this.comebackBonus = 0,
     required this.rankTitle,
     required this.rankIndex,
     required this.won,
   });
 
   int get totalXp =>
-      placementXp + winBonus + accuracyBonus + dashBonus + highScorerBonus;
+      placementXp +
+      winBonus +
+      accuracyBonus +
+      dashBonus +
+      highScorerBonus +
+      comebackBonus;
 }
 
 class MatchXpResult {
@@ -150,10 +158,11 @@ class RankingService {
     final won = myRankIndex == 0;
     final winBonus = won ? 50 : 0;
 
-    // 3. Accuracy Bonus (Calculate correct estimations across match rounds)
+    // 3. Accuracy & Comeback Bonuses
     int accuracyBonus = 0;
     int dashBonus = 0;
     int highScorerBonus = 0;
+    int comebackBonus = 0;
 
     final myPlayer = sortedPlayers.firstWhere(
       (p) => p.id == myPlayerId || p.name.trim().toLowerCase() == myPlayerName.trim().toLowerCase(),
@@ -174,12 +183,36 @@ class RankingService {
       dashBonus = 30;
     }
 
+    // Comeback Bonus
+    final comebacks = ComebackDetector.detectMatchComebacks(
+      state: state,
+      playerId: myPlayerId,
+      playerName: myPlayerName,
+    );
+
+    if (comebacks.isNotEmpty) {
+      for (final event in comebacks) {
+        switch (event.type) {
+          case ComebackType.finalRoundComeback:
+            comebackBonus += 50;
+            break;
+          case ComebackType.majorComeback:
+            comebackBonus += 35;
+            break;
+          case ComebackType.rankSurge:
+            comebackBonus += 15;
+            break;
+        }
+      }
+    }
+
     return XpRewardBreakdown(
       placementXp: placementXp,
       winBonus: winBonus,
       accuracyBonus: accuracyBonus,
       dashBonus: dashBonus,
       highScorerBonus: highScorerBonus,
+      comebackBonus: comebackBonus,
       rankTitle: rankTitle,
       rankIndex: myRankIndex,
       won: won,

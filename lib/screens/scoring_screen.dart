@@ -5,11 +5,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
+import '../core/models/comeback_event.dart';
 import '../core/widgets/player_avatar.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/score_table.dart';
 import '../widgets/performance_blur.dart';
+import '../widgets/perfect_estimate_overlay.dart';
+import '../widgets/comeback_overlay.dart';
 import '../services/audio_service.dart';
 
 class ScoringScreen extends StatefulWidget {
@@ -32,6 +35,8 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
   late final Animation<Offset> _headerSlide;
   late final Animation<double> _tableFade;
   late final Animation<double> _tableScale;
+  bool _showPerfectEstimate = false;
+  ComebackEvent? _activeComeback;
 
   @override
   void initState() {
@@ -61,10 +66,23 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
     final me = widget.provider.me;
     if (me != null) {
       final delta = widget.state.lastRoundScoreDeltas[me.id] ?? 0;
-      if ((me.isRisk || me.isDashCall) && me.actual == me.declared) {
-        AudioService.instance.playRiskWin();
+      if (me.declared != null && me.actual == me.declared) {
+        _showPerfectEstimate = true;
+        if (me.isRisk || me.isDashCall) {
+          AudioService.instance.playRiskWin();
+        }
       } else if (delta < 0) {
         AudioService.instance.playDefeat();
+      }
+
+      // Check for round comeback for current player
+      final roundComebacks = ComebackDetector.detectRoundComebacks(
+        state: widget.state,
+        roundNumber: widget.state.roundNumber,
+      );
+      final myEvent = roundComebacks.where((c) => c.playerId == me.id).firstOrNull;
+      if (myEvent != null) {
+        _activeComeback = myEvent;
       }
     }
   }
@@ -261,6 +279,35 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                       ),
               ),
             ),
+            // Comeback Celebration Overlay (highest priority celebration)
+            if (_activeComeback != null)
+              Positioned.fill(
+                child: ComebackOverlay(
+                  event: _activeComeback!,
+                  onDismissed: () {
+                    if (mounted) {
+                      setState(() {
+                        _activeComeback = null;
+                      });
+                    }
+                  },
+                ),
+              )
+            // Perfect Estimation Celebration Overlay (shows after comeback or on its own)
+            else if (_showPerfectEstimate && widget.provider.me != null && widget.provider.me!.declared != null)
+              Positioned.fill(
+                child: PerfectEstimateOverlay(
+                  declared: widget.provider.me!.declared!,
+                  won: widget.provider.me!.actual,
+                  onDismissed: () {
+                    if (mounted) {
+                      setState(() {
+                        _showPerfectEstimate = false;
+                      });
+                    }
+                  },
+                ),
+              ),
           ],
         ),
       ),

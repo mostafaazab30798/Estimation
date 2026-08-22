@@ -27,6 +27,7 @@ class NinetyNineGameServer {
   Timer? _botTimer;
   bool _botProcessing = false;
   final Random _random = Random();
+  bool _isStopped = false;
 
 
   NinetyNineGameServer({required this.onStateUpdate});
@@ -38,6 +39,7 @@ class NinetyNineGameServer {
     String hostAvatarId, {
     required int maxPlayers,
   }) async {
+    _isStopped = false;
     _hostId = hostId;
     _hostName = hostName;
     _maxPlayers = maxPlayers;
@@ -277,6 +279,7 @@ class NinetyNineGameServer {
   // ── Broadcast ─────────────────────────────────────────────────────────────
 
   void _broadcastState() {
+    if (_isStopped) return;
     // Always notify the local host UI first
     onStateUpdate(_state);
 
@@ -293,7 +296,7 @@ class NinetyNineGameServer {
   // ── Bot AI Automation ────────────────────────────────────────────────────
 
   void _scheduleBotTurnIfNeeded() {
-    if (_state.phase != NinetyNinePhase.playing) return;
+    if (_isStopped || _state.phase != NinetyNinePhase.playing) return;
     final currentP = _state.currentPlayer;
     if (currentP == null || !currentP.isBot) return;
     if (_botProcessing) return;
@@ -303,12 +306,13 @@ class NinetyNineGameServer {
     _botTimer?.cancel();
     _botTimer = Timer(Duration(milliseconds: delay), () {
       _botProcessing = false;
+      if (_isStopped) return;
       _executeBotTurn();
     });
   }
 
   void _executeBotTurn() {
-    if (_state.phase != NinetyNinePhase.playing) return;
+    if (_isStopped || _state.phase != NinetyNinePhase.playing) return;
     final bot = _state.currentPlayer;
     if (bot == null || !bot.isBot || bot.hand.isEmpty) return;
 
@@ -326,6 +330,7 @@ class NinetyNineGameServer {
   // ── Host direct action (called by GameProvider for host actions) ──────────
 
   void sendHostAction(String action, Map<String, dynamic> extra) {
+    if (_isStopped) return;
     _handlePlayerAction({
       'action': action,
       'playerId': _hostId,
@@ -337,6 +342,7 @@ class NinetyNineGameServer {
   /// server state before starting the game. This guarantees the correct
   /// player count is used when dealing cards, regardless of Realtime timing.
   void syncPlayersFromRoom(List<({String id, String name})> roomPlayers) {
+    if (_isStopped) return;
     // Remove ghosts (players no longer in Supabase room)
     _state.players.removeWhere(
       (sp) => sp.id != _hostId && !roomPlayers.any((p) => p.id == sp.id),
@@ -363,6 +369,7 @@ class NinetyNineGameServer {
   }
 
   Future<void> stop() async {
+    _isStopped = true;
     _botTimer?.cancel();
     _botTimer = null;
     await _roomPlayersSub?.cancel();

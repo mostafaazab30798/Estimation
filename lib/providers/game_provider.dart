@@ -14,6 +14,10 @@ import '../core/models/game_state.dart';
 import '../core/models/card.dart';
 import '../core/models/bid.dart';
 import '../core/models/player.dart';
+import '../core/game_engine.dart';
+import '../core/events/estimation_event_bus.dart';
+import '../core/events/estimation_event_dispatcher.dart';
+import '../core/events/estimation_game_events.dart';
 import '../networking/game_server.dart';
 import '../networking/game_client.dart';
 import '../networking/messages.dart';
@@ -85,6 +89,13 @@ class GameProvider extends ChangeNotifier {
   List<RoomPlayer> _roomPlayers = [];
   StreamSubscription? _roomSub;
   StreamSubscription? _playersSub;
+
+  void _updateState(GameState newState) {
+    final oldState = _state;
+    _state = newState;
+    EstimationEventDispatcher.instance.dispatchStateTransition(oldState, newState);
+    notifyListeners();
+  }
 
   // ── Getters ───────────────────────────────────────────────────
 
@@ -276,8 +287,7 @@ class GameProvider extends ChangeNotifier {
       } else {
         _localServer = LocalGameServer(
           onStateUpdate: (state) {
-            _state = state;
-            notifyListeners();
+            _updateState(state);
           },
         );
         await _localServer!.start(
@@ -349,8 +359,7 @@ class GameProvider extends ChangeNotifier {
       } else {
         _localClient = LocalGameClient(
           onStateUpdate: (state) {
-            _state = state;
-            notifyListeners();
+            _updateState(state);
           },
           onError: (err) => _setError(err),
         );
@@ -432,8 +441,7 @@ class GameProvider extends ChangeNotifier {
       } else {
         _server = GameServer(
           onStateUpdate: (state) {
-            _state = state;
-            notifyListeners();
+            _updateState(state);
           },
         );
         final myPhoto = await ProfileService.getProfilePhoto();
@@ -481,8 +489,7 @@ class GameProvider extends ChangeNotifier {
     try {
       _server = GameServer(
         onStateUpdate: (state) {
-          _state = state;
-          notifyListeners();
+          _updateState(state);
         },
       );
       final dummyRoomId = 'test_${_uuid.v4()}';
@@ -550,8 +557,7 @@ class GameProvider extends ChangeNotifier {
     } else {
       _client = GameClient(
         onStateUpdate: (state) {
-          _state = state;
-          notifyListeners();
+          _updateState(state);
         },
         onError: (err) => _setError(err),
       );
@@ -751,8 +757,15 @@ class GameProvider extends ChangeNotifier {
   void submitDashCall(bool wantsDashCall) =>
       _sendAction(ActionType.submitDashCall, {'wantsDashCall': wantsDashCall});
 
-  void submitDeclaration(int declared) =>
-      _sendAction(ActionType.submitDeclaration, {'declared': declared});
+  void submitDeclaration(int declared) {
+    if (_state != null && me != null) {
+      final forbidden = GameEngine.getForbiddenDeclaration(_state!, myPlayerId);
+      if (forbidden != null && declared == forbidden) {
+        EstimationEventDispatcher.instance.notifyForbiddenDeclarationAttempt(me!, forbidden);
+      }
+    }
+    _sendAction(ActionType.submitDeclaration, {'declared': declared});
+  }
 
   void playCard(PlayingCard card) =>
       _sendAction(ActionType.playCard, {'card': card.toJson()});
@@ -955,8 +968,7 @@ class GameProvider extends ChangeNotifier {
       // 4. Re-subscribe to the Realtime broadcast channel.
       _client = GameClient(
         onStateUpdate: (state) {
-          _state = state;
-          notifyListeners();
+          _updateState(state);
         },
         onError: (err) => _setError(err),
       );
@@ -1006,8 +1018,7 @@ class GameProvider extends ChangeNotifier {
       // 3. Start GameServer with the restored state.
       _server = GameServer(
         onStateUpdate: (state) {
-          _state = state;
-          notifyListeners();
+          _updateState(state);
         },
       );
       await _server!.restoreFromState(
@@ -1041,7 +1052,13 @@ class GameProvider extends ChangeNotifier {
     _roomSub?.cancel();
     _playersSub?.cancel();
     _server?.stop();
+    _localServer?.stop();
+    _nnServer?.stop();
+    _localNnServer?.stop();
     _client?.disconnect(myPlayerId);
+    _localClient?.disconnect(myPlayerId);
+    _nnClient?.disconnect();
+    _localNnClient?.disconnect();
     super.dispose();
   }
 }

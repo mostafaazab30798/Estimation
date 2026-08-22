@@ -82,11 +82,12 @@ class HistoryService {
       final isMigrated = prefs.getBool(_migratedKey) ?? false;
       if (isMigrated) return;
 
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Migration deferred: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Migration deferred: No authenticated non-anonymous user.');
         return;
       }
+      final userId = user.id;
 
       final historyStrs = prefs.getStringList(_legacyKey) ?? [];
       if (historyStrs.isNotEmpty) {
@@ -115,11 +116,12 @@ class HistoryService {
   /// Saves a finished game state to Supabase for the authenticated user.
   static Future<void> saveMatch(GameState state) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Cannot save match: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Cannot save match: No authenticated non-anonymous user.');
         return;
       }
+      final userId = user.id;
 
       // Sort players by score
       final sortedPlayers = [...state.players]
@@ -157,11 +159,12 @@ class HistoryService {
   /// Saves a finished MatchRecord directly to Supabase
   static Future<void> saveMatchRecordDirect(MatchRecord record) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Cannot save match: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Cannot save match: No authenticated non-anonymous user.');
         return;
       }
+      final userId = user.id;
       await Supabase.instance.client.from(_tableName).insert({
         'user_id': userId,
         'game_data': record.toJson(),
@@ -175,17 +178,19 @@ class HistoryService {
   /// Fetches history records for the authenticated user from Supabase.
   static Future<List<MatchRecord>> getHistory() async {
     try {
-      await migrateFromSharedPreferences().timeout(const Duration(seconds: 2), onTimeout: () {});
-
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Cannot fetch history: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Cannot fetch history: No authenticated non-anonymous user.');
         return [];
       }
+      final userId = user.id;
+
+      await migrateFromSharedPreferences().timeout(const Duration(seconds: 2), onTimeout: () {});
 
       final response = await Supabase.instance.client
           .from(_tableName)
           .select('id, game_data, created_at')
+          .eq('user_id', userId)
           .order('created_at', ascending: false)
           .timeout(const Duration(seconds: 3));
 
@@ -247,11 +252,12 @@ class HistoryService {
   /// Clears all match history for the authenticated user from Supabase.
   static Future<void> clearHistory() async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Cannot clear history: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Cannot clear history: No authenticated non-anonymous user.');
         return;
       }
+      final userId = user.id;
 
       await Supabase.instance.client
           .from(_tableName)
@@ -266,11 +272,12 @@ class HistoryService {
   /// Deletes a single match history item by ID from Supabase.
   static Future<void> deleteMatch(String id) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        debugPrint('[HistoryService] Cannot delete match record: No authenticated user.');
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        debugPrint('[HistoryService] Cannot delete match record: No authenticated non-anonymous user.');
         return;
       }
+      final userId = user.id;
 
       await Supabase.instance.client
           .from(_tableName)
