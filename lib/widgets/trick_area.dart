@@ -8,7 +8,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
 import '../services/audio_service.dart';
-import '../theme/app_theme.dart';
 import 'playing_card_widget.dart';
 
 // ---------------------------------------------------------------------------

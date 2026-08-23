@@ -95,6 +95,9 @@ class LobbyRepository {
   }
 
   Stream<GameRoom> watchRoom(String roomId) {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return const Stream.empty();
+    }
     return _client
         .from('game_rooms')
         .stream(primaryKey: ['id'])
@@ -103,6 +106,9 @@ class LobbyRepository {
   }
 
   Stream<List<RoomPlayer>> watchRoomPlayers(String roomId) {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return Stream.value([]);
+    }
     return _client
         .from('room_players')
         .stream(primaryKey: ['id'])
@@ -111,12 +117,14 @@ class LobbyRepository {
   }
 
   Future<void> startGame(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
     await _client.rpc('start_game_room', params: {
       'p_room_id': roomId,
     });
   }
 
   Future<void> leaveRoom(String roomId, [String? playerId]) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
     final uid = playerId ?? _client.auth.currentUser?.id;
     if (uid != null) {
       await _client
@@ -128,6 +136,7 @@ class LobbyRepository {
   }
 
   Future<void> cancelRoom(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
     await _client
         .from('game_rooms')
         .update({'status': 'cancelled'})
@@ -138,6 +147,7 @@ class LobbyRepository {
 
   /// Mark the current user online and refresh last_seen.
   Future<void> pingHeartbeat(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
     try {
       await _client.rpc('player_heartbeat', params: {'p_room_id': roomId});
     } catch (e) {

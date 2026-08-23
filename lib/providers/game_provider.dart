@@ -15,9 +15,7 @@ import '../core/models/card.dart';
 import '../core/models/bid.dart';
 import '../core/models/player.dart';
 import '../core/game_engine.dart';
-import '../core/events/estimation_event_bus.dart';
 import '../core/events/estimation_event_dispatcher.dart';
-import '../core/events/estimation_game_events.dart';
 import '../networking/game_server.dart';
 import '../networking/game_client.dart';
 import '../networking/messages.dart';
@@ -64,6 +62,10 @@ class GameProvider extends ChangeNotifier {
   NinetyNineGameProvider? get nnProvider => _nnProvider;
   set nnProvider(NinetyNineGameProvider? provider) {
     _nnProvider = provider;
+    _bindNnProvider();
+  }
+
+  void _bindNnProvider() {
     _nnProvider?.onSendAction = (action, [data]) {
       _sendAction(action, data ?? {});
     };
@@ -113,6 +115,13 @@ class GameProvider extends ChangeNotifier {
   bool get isSearching => _isSearching;
   bool get isTestMode => _isTestMode;
   int get expectedPlayers => _expectedPlayers;
+
+  bool get isNinetyNine =>
+      _currentRoom?.gameType == 'ninety_nine' ||
+      _nnServer != null ||
+      _nnClient != null ||
+      _localNnServer != null ||
+      _localNnClient != null;
 
   /// The room code to share with other players (host only).
   String? get gameCode => _currentRoom?.roomCode;
@@ -507,6 +516,7 @@ class GameProvider extends ChangeNotifier {
   Future<void> startNinetyNineTestGame(String name, {int totalPlayers = 4}) async {
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    _bindNnProvider();
     nnProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.host;

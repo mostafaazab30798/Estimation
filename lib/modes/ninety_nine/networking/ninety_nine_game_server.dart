@@ -59,101 +59,106 @@ class NinetyNineGameServer {
       playerLosses: {hostId: 0},
     );
 
-    // Watch Supabase room_players for real-time joins (secondary sync).
-    // The primary join path is via the broadcast joinRequest handler below.
-    _roomPlayersSub = _lobbyRepo.watchRoomPlayers(roomId).listen((players) {
-      bool changed = false;
-      for (final p in players) {
-        if (!_state.players.any((sp) => sp.id == p.playerId)) {
-          _state.players.add(NinetyNinePlayer(
-            id: p.playerId,
-            name: p.playerName,
-            hand: [],
-            isBot: false,
-            avatarId: 'avatar_1',
-          ));
-          _state.playerLosses[p.playerId] = 0;
-          changed = true;
-          debugPrint('[99Server] Player joined via DB watch: ${p.playerName}');
-        }
-      }
-      if (changed) _broadcastState();
-    });
-
-    // Use the same channel naming convention as Kotchina: 'room_{roomId}'
-    _channel = _supabase.channel('room_$roomId');
-
-    // ── Listen for join requests (client sends when they subscribe) ──
-    _channel!.onBroadcast(
-      event: 'joinRequest',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') &&
-                payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handleJoinRequest(data);
-      },
-    );
-
-    // ── Listen for actions from clients ──
-    _channel!.onBroadcast(
-      event: 'action',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') &&
-                payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handlePlayerAction(data);
-      },
-    );
-
-    // ── Listen for leave requests ──
-    _channel!.onBroadcast(
-      event: 'leaveRequest',
-      callback: (payload) {
-        final data = (payload.containsKey('payload') &&
-                payload['payload'] is Map<String, dynamic>)
-            ? payload['payload'] as Map<String, dynamic>
-            : payload;
-        _handleLeaveRequest(data);
-      },
-    );
-
-    // ── Presence: auto-remove players who disconnect in lobby ──
-    _channel!.onPresenceLeave((payload) {
-      if (_state.phase == NinetyNinePhase.waiting) {
+    if (!roomId.startsWith('test_')) {
+      // Watch Supabase room_players for real-time joins (secondary sync).
+      // The primary join path is via the broadcast joinRequest handler below.
+      _roomPlayersSub = _lobbyRepo.watchRoomPlayers(roomId).listen((players) {
         bool changed = false;
-        for (final presence in payload.leftPresences) {
-          final pId = presence.payload['playerId'] as String?;
-          if (pId != null && pId != _hostId) {
-            final idx = _state.players.indexWhere((p) => p.id == pId);
-            if (idx != -1) {
-              _state.players.removeAt(idx);
-              _state.playerLosses.remove(pId);
-              changed = true;
-              debugPrint('[99Server] Player left presence: $pId');
-            }
+        for (final p in players) {
+          if (!_state.players.any((sp) => sp.id == p.playerId)) {
+            _state.players.add(NinetyNinePlayer(
+              id: p.playerId,
+              name: p.playerName,
+              hand: [],
+              isBot: false,
+              avatarId: 'avatar_1',
+            ));
+            _state.playerLosses[p.playerId] = 0;
+            changed = true;
+            debugPrint('[99Server] Player joined via DB watch: ${p.playerName}');
           }
         }
         if (changed) _broadcastState();
-      }
-    });
+      });
 
-    // ── Subscribe: only broadcast AFTER the channel is confirmed open ──
-    _channel!.subscribe((status, [error]) async {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        // Track presence so clients can detect host availability
-        await _channel!.track({
-          'playerId': _hostId,
-          'name': _hostName,
-        });
-        // Notify local UI immediately (no network needed)
-        onStateUpdate(_state);
-        debugPrint('[99Server] Channel open, host tracked');
-      } else if (status == RealtimeSubscribeStatus.channelError) {
-        debugPrint('[99Server] Channel error: $error');
-      }
-    });
+      // Use the same channel naming convention as Kotchina: 'room_{roomId}'
+      _channel = _supabase.channel('room_$roomId');
+
+      // ── Listen for join requests (client sends when they subscribe) ──
+      _channel!.onBroadcast(
+        event: 'joinRequest',
+        callback: (payload) {
+          final data = (payload.containsKey('payload') &&
+                  payload['payload'] is Map<String, dynamic>)
+              ? payload['payload'] as Map<String, dynamic>
+              : payload;
+          _handleJoinRequest(data);
+        },
+      );
+
+      // ── Listen for actions from clients ──
+      _channel!.onBroadcast(
+        event: 'action',
+        callback: (payload) {
+          final data = (payload.containsKey('payload') &&
+                  payload['payload'] is Map<String, dynamic>)
+              ? payload['payload'] as Map<String, dynamic>
+              : payload;
+          _handlePlayerAction(data);
+        },
+      );
+
+      // ── Listen for leave requests ──
+      _channel!.onBroadcast(
+        event: 'leaveRequest',
+        callback: (payload) {
+          final data = (payload.containsKey('payload') &&
+                  payload['payload'] is Map<String, dynamic>)
+              ? payload['payload'] as Map<String, dynamic>
+              : payload;
+          _handleLeaveRequest(data);
+        },
+      );
+
+      // ── Presence: auto-remove players who disconnect in lobby ──
+      _channel!.onPresenceLeave((payload) {
+        if (_state.phase == NinetyNinePhase.waiting) {
+          bool changed = false;
+          for (final presence in payload.leftPresences) {
+            final pId = presence.payload['playerId'] as String?;
+            if (pId != null && pId != _hostId) {
+              final idx = _state.players.indexWhere((p) => p.id == pId);
+              if (idx != -1) {
+                _state.players.removeAt(idx);
+                _state.playerLosses.remove(pId);
+                changed = true;
+                debugPrint('[99Server] Player left presence: $pId');
+              }
+            }
+          }
+          if (changed) _broadcastState();
+        }
+      });
+
+      // ── Subscribe: only broadcast AFTER the channel is confirmed open ──
+      _channel!.subscribe((status, [error]) async {
+        if (status == RealtimeSubscribeStatus.subscribed) {
+          // Track presence so clients can detect host availability
+          await _channel!.track({
+            'playerId': _hostId,
+            'name': _hostName,
+          });
+          // Notify local UI immediately (no network needed)
+          onStateUpdate(_state);
+          debugPrint('[99Server] Channel open, host tracked');
+        } else if (status == RealtimeSubscribeStatus.channelError) {
+          debugPrint('[99Server] Channel error: $error');
+        }
+      });
+    } else {
+      // Test / Bot mode: immediately notify local UI without remote networking
+      onStateUpdate(_state);
+    }
   }
 
   // ── Join / Leave handlers ─────────────────────────────────────────────────

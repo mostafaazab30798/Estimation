@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/models/game_state.dart';
 import '../core/models/comeback_event.dart';
 import '../models/estimation_statistics.dart';
+import 'playstyle_service.dart';
 
 class EstimationStatsService {
   static const String _kStatsPrefix = 'estimation_stats_v1_';
@@ -183,6 +184,18 @@ class EstimationStatsService {
     );
 
     await saveStats(playerName, updated);
+
+    // Update playstyle and personality intelligence asynchronously
+    try {
+      await PlaystyleService.instance.updatePlaystyleFromMatch(
+        playerName: playerName,
+        updatedStats: updated,
+        state: state,
+      );
+    } catch (e) {
+      debugPrint('[EstimationStatsService] Error updating playstyle from match: $e');
+    }
+
     return updated;
   }
 

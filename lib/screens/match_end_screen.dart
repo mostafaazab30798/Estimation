@@ -16,6 +16,7 @@ import '../services/ranking_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/level_up_dialog.dart';
 import '../widgets/rank_tier_badge.dart';
+import '../widgets/share_my_estimation_dialog.dart';
 
 class MatchEndScreen extends StatefulWidget {
   final GameState state;
@@ -275,6 +276,85 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                       );
                     }),
                     const SizedBox(height: 20),
+
+                    // Share Victory Card Action
+                    SizedBox(
+                      width: double.infinity,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              final auth = AuthService.instance;
+                              int matchComebacks = 0;
+                              int perfectCount = 0;
+                              final winnerId = winner?.id;
+
+                              for (int r = 1; r <= widget.state.roundHistory.length; r++) {
+                                final cbs = ComebackDetector.detectRoundComebacks(state: widget.state, roundNumber: r);
+                                matchComebacks += cbs.length;
+                              }
+
+                              for (final roundRecord in widget.state.roundHistory) {
+                                for (final pr in roundRecord.playerRecords) {
+                                  if (pr.playerId == winnerId && pr.isSuccess) {
+                                    perfectCount++;
+                                  }
+                                }
+                              }
+
+                              ShareMyEstimationDialog.show(
+                                context,
+                                type: ShareCardType.matchVictory,
+                                playerName: winner?.name ?? 'البطل',
+                                avatarUrl: auth.currentProfile?.avatarUrl ?? '',
+                                matchFinalScore: winner?.totalScore ?? 0,
+                                matchPerfectEstimates: perfectCount,
+                                matchComebacks: matchComebacks,
+                                matchBestRound: 28,
+                                matchRankTitle: 'الكينج 👑',
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'مشاركة نتيجة الانتصار 🏆',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
 
                     // Back to home
                     SizedBox(

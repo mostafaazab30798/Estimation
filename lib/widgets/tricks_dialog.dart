@@ -140,7 +140,7 @@ class LatestTrickDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'آخر لمّة (${playerName})',
+              'آخر لمّة ($playerName)',
               style: GoogleFonts.cairo(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,

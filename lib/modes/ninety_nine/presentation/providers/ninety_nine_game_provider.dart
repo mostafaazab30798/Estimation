@@ -138,7 +138,6 @@ class NinetyNineGameProvider extends ChangeNotifier {
     _lastPlayedPlayerName = null;
     _moveHistory = [];
     _client = null;
-    onSendAction = null;
     _myPlayerId = null;
     notifyListeners();
   }

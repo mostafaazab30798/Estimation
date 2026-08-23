@@ -48,7 +48,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final provider = context.watch<GameProvider>();
     final state = provider.state;
     final isTestMode = provider.isTestMode;
-    final isNinetyNineMode = provider.currentRoom?.gameType == 'ninety_nine';
+    final isNinetyNineMode = provider.isNinetyNine;
     final nnProvider = context.watch<NinetyNineGameProvider>();
     
     // Use the appropriate state for live presence
@@ -563,7 +563,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerCount(List<dynamic> players, GameProvider provider) {
-    final isNinetyNine = provider.currentRoom?.gameType == 'ninety_nine';
+    final isNinetyNine = provider.isNinetyNine;
     final totalSeats = isNinetyNine ? provider.expectedPlayers : 4;
     final botSlots = totalSeats - provider.expectedPlayers;
 
@@ -593,7 +593,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerAvatar(BuildContext context, GameProvider provider, List<dynamic> players, int i, bool isTestMode) {
-    final isNinetyNineMode = provider.currentRoom?.gameType == 'ninety_nine';
+    final isNinetyNineMode = provider.isNinetyNine;
     final isBotReservedSlot = !isNinetyNineMode && !isTestMode && i >= provider.expectedPlayers;
     final occupied = i < players.length;
     final player = occupied ? players[i] : null;
@@ -785,7 +785,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildThemeSelector(GameProvider provider) {
-    final isNinetyNine = provider.currentRoom?.gameType == 'ninety_nine';
+    final isNinetyNine = provider.isNinetyNine;
     final nnProvider = context.watch<NinetyNineGameProvider>();
     final currentTheme = isNinetyNine ? nnProvider.cardTheme : provider.state?.cardTheme ?? 'theme_1';
     

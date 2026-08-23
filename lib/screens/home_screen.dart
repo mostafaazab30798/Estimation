@@ -691,6 +691,40 @@ class _HomeScreenState extends State<HomeScreen>
               expandableContent: _buildLocalOptions(context),
               badgeText: 'أوفلاين 📡',
             ),
+
+            const SizedBox(height: 10),
+
+            // Mode 4: Estimation Academy (مركز التدريب التفاعلي)
+            _buildModeTile(
+              title: 'أكاديمية الإستميشن',
+              subtitle: 'مركز التدريب التفاعلي • تعلم قراءة الورق والمزايدة',
+              icon: Icons.psychology_rounded,
+              gradientColors: [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
+              isActive: false,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                AudioService.instance.playCard();
+                Navigator.pushNamed(context, '/academy');
+              },
+              badgeText: 'أكاديمية 🧠',
+            ),
+
+            const SizedBox(height: 10),
+
+            // Mode 5: Estimation Puzzles (وضع ألغاز الإستميشن والتحديات)
+            _buildModeTile(
+              title: 'ألغاز الإستميشن',
+              subtitle: 'مواقف تكتيكية وتحديات يومية • ألغاز المزاد والكول واللعب',
+              icon: Icons.extension_rounded,
+              gradientColors: [const Color(0xFFEC4899), const Color(0xFFBE185D)],
+              isActive: false,
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                AudioService.instance.playCard();
+                Navigator.pushNamed(context, '/puzzles');
+              },
+              badgeText: 'ألغاز 🧩',
+            ),
           ],
         );
       },

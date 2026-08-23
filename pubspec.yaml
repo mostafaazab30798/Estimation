@@ -1,7 +1,7 @@
 name: estimation
 description: "كوتشينة — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
-version: 1.6.0+17
+version: 1.7.0+18
 environment:
   sdk: ^3.5.0
 
@@ -30,6 +30,7 @@ dependencies:
   web_socket_channel: ^3.0.1
   network_info_plus: ^8.2.1
   nsd: ^5.0.0
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:

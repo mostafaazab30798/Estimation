@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +14,11 @@ import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 import '../models/rank_tier.dart';
 import '../models/estimation_statistics.dart';
+import '../models/playstyle_models.dart';
+import '../services/playstyle_service.dart';
 import '../widgets/rank_tier_badge.dart';
+import '../widgets/player_identity_card.dart';
+import '../widgets/playstyle_radar_view.dart';
 import 'leaderboard_screen.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
@@ -28,6 +33,8 @@ class _ProfileViewModel extends ChangeNotifier {
   String currentPhoto = ProfileService.presetAvatars.first.id;
   PlayerStats stats = PlayerStats.empty();
   List<MatchRecord> allHistory = [];
+  PlayerPersonalityProfile personalityProfile = PlayerPersonalityProfile.initial();
+  PlayerIdentityCardConfig cardConfig = const PlayerIdentityCardConfig();
   bool isLoading = true;
   bool isSavingName = false;
   bool isEditingName = false;
@@ -35,6 +42,12 @@ class _ProfileViewModel extends ChangeNotifier {
   int currentTab = 0; // 0 = Profile, 1 = Leaderboard, 2 = History, 3 = Settings, 4 = Guides
   int selectedModeFilter = 0; // 0 = Estimation, 1 = 99 Mode
   int selectedGuideSubTab = 0; // 0 = Estimation, 1 = 99 Mode
+  int selectedProfileSubTab = 0; // 0 = Identity Card, 1 = Playstyle & Personality, 2 = Match Stats, 3 = Account & Rank
+
+  void setProfileSubTab(int subTab) {
+    selectedProfileSubTab = subTab;
+    notifyListeners();
+  }
 
   void setLoading(bool v) {
     isLoading = v;
@@ -45,10 +58,14 @@ class _ProfileViewModel extends ChangeNotifier {
     required String photo,
     required PlayerStats stats,
     required List<MatchRecord> history,
+    required PlayerPersonalityProfile profile,
+    required PlayerIdentityCardConfig config,
   }) {
     currentPhoto = photo;
     this.stats = stats;
     allHistory = history;
+    personalityProfile = profile;
+    cardConfig = config;
     isLoading = false;
     currentPage = 0;
     notifyListeners();
@@ -58,6 +75,20 @@ class _ProfileViewModel extends ChangeNotifier {
     stats = newStats;
     isSavingName = false;
     isEditingName = false;
+    notifyListeners();
+  }
+
+  void updateCardConfig(PlayerIdentityCardConfig newConfig) {
+    cardConfig = newConfig;
+    notifyListeners();
+  }
+
+  void updatePlaystyleData({
+    required PlayerPersonalityProfile profile,
+    required PlayerIdentityCardConfig config,
+  }) {
+    personalityProfile = profile;
+    cardConfig = config;
     notifyListeners();
   }
 
@@ -295,15 +326,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? await ProfileService.getPlayerHistory(name)
           : await HistoryService.getHistory();
 
+      final personalityProfile = await PlaystyleService.instance
+          .getPersonalityProfile(name, stats.estimationStats)
+          .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => PlayerPersonalityProfile.initial(),
+          );
+      final cardConfig = await PlaystyleService.instance
+          .getIdentityCardConfig(name)
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => const PlayerIdentityCardConfig(),
+          );
+
       if (mounted) {
         _nameController.text = name;
-        _vm.updateAfterLoad(photo: photo, stats: stats, history: aHistory);
+        _vm.updateAfterLoad(
+          photo: photo,
+          stats: stats,
+          history: aHistory,
+          profile: personalityProfile,
+          config: cardConfig,
+        );
       }
     } catch (e) {
       debugPrint('[ProfileScreen] Error loading profile data: $e');
       if (mounted) {
         _vm.setLoading(false);
       }
+    }
+  }
+
+  Future<void> _handleCardConfigChanged(PlayerIdentityCardConfig newConfig) async {
+    _vm.updateCardConfig(newConfig);
+    final name = _nameController.text.trim();
+    if (name.isNotEmpty) {
+      await PlaystyleService.instance.saveIdentityCardConfig(name, newConfig);
     }
   }
 
@@ -319,9 +377,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await ProfileService.saveProfileName(newName);
     await AuthService.instance.updateProfile(username: newName);
     final stats = await ProfileService.getProfileStats(newName);
+    final personalityProfile = await PlaystyleService.instance.getPersonalityProfile(newName, stats.estimationStats);
+    final cardConfig = await PlaystyleService.instance.getIdentityCardConfig(newName);
 
     if (mounted) {
       _vm.updateAfterSave(stats);
+      _vm.updatePlaystyleData(profile: personalityProfile, config: cardConfig);
       _nameFocus.unfocus();
       SnackbarHelper.showSuccess(context, 'تم حفظ الاسم بنجاح', title: 'تم الحفظ');
     }
@@ -632,62 +693,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildHeaderBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.navyDark.withValues(alpha: 0.5),
         border: Border(
           bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: Row(
-        children: [
-          // Back button
-          InkWell(
-            onTap: () => Navigator.pop(context),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Back button
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
 
-          // Title
-          Expanded(
-            child: Text(
-              'مركز اللاعب والتحكم',
-              style: GoogleFonts.cairo(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: AppTheme.cream,
-              ),
-            ),
-          ),
+                // Title
+                Expanded(
+                  child: Text(
+                    'مركز اللاعب والتحكم',
+                    style: GoogleFonts.cairo(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.cream,
+                    ),
+                  ),
+                ),
 
-          // Casino Crown Icon
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.gold.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
-            ),
-            child: const Icon(
-              Icons.stars_rounded,
-              color: AppTheme.gold,
-              size: 20,
+                // Casino Crown Icon
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(
+                    Icons.stars_rounded,
+                    color: AppTheme.gold,
+                    size: 20,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -697,7 +765,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildTabBar() {
     return Consumer<_ProfileViewModel>(
       builder: (context, vm, _) {
-        final tabs = [
+        final tabs = const [
           {'id': 0, 'label': 'الملف الشخصي', 'icon': Icons.person_rounded},
           {'id': 1, 'label': 'المتصدرين', 'icon': Icons.leaderboard_rounded},
           {'id': 2, 'label': 'السجل', 'icon': Icons.history_rounded},
@@ -705,69 +773,351 @@ class _ProfileScreenState extends State<ProfileScreen> {
           {'id': 4, 'label': 'دليل اللعب', 'icon': Icons.menu_book_rounded},
         ];
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: AppTheme.navyDark.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Row(
-            children: tabs.map((t) {
-              final isSelected = vm.currentTab == t['id'];
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    AudioService.instance.playCard();
-                    vm.setTab(t['id'] as int);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppTheme.gold.withValues(alpha: 0.20)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppTheme.gold.withValues(alpha: 0.55)
-                            : Colors.transparent,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          t['icon'] as IconData,
-                          size: 18,
-                          color: isSelected ? AppTheme.gold : Colors.white60,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          t['label'] as String,
-                          style: GoogleFonts.cairo(
-                            fontSize: 10.5,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                            color: isSelected ? AppTheme.goldLight : Colors.white70,
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final isCompact = width < 360;
+            final isWide = width >= 640;
+
+            final double marginH = isCompact ? 8.0 : (isWide ? 24.0 : 16.0);
+            final double marginV = isCompact ? 6.0 : 10.0;
+            final double itemPaddingV = isCompact ? 6.0 : (isWide ? 10.0 : 8.0);
+            final double itemPaddingH = isCompact ? 2.0 : (isWide ? 10.0 : 4.0);
+            final double iconSize = isCompact ? 16.0 : (isWide ? 20.0 : 18.0);
+            final double fontSize = isCompact ? 9.5 : (isWide ? 13.0 : 11.0);
+
+            final tabBarWidget = Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppTheme.navyDark.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(isWide ? 20 : 16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: tabs.map((t) {
+                  final id = t['id'] as int;
+                  final label = t['label'] as String;
+                  final icon = t['icon'] as IconData;
+                  final isSelected = vm.currentTab == id;
+
+                  return Expanded(
+                    child: Tooltip(
+                      message: label,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            AudioService.instance.playCard();
+                            vm.setTab(id);
+                          },
+                          borderRadius: BorderRadius.circular(isWide ? 14 : 12),
+                          splashColor: AppTheme.gold.withValues(alpha: 0.15),
+                          highlightColor: AppTheme.gold.withValues(alpha: 0.08),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            padding: EdgeInsets.symmetric(
+                              vertical: itemPaddingV,
+                              horizontal: itemPaddingH,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.gold.withValues(alpha: 0.22)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(isWide ? 14 : 12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.gold.withValues(alpha: 0.6)
+                                    : Colors.transparent,
+                                width: isSelected ? 1.2 : 1.0,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: AppTheme.gold.withValues(alpha: 0.15),
+                                        blurRadius: 8,
+                                        spreadRadius: 0.5,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isWide
+                                ? Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        icon,
+                                        size: iconSize,
+                                        color: isSelected ? AppTheme.gold : Colors.white60,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: fontSize,
+                                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                                            color: isSelected ? AppTheme.goldLight : Colors.white70,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        icon,
+                                        size: iconSize,
+                                        color: isSelected ? AppTheme.gold : Colors.white60,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: fontSize,
+                                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                                            color: isSelected ? AppTheme.goldLight : Colors.white70,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  );
+                }).toList(),
+              ),
+            );
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: marginH, vertical: marginV),
+                  child: tabBarWidget,
                 ),
-              );
-            }).toList(),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  // ── Tab 0: Profile & Stats ─────────────────────────────────────────────────
+  // ── Tab 0: Profile & Hub ───────────────────────────────────────────────────
 
   Widget _buildProfileTab(_ProfileViewModel vm) {
+    return Column(
+      children: [
+        // Sub-segmented navigation pills (Card, Playstyle, Stats, Account)
+        _buildProfileSubTabBar(vm),
+
+        // Sub-Tab Content
+        Expanded(
+          child: _buildProfileSubTabContent(vm),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileSubTabBar(_ProfileViewModel vm) {
+    final subTabs = const [
+      {'id': 0, 'label': 'بطاقة الهوية', 'icon': Icons.badge_rounded},
+      {'id': 1, 'label': 'الشخصية والأسلوب', 'icon': Icons.psychology_rounded},
+      {'id': 2, 'label': 'الإحصائيات', 'icon': Icons.query_stats_rounded},
+      {'id': 3, 'label': 'الحساب والرتبة', 'icon': Icons.shield_rounded},
+    ];
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              children: subTabs.map((st) {
+                final id = st['id'] as int;
+                final label = st['label'] as String;
+                final icon = st['icon'] as IconData;
+                final isSelected = vm.selectedProfileSubTab == id;
+
+                return Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      AudioService.instance.playCard();
+                      vm.setProfileSubTab(id);
+                    },
+                    borderRadius: BorderRadius.circular(11),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.gold.withValues(alpha: 0.22) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.gold.withValues(alpha: 0.6) : Colors.transparent,
+                          width: 1.0,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: AppTheme.gold.withValues(alpha: 0.15),
+                                  blurRadius: 6,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 14,
+                            color: isSelected ? AppTheme.goldLight : Colors.white60,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 10.5,
+                                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                                  color: isSelected ? AppTheme.goldLight : Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileSubTabContent(_ProfileViewModel vm) {
+    switch (vm.selectedProfileSubTab) {
+      case 0:
+        return _buildIdentityCardSubTab(vm);
+      case 1:
+        return _buildPlaystylePersonalitySubTab(vm);
+      case 2:
+        return _buildMatchStatsSubTab(vm);
+      case 3:
+        return _buildAccountAndTierSubTab(vm);
+      default:
+        return _buildIdentityCardSubTab(vm);
+    }
+  }
+
+  // ── Sub-Tab 0: Identity Card ───────────────────────────────────────────────
+
+  Widget _buildIdentityCardSubTab(_ProfileViewModel vm) {
+    final playerName = _nameController.text.isNotEmpty ? _nameController.text : 'لاعب كوتشينة';
+    final estStats = vm.stats.estimationStats;
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 1. Flippable Player Identity Card with Native Sharing
+              PlayerIdentityCard(
+                playerName: playerName,
+                avatarUrl: vm.currentPhoto,
+                stats: estStats,
+                profile: vm.personalityProfile,
+                config: vm.cardConfig,
+                onConfigChanged: _handleCardConfigChanged,
+              ),
+
+              const SizedBox(height: 16),
+
+              // 2. Avatar & Name Editor Box
+              _buildAvatarAndNameSection(vm),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Sub-Tab 1: Playstyle & Personality ─────────────────────────────────────
+
+  Widget _buildPlaystylePersonalitySubTab(_ProfileViewModel vm) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Tactical Personality Profile Intelligence Card
+              _buildPersonalityIntelligenceCard(vm.personalityProfile),
+
+              const SizedBox(height: 20),
+
+              // 10 Dimensions Radar / Bars
+              _buildSectionHeader('أبعاد ومؤشرات أسلوب اللعب (0–100)', Icons.bar_chart_rounded, const Color(0xFF38BDF8)),
+              const SizedBox(height: 12),
+              PlaystyleRadarView(metrics: vm.personalityProfile.metrics),
+
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Sub-Tab 2: Match Stats ─────────────────────────────────────────────────
+
+  Widget _buildMatchStatsSubTab(_ProfileViewModel vm) {
     final estStats = vm.stats.estimationStats;
     final totalGames = estStats.gamesPlayed > 0 ? estStats.gamesPlayed : vm.stats.totalMatches;
     final totalWins = estStats.gamesPlayed > 0 ? estStats.gamesWon : vm.stats.wins;
@@ -778,349 +1128,733 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          // Avatar Card with Change Button
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: AppTheme.glassDecoration(
-              borderRadius: 24,
-              borderColor: AppTheme.gold.withValues(alpha: 0.25),
-              fillColor: AppTheme.navyDark.withValues(alpha: 0.6),
-            ),
-            child: Column(
-              children: [
-                Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.gold, width: 2.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.gold.withValues(alpha: 0.3),
-                            blurRadius: 16,
-                          ),
-                        ],
-                      ),
-                      child: PlayerAvatar(
-                        photoData: vm.currentPhoto,
-                        size: 88,
-                      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Hero Accuracy Metric Card
+              _buildDeclarationAccuracyHeroCard(vm.stats.estimationStats),
+
+              const SizedBox(height: 20),
+
+              // Section 1: Match Performance & Win Streaks
+              _buildSectionHeader('أداء المباريات والسلاسل', Icons.military_tech_rounded, AppTheme.gold),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'إجمالي الانتصارات',
+                      value: '$totalWins',
+                      icon: Icons.emoji_events_rounded,
+                      color: AppTheme.gold,
                     ),
-                    GestureDetector(
-                      onTap: _openAvatarPicker,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.gold,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 8,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'المباريات الملعوبة',
+                      value: '$totalGames',
+                      icon: Icons.style_rounded,
+                      color: AppTheme.mintSoft,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'نسبة الفوز',
+                      value: '$winRate%',
+                      icon: Icons.pie_chart_rounded,
+                      color: const Color(0xFF4CAF50),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'أطول سلسلة فوز',
+                      value: '${estStats.longestWinningStreak}',
+                      icon: Icons.local_fire_department_rounded,
+                      color: const Color(0xFFFF7043),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildWideStatCard(
+                title: 'أفضل ريمونتادا (تعويض الفارق)',
+                value: estStats.bestComeback > 0 ? '+${estStats.bestComeback} نقطة' : '—',
+                icon: Icons.replay_circle_filled_rounded,
+                color: const Color(0xFFAB47BC),
+                subtitle: 'أكبر فارق نقاط تم تعويضه خلال الجولات لتحقيق المركز الأول',
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'ريمونتادا كبرى (4th→1st)',
+                      value: '${estStats.majorComebacks}',
+                      icon: Icons.whatshot_rounded,
+                      color: const Color(0xFFFF5722),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'ريمونتادا الجولة الأخيرة',
+                      value: '${estStats.finalRoundComebacks}',
+                      icon: Icons.military_tech_rounded,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Section 2: Rounds, Tricks & Declarations
+              _buildSectionHeader('الجولات والتقديرات', Icons.psychology_rounded, AppTheme.mintSoft),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'إجمالي الجولات',
+                      value: '${estStats.totalRounds}',
+                      icon: Icons.sync_rounded,
+                      color: const Color(0xFF42A5F5),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'إجمالي اللمّات',
+                      value: '${estStats.totalTricks}',
+                      icon: Icons.layers_rounded,
+                      color: const Color(0xFF26A69A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'متوسط التصريح',
+                      value: estStats.totalRounds > 0 ? estStats.averageDeclaredTricks.toStringAsFixed(1) : '—',
+                      icon: Icons.record_voice_over_rounded,
+                      color: const Color(0xFFFFA726),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'متوسط اللم الفعلي',
+                      value: estStats.totalRounds > 0 ? estStats.averageActualTricks.toStringAsFixed(1) : '—',
+                      icon: Icons.pan_tool_alt_rounded,
+                      color: const Color(0xFF66BB6A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'تقديرات دقيقة (ناجحة)',
+                      value: '${estStats.perfectEstimates}',
+                      icon: Icons.check_circle_rounded,
+                      color: const Color(0xFF4CAF50),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'تصريحات فاشلة',
+                      value: '${estStats.failedDeclarations}',
+                      icon: Icons.cancel_rounded,
+                      color: const Color(0xFFEF5350),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Section 3: Bidding & High Scores
+              _buildSectionHeader('المزايدات والأرقام القياسية', Icons.stars_rounded, AppTheme.goldLight),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'أعلى مزايدة ناجحة',
+                      value: estStats.highestSuccessfulBid > 0 ? '${estStats.highestSuccessfulBid}' : '—',
+                      icon: Icons.gavel_rounded,
+                      color: AppTheme.gold,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'أعلى تصريح ناجح',
+                      value: estStats.highestSuccessfulDeclaration > 0 ? '${estStats.highestSuccessfulDeclaration}' : '—',
+                      icon: Icons.flag_rounded,
+                      color: const Color(0xFF29B6F6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'أعلى سكور بجولة',
+                      value: estStats.highestScoreInOneRound != 0
+                          ? (estStats.highestScoreInOneRound > 0
+                              ? '+${estStats.highestScoreInOneRound}'
+                              : '${estStats.highestScoreInOneRound}')
+                          : (vm.stats.maxScore != 0 ? '${vm.stats.maxScore}' : '—'),
+                      icon: Icons.arrow_circle_up_rounded,
+                      color: const Color(0xFF66BB6A),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'أقل سكور بجولة',
+                      value: estStats.lowestScoreInOneRound != 0 ? '${estStats.lowestScoreInOneRound}' : '—',
+                      icon: Icons.arrow_circle_down_rounded,
+                      color: const Color(0xFFE57373),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Sub-Tab 3: Account & Rank Tier ─────────────────────────────────────────
+
+  Widget _buildAccountAndTierSubTab(_ProfileViewModel vm) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Google Account & Cloud Progression Card
+              Consumer<AuthService>(
+                builder: (context, auth, _) => _buildGoogleAuthCard(auth),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Rank Tiers Progression Section
+              _buildSectionHeader('خارطة الرتب والمستويات', Icons.military_tech_rounded, AppTheme.gold),
+              const SizedBox(height: 12),
+              ...RankTier.allTiers.map((tier) {
+                final isCurrent = AuthService.instance.currentProfile?.rankTier.type == tier.type;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isCurrent ? tier.primaryColor.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isCurrent ? tier.primaryColor : Colors.white12,
+                      width: isCurrent ? 1.6 : 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(tier.badgeEmoji, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              tier.titleAr,
+                              style: GoogleFonts.cairo(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: tier.primaryColor,
+                              ),
+                            ),
+                            Text(
+                              tier.maxLevel >= 9999
+                                  ? 'المستوى ${tier.minLevel}+'
+                                  : 'المستويات ${tier.minLevel} - ${tier.maxLevel}',
+                              style: GoogleFonts.cairo(
+                                fontSize: 11,
+                                color: Colors.white60,
+                              ),
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.camera_alt_rounded,
-                          size: 16,
-                          color: AppTheme.navyDark,
-                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                      if (isCurrent)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: tier.primaryColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'رتبتك الحالية',
+                            style: GoogleFonts.cairo(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.navyDark,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }),
 
-                // Name Editor
-                if (!vm.isEditingName) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Avatar & Name Quick Box ────────────────────────────────────────────────
+
+  Widget _buildAvatarAndNameSection(_ProfileViewModel vm) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.glassDecoration(
+        borderRadius: 20,
+        borderColor: AppTheme.gold.withValues(alpha: 0.25),
+        fillColor: AppTheme.navyDark.withValues(alpha: 0.6),
+      ),
+      child: Row(
+        children: [
+          // Avatar with quick change overlay
+          GestureDetector(
+            onTap: _openAvatarPicker,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.gold, width: 2),
+                  ),
+                  child: PlayerAvatar(
+                    photoData: vm.currentPhoto,
+                    size: 56,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.gold,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    size: 12,
+                    color: AppTheme.navyDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Name and Edit Action
+          Expanded(
+            child: !vm.isEditingName
+                ? Row(
                     children: [
-                      Text(
-                        _nameController.text.isNotEmpty
-                            ? _nameController.text
-                            : 'لاعب كوتشينة',
-                        style: GoogleFonts.cairo(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.cream,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _nameController.text.isNotEmpty ? _nameController.text : 'لاعب كوتشينة',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.cream,
+                              ),
+                            ),
+                            Text(
+                              'اضغط على زر التعديل لتغيير اسمك',
+                              style: GoogleFonts.cairo(
+                                fontSize: 11,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
                       IconButton(
                         onPressed: () {
                           vm.setEditingName(true);
                           _nameFocus.requestFocus();
                         },
-                        icon: const Icon(Icons.edit_rounded, color: AppTheme.gold, size: 18),
+                        icon: const Icon(Icons.edit_rounded, color: AppTheme.gold, size: 20),
                         tooltip: 'تعديل الاسم',
-                        constraints: const BoxConstraints(),
-                        padding: EdgeInsets.zero,
                       ),
                     ],
-                  ),
-                ] else ...[
-                  Row(
+                  )
+                : Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _nameController,
                           focusNode: _nameFocus,
-                          style: GoogleFonts.cairo(color: Colors.white, fontSize: 16),
+                          style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: 'اكتب اسمك هنا...',
-                            hintStyle: GoogleFonts.cairo(color: Colors.white38),
+                            hintStyle: GoogleFonts.cairo(color: Colors.white38, fontSize: 13),
                             filled: true,
                             fillColor: Colors.black.withValues(alpha: 0.3),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(color: AppTheme.gold),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(color: AppTheme.gold, width: 2),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       IconButton(
                         onPressed: vm.isSavingName ? null : _saveName,
                         icon: vm.isSavingName
                             ? const SizedBox(
-                                width: 18,
-                                height: 18,
+                                width: 16,
+                                height: 16,
                                 child: CircularProgressIndicator(color: AppTheme.gold, strokeWidth: 2),
                               )
-                            : const Icon(Icons.check_circle_rounded, color: Color(0xFF4CAF50), size: 28),
+                            : const Icon(Icons.check_circle_rounded, color: Color(0xFF4CAF50), size: 26),
                       ),
                     ],
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPersonalityIntelligenceCard(PlayerPersonalityProfile profile) {
+    final primary = profile.primaryArchetype;
+    final secondary = profile.secondaryArchetype;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.navyDark.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: primary.primaryColor.withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primary.primaryColor.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Evolution Alert Banner if evolved
+          if (profile.hasEvolved) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFB45309), Color(0xFFD97706)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                  ),
                 ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'تطور أسلوب اللعب التكتيكي! 🔥',
+                          style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          profile.evolutionMessage,
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Archetype Header Banner
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: primary.primaryColor.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: primary.primaryColor, width: 1.5),
+                ),
+                child: Text(primary.emoji, style: const TextStyle(fontSize: 26)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          primary.titleAr,
+                          style: GoogleFonts.cairo(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: primary.primaryColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: primary.primaryColor),
+                          ),
+                          child: Text(
+                            'النمط الأساسي',
+                            style: GoogleFonts.cairo(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: primary.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      primary.descriptionAr,
+                      style: GoogleFonts.cairo(
+                        fontSize: 11.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Secondary Archetype
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              children: [
+                Text(secondary.emoji, style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Text(
+                  'النمط الثانوي المساعد: ',
+                  style: GoogleFonts.cairo(fontSize: 11.5, color: Colors.white60),
+                ),
+                Text(
+                  secondary.titleAr,
+                  style: GoogleFonts.cairo(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: secondary.primaryColor,
+                  ),
+                ),
               ],
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // Google Account & Cloud Progression Card
-          Consumer<AuthService>(
-            builder: (context, auth, _) => _buildGoogleAuthCard(auth),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ── Hero Accuracy Metric Card ───────────────────────────────────────
-          _buildDeclarationAccuracyHeroCard(vm.stats.estimationStats),
-
-          const SizedBox(height: 24),
-
-          // ── Section 1: Match Performance & Win Streaks ─────────────────────
-          _buildSectionHeader('أداء المباريات والسلاسل', Icons.military_tech_rounded, AppTheme.gold),
-          const SizedBox(height: 12),
+          // Strengths & Weaknesses
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Strengths
               Expanded(
-                child: _buildStatCard(
-                  title: 'إجمالي الانتصارات',
-                  value: '$totalWins',
-                  icon: Icons.emoji_events_rounded,
-                  color: AppTheme.gold,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF10B981)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'نقاط القوة التكتيكية',
+                            style: GoogleFonts.cairo(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...profile.strengths.map((s) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '• $s',
+                              style: GoogleFonts.cairo(fontSize: 11, color: Colors.white),
+                            ),
+                          )),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
+              // Weaknesses / Growth Areas
               Expanded(
-                child: _buildStatCard(
-                  title: 'المباريات الملعوبة',
-                  value: '$totalGames',
-                  icon: Icons.style_rounded,
-                  color: AppTheme.mintSoft,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'نسبة الفوز',
-                  value: '$winRate%',
-                  icon: Icons.pie_chart_rounded,
-                  color: const Color(0xFF4CAF50),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'أطول سلسلة فوز',
-                  value: '${estStats.longestWinningStreak}',
-                  icon: Icons.local_fire_department_rounded,
-                  color: const Color(0xFFFF7043),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildWideStatCard(
-            title: 'أفضل ريمونتادا (تعويض الفارق)',
-            value: estStats.bestComeback > 0 ? '+${estStats.bestComeback} نقطة' : '—',
-            icon: Icons.replay_circle_filled_rounded,
-            color: const Color(0xFFAB47BC),
-            subtitle: 'أكبر فارق نقاط تم تعويضه خلال الجولات لتحقيق المركز الأول',
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'ريمونتادا كبرى (4th→1st)',
-                  value: '${estStats.majorComebacks}',
-                  icon: Icons.whatshot_rounded,
-                  color: const Color(0xFFFF5722),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'ريمونتادا الجولة الأخيرة',
-                  value: '${estStats.finalRoundComebacks}',
-                  icon: Icons.military_tech_rounded,
-                  color: AppTheme.gold,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.trending_up_rounded, size: 14, color: Color(0xFFF59E0B)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'فرص التطوير والتحسين',
+                            style: GoogleFonts.cairo(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFF59E0B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...profile.weaknesses.map((w) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '• $w',
+                              style: GoogleFonts.cairo(fontSize: 11, color: Colors.white),
+                            ),
+                          )),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
 
-          // ── Section 2: Rounds, Tricks & Declarations ───────────────────────
-          _buildSectionHeader('الجولات والتقديرات', Icons.psychology_rounded, AppTheme.mintSoft),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'إجمالي الجولات',
-                  value: '${estStats.totalRounds}',
-                  icon: Icons.sync_rounded,
-                  color: const Color(0xFF42A5F5),
+          // Tactical Coaching Tip Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lightbulb_rounded, color: AppTheme.gold, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'النصيحة الذهبية لأسلوبك:',
+                        style: GoogleFonts.cairo(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.gold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        profile.recommendation,
+                        style: GoogleFonts.cairo(
+                          fontSize: 11.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'إجمالي اللمّات',
-                  value: '${estStats.totalTricks}',
-                  icon: Icons.layers_rounded,
-                  color: const Color(0xFF26A69A),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'متوسط التصريح',
-                  value: estStats.totalRounds > 0 ? estStats.averageDeclaredTricks.toStringAsFixed(1) : '—',
-                  icon: Icons.record_voice_over_rounded,
-                  color: const Color(0xFFFFA726),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'متوسط اللم الفعلي',
-                  value: estStats.totalRounds > 0 ? estStats.averageActualTricks.toStringAsFixed(1) : '—',
-                  icon: Icons.pan_tool_alt_rounded,
-                  color: const Color(0xFF66BB6A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'تقديرات دقيقة (ناجحة)',
-                  value: '${estStats.perfectEstimates}',
-                  icon: Icons.check_circle_rounded,
-                  color: const Color(0xFF4CAF50),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'تصريحات فاشلة',
-                  value: '${estStats.failedDeclarations}',
-                  icon: Icons.cancel_rounded,
-                  color: const Color(0xFFEF5350),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Section 3: Bidding & High Scores ──────────────────────────────
-          _buildSectionHeader('المزايدات والأرقام القياسية', Icons.stars_rounded, AppTheme.goldLight),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'أعلى مزايدة ناجحة',
-                  value: estStats.highestSuccessfulBid > 0 ? '${estStats.highestSuccessfulBid}' : '—',
-                  icon: Icons.gavel_rounded,
-                  color: AppTheme.gold,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'أعلى تصريح ناجح',
-                  value: estStats.highestSuccessfulDeclaration > 0 ? '${estStats.highestSuccessfulDeclaration}' : '—',
-                  icon: Icons.flag_rounded,
-                  color: const Color(0xFF29B6F6),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: 'أعلى سكور بجولة',
-                  value: estStats.highestScoreInOneRound != 0
-                      ? (estStats.highestScoreInOneRound > 0
-                          ? '+${estStats.highestScoreInOneRound}'
-                          : '${estStats.highestScoreInOneRound}')
-                      : (vm.stats.maxScore != 0 ? '${vm.stats.maxScore}' : '—'),
-                  icon: Icons.arrow_circle_up_rounded,
-                  color: const Color(0xFF66BB6A),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  title: 'أقل سكور بجولة',
-                  value: estStats.lowestScoreInOneRound != 0 ? '${estStats.lowestScoreInOneRound}' : '—',
-                  icon: Icons.arrow_circle_down_rounded,
-                  color: const Color(0xFFE57373),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
         ],
       ),
     );
