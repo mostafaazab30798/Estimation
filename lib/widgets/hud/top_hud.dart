@@ -149,36 +149,52 @@ class TopHud extends StatelessWidget {
     String? bidderName,
     BuildContext context,
   ) {
+    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
             _ExitButton(onTap: onExitTap),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             const _GuideButton(),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             const _SettingsButton(),
-            const SizedBox(width: 8),
-            Expanded(child: _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic())),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: _RoundPhaseCenter(
+                  state: state,
+                  phaseColor: phaseColor,
+                  phaseText: _phaseArabic(),
+                  isFixedRound: isFixedRound,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
             if (state.trump != null)
-              _TrumpBadge(state: state)
+              _TrumpBadge(state: state, isFixedRound: isFixedRound)
             else
-              const SizedBox(width: 40),
+              const SizedBox(width: 24),
           ],
         ),
         if (bidderName != null || underOver != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Container(height: 1, color: AppTheme.steelBlue.withValues(alpha: 0.12)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (bidderName != null) _BidderBadge(name: bidderName),
-              if (bidderName != null && underOver != null) const SizedBox(width: 14),
-              if (underOver != null) _UnderOverBadge(data: underOver),
-            ],
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (bidderName != null) _BidderBadge(name: bidderName),
+                if (bidderName != null && underOver != null) const SizedBox(width: 12),
+                if (underOver != null) _UnderOverBadge(data: underOver),
+              ],
+            ),
           ),
         ],
       ],
@@ -191,6 +207,7 @@ class TopHud extends StatelessWidget {
     String? bidderName,
     BuildContext context,
   ) {
+    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
     return Row(
       children: [
         _ExitButton(onTap: onExitTap),
@@ -198,18 +215,40 @@ class TopHud extends StatelessWidget {
         const _GuideButton(),
         const SizedBox(width: 6),
         const _SettingsButton(),
-        const SizedBox(width: 12),
-        _RoundPhaseCenter(state: state, phaseColor: phaseColor, phaseText: _phaseArabic()),
+        const SizedBox(width: 10),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _RoundPhaseCenter(
+              state: state,
+              phaseColor: phaseColor,
+              phaseText: _phaseArabic(),
+              isFixedRound: isFixedRound,
+            ),
+          ),
+        ),
         if (state.trump != null) ...[
-          const SizedBox(width: 12),
-          _TrumpBadge(state: state),
+          const SizedBox(width: 8),
+          _TrumpBadge(state: state, isFixedRound: isFixedRound),
         ],
         const Spacer(),
         if (bidderName != null) ...[
-          _BidderBadge(name: bidderName),
-          const SizedBox(width: 10),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _BidderBadge(name: bidderName),
+            ),
+          ),
+          const SizedBox(width: 8),
         ],
-        if (underOver != null) _UnderOverBadge(data: underOver),
+        if (underOver != null)
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _UnderOverBadge(data: underOver),
+            ),
+          ),
       ],
     );
   }
@@ -294,57 +333,48 @@ class _RoundPhaseCenter extends StatelessWidget {
   final GameState state;
   final Color phaseColor;
   final String phaseText;
+  final bool isFixedRound;
 
   const _RoundPhaseCenter({
     required this.state,
     required this.phaseColor,
     required this.phaseText,
+    this.isFixedRound = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
-
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'الجولة ${state.roundNumber}',
-              style: GoogleFonts.cairo(
-                color: AppTheme.gold,
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-              ),
+        Text(
+          'الجولة ${state.roundNumber}',
+          style: GoogleFonts.cairo(
+            color: AppTheme.gold,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (state.isDoubleRound) ...[
+          const SizedBox(width: 4),
+          const _DoubleRoundBadge(),
+        ],
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: phaseColor.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            phaseText,
+            style: GoogleFonts.cairo(
+              color: phaseColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(width: 6),
-            if (isFixedRound && state.fixedTrump != null) ...[
-              _FixedTrumpBadge(roundNumber: state.roundNumber, fixedTrump: state.fixedTrump!),
-              const SizedBox(width: 6),
-            ],
-            if (state.isDoubleRound) ...[
-              const _DoubleRoundBadge(),
-              const SizedBox(width: 6),
-            ],
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: phaseColor.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
-              ),
-              child: Text(
-                phaseText,
-                style: GoogleFonts.cairo(
-                  color: phaseColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -353,13 +383,21 @@ class _RoundPhaseCenter extends StatelessWidget {
 
 class _TrumpBadge extends StatelessWidget {
   final GameState state;
-  const _TrumpBadge({required this.state});
+  final bool isFixedRound;
+  const _TrumpBadge({required this.state, this.isFixedRound = false});
 
   @override
   Widget build(BuildContext context) {
+    if (isFixedRound && state.fixedTrump != null) {
+      return _FixedTrumpBadge(
+        roundNumber: state.roundNumber,
+        fixedTrump: state.fixedTrump!,
+      );
+    }
+
     if (state.trump == Trump.sans) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: const Color(0xFF4C1D95).withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(10),
@@ -368,13 +406,13 @@ class _TrumpBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🚫', style: TextStyle(fontSize: 13)),
+            const Text('🚫', style: TextStyle(fontSize: 12)),
             const SizedBox(width: 4),
             Text(
               'سانز',
               style: GoogleFonts.cairo(
                 color: const Color(0xFFDDD6FE),
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -390,7 +428,7 @@ class _TrumpBadge extends StatelessWidget {
     final suitColor = isRed ? AppTheme.suitRed : AppTheme.steelBlue;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: AppTheme.navyDark.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(10),
@@ -403,7 +441,7 @@ class _TrumpBadge extends StatelessWidget {
             suit.label,
             style: TextStyle(
               color: suitColor,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -412,7 +450,7 @@ class _TrumpBadge extends StatelessWidget {
             suit.arabicName,
             style: GoogleFonts.cairo(
               color: AppTheme.cream,
-              fontSize: 11.5,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),

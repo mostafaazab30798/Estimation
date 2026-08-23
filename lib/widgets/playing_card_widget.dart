@@ -9,6 +9,7 @@ import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 
 import '../core/utils/card_assets.dart';
+import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 
 // Fix #14: Shared const decorations ───────────────────────────────────────────
 
@@ -100,7 +101,10 @@ class PlayingCardWidget extends StatelessWidget {
   }
 
   Widget _buildCardContent(BuildContext context) {
-    final theme = context.select((GameProvider p) => p.state?.cardTheme ?? 'theme_1');
+    final isNinetyNine = context.select((GameProvider p) => p.isNinetyNine);
+    final theme = isNinetyNine
+        ? context.select((NinetyNineGameProvider p) => p.cardTheme)
+        : context.select((GameProvider p) => p.state?.cardTheme ?? 'theme_1');
     final showBack = faceDown || card == null;
     final imagePath =
         showBack ? 'assets/back.png' : getCardAssetPath(card, theme);

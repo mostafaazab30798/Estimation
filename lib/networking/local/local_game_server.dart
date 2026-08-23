@@ -24,6 +24,7 @@ class LocalGameServer {
   static final Random _rng = Random();
 
   final StateUpdateCallback onStateUpdate;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
 
   String? hostPlayerId;
   String? hostName;
@@ -47,7 +48,7 @@ class LocalGameServer {
   final Set<String> _botPlayerIds = {};
   bool _botProcessing = false;
 
-  LocalGameServer({required this.onStateUpdate});
+  LocalGameServer({required this.onStateUpdate, this.onReaction});
 
   // ── Lifecycle ────────────────────────────────────────────────
 
@@ -268,6 +269,21 @@ class LocalGameServer {
           _doDeal();
         }
 
+      case ActionType.sendReaction:
+        final reactionData = {
+          'id': payload['reactionId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'],
+          'emoji': payload['emoji'] ?? '🔥',
+          'text': payload['text'],
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        _broadcast(GameMessage(
+          type: MessageType.reaction,
+          payload: reactionData,
+        ));
+        onReaction?.call(reactionData);
+
       case ActionType.changeTheme:
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
           final newTheme = payload['theme'] as String;
@@ -420,6 +436,7 @@ class LocalGameServer {
     if (_isStopped) return;
     _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
     _state.auctionTurnSeatIndex = (_state.dealerSeatIndex + 1) % maxPlayers;
+    _state.trump = _state.fixedTrump;
 
     _state.voidCheckPassed.clear();
     _state.voidDeclaringPlayerId = null;
@@ -445,7 +462,7 @@ class LocalGameServer {
     _state.currentHighBid = null;
     _state.currentHighBidderPlayerId = null;
     _state.bidderPlayerId = null;
-    _state.trumpSuit = null;
+    _state.trump = _state.fixedTrump;
     _state.currentTrick = [];
     _state.tricksPlayedThisRound = 0;
     _state.voidCheckPassed = {};
@@ -478,6 +495,17 @@ class LocalGameServer {
     onStateUpdate(_state);
     _scheduleBotTurn();
     _startTurnTimer();
+  }
+
+  void _broadcast(GameMessage message) {
+    final jsonStr = message.toJsonString();
+    for (final socket in _clientSockets.values) {
+      try {
+        socket.sink.add(jsonStr);
+      } catch (e) {
+        debugPrint('[LocalGameServer] Failed to send message to client: $e');
+      }
+    }
   }
 
   // ── Turn Timeout Handling ─────────────────────────────────────

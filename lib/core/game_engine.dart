@@ -49,11 +49,19 @@ class GameEngine {
   static void passVoidCheck(GameState state, String playerId) {
     state.voidCheckPassed.add(playerId);
     if (state.voidCheckPassed.length == state.players.length) {
-      // Void check complete -> Proceed to Pre-Auction Dash Call phase
-      state.dashCallPassed.clear();
-      state.phase = GamePhase.dashCall;
-      state.currentPlayerSeatIndex =
-          (state.dealerSeatIndex + 1) % state.players.length;
+      if (state.fixedTrump != null) {
+        // Last 5 rounds: trump is fixed, skip auction & dash call -> direct declarations
+        state.trump = state.fixedTrump;
+        state.phase = GamePhase.declarations;
+        state.currentPlayerSeatIndex =
+            (state.dealerSeatIndex + 1) % state.players.length;
+      } else {
+        // Void check complete -> Proceed to Pre-Auction Dash Call phase
+        state.dashCallPassed.clear();
+        state.phase = GamePhase.dashCall;
+        state.currentPlayerSeatIndex =
+            (state.dealerSeatIndex + 1) % state.players.length;
+      }
     }
   }
 
@@ -73,11 +81,19 @@ class GameEngine {
     }
 
     if (state.dashCallPassed.length == state.players.length) {
-      // Dash call phase complete -> Advance to Auction
-      state.auctionTurnSeatIndex =
-          (state.dealerSeatIndex + 1) % state.players.length;
-      state.phase = GamePhase.auction;
-      _checkAuctionState(state);
+      if (state.fixedTrump != null) {
+        // Fixed trump round: advance directly to Declarations
+        state.trump = state.fixedTrump;
+        state.currentPlayerSeatIndex =
+            (state.dealerSeatIndex + 1) % state.players.length;
+        state.phase = GamePhase.declarations;
+      } else {
+        // Dash call phase complete -> Advance to Auction
+        state.auctionTurnSeatIndex =
+            (state.dealerSeatIndex + 1) % state.players.length;
+        state.phase = GamePhase.auction;
+        _checkAuctionState(state);
+      }
     } else {
       state.currentPlayerSeatIndex =
           (state.currentPlayerSeatIndex + 1) % state.players.length;
@@ -234,6 +250,10 @@ class GameEngine {
   static int? getMaxAllowedDeclaration(GameState state, String playerId) {
     final player = state.playerById(playerId);
     if (player.isDashCall) return 0;
+    // In fixed trump rounds (no auction winner set yet), any player can declare up to 13
+    if (state.fixedTrump != null && state.bidderPlayerId == null) {
+      return 13;
+    }
     if (player.id == state.bidderPlayerId) return 13;
 
     final bidder = state.bidder;
@@ -253,12 +273,12 @@ class GameEngine {
     // Dash Call lock
     if (player.isDashCall && declared != 0) return false;
 
-    // Bidder min declaration check
+    // Bidder min declaration check (only applicable in auction rounds with bidder)
     if (player.id == state.bidderPlayerId && state.currentHighBid != null) {
       if (declared < state.currentHighBid!.trickCount) return false;
     }
 
-    // Non-bidder max declaration check (cannot exceed bidder)
+    // Non-bidder max declaration check (cannot exceed bidder in auction rounds)
     final maxAllowed = getMaxAllowedDeclaration(state, playerId);
     if (maxAllowed != null && declared > maxAllowed) return false;
 
@@ -278,9 +298,29 @@ class GameEngine {
 
     player.declared = declared;
 
-    // Advance to next undeclared player
+    // Advance to next undeclared player or complete declarations
     if (state.players.every((p) => p.declared != null)) {
-      state.currentPlayerSeatIndex = state.trickLeaderSeatIndex;
+      if (state.fixedTrump != null && state.bidderPlayerId == null) {
+        // Fixed trump round: determine highest declarer (ties broken in clockwise order from dealer)
+        int highestDeclared = -1;
+        Player? highestPlayer;
+        final startSeat = (state.dealerSeatIndex + 1) % state.players.length;
+        for (int i = 0; i < state.players.length; i++) {
+          final seat = (startSeat + i) % state.players.length;
+          final p = state.playerBySeat(seat);
+          final pDecl = p.declared ?? 0;
+          if (pDecl > highestDeclared) {
+            highestDeclared = pDecl;
+            highestPlayer = p;
+          }
+        }
+        final winner = highestPlayer ?? state.players.first;
+        state.bidderPlayerId = winner.id;
+        state.trickLeaderSeatIndex = winner.seatIndex;
+        state.currentPlayerSeatIndex = winner.seatIndex;
+      } else {
+        state.currentPlayerSeatIndex = state.trickLeaderSeatIndex;
+      }
       state.phase = GamePhase.trickTaking;
     } else {
       state.currentPlayerSeatIndex = _getNextChronologicalSeat(
@@ -509,7 +549,7 @@ class GameEngine {
     state.currentHighBid = null;
     state.currentHighBidderPlayerId = null;
     state.bidderPlayerId = null;
-    state.trump = null;
+    state.trump = state.fixedTrump;
     state.currentTrick = [];
     state.trickLeaderSeatIndex = 0;
     state.tricksPlayedThisRound = 0;

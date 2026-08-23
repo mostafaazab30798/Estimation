@@ -1,7 +1,6 @@
 // test/comeback_system_test.dart
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/models/game_state.dart';
 import 'package:estimation/core/models/player.dart';
 import 'package:estimation/core/models/comeback_event.dart';

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:estimation/core/models/card.dart';
+import 'package:estimation/core/models/game_reaction.dart';
 
 import 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
 export 'package:estimation/modes/ninety_nine/domain/models/ninety_nine_game_state.dart';
@@ -15,6 +16,10 @@ import 'package:estimation/services/audio_service.dart';
 class NinetyNineGameProvider extends ChangeNotifier {
   static const int maxLosses = 5;
   Timer? _botTimer;
+
+  final Map<String, GameReaction> _activeReactions = {};
+  Map<String, GameReaction> get activeReactions => Map.unmodifiable(_activeReactions);
+  final Map<String, Timer> _reactionTimers = {};
 
   int _groundTotal = 0;
   int _direction = 1; // 1 = clockwise, -1 = counter-clockwise
@@ -98,10 +103,57 @@ class NinetyNineGameProvider extends ChangeNotifier {
   @override
   void dispose() {
     _botTimer?.cancel();
+    for (final t in _reactionTimers.values) {
+      t.cancel();
+    }
+    _reactionTimers.clear();
+    _activeReactions.clear();
     super.dispose();
   }
 
   // ── Actions ──────────────────────────────────────────────────
+
+  void handleIncomingReaction(Map<String, dynamic> data) {
+    try {
+      final reaction = GameReaction.fromJson(data);
+      _activeReactions[reaction.playerId] = reaction;
+      _reactionTimers[reaction.playerId]?.cancel();
+      _reactionTimers[reaction.playerId] = Timer(const Duration(milliseconds: 3200), () {
+        _activeReactions.remove(reaction.playerId);
+        notifyListeners();
+      });
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[NinetyNineGameProvider] Error handling incoming reaction: $e');
+    }
+  }
+
+  void sendReaction(String emoji, [String? text]) {
+    final reaction = GameReaction(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      playerId: _myPlayerId ?? '',
+      playerName: localPlayer?.name,
+      emoji: emoji,
+      text: text,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    handleIncomingReaction(reaction.toJson());
+    if (onSendAction != null) {
+      onSendAction!(ActionType.sendReaction, {
+        'reactionId': reaction.id,
+        'emoji': emoji,
+        'text': text,
+        'timestamp': reaction.timestamp,
+      });
+    } else if (_client != null) {
+      _client!.sendAction(ActionType.sendReaction, {
+        'reactionId': reaction.id,
+        'emoji': emoji,
+        'text': text,
+        'timestamp': reaction.timestamp,
+      });
+    }
+  }
 
   void playCard(String playerId, PlayingCard card) {
     AudioService.instance.playCard();
@@ -123,6 +175,11 @@ class NinetyNineGameProvider extends ChangeNotifier {
   void reset() {
     _botTimer?.cancel();
     _botTimer = null;
+    for (final t in _reactionTimers.values) {
+      t.cancel();
+    }
+    _reactionTimers.clear();
+    _activeReactions.clear();
     _groundTotal = 0;
     _direction = 1;
     _currentPlayerIndex = 0;

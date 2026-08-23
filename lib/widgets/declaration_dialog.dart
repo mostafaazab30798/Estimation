@@ -82,7 +82,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
     }
 
     return Dialog(
-      alignment: Alignment.center,
+      alignment: isPortrait ? const Alignment(0, -0.42) : const Alignment(0, -0.25),
       insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       backgroundColor: Colors.transparent,
       elevation: 0,

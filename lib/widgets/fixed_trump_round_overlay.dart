@@ -532,15 +532,15 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                               padding: EdgeInsets.symmetric(vertical: 8.0),
                               child: Divider(color: Colors.white12, height: 1),
                             ),
-                            // Rule 2: Override requirement (Bid 8+)
+                            // Rule 2: Direct Declaration & Highest starts
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('⚡', style: TextStyle(fontSize: 13)),
+                                const Text('🎯', style: TextStyle(fontSize: 13)),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    'Bid 8+ to override the fixed contract.',
+                                    'Direct Declarations • Highest Declarer Starts',
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.cairo(
                                       fontSize: 13,
@@ -554,7 +554,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'اطلب ٨ لمات أو أكثر لتغيير نوع الحكم.',
+                              'بدون مزاد • تقدير مباشر • صاحب أعلى تقدير يبدأ اللعب',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.cairo(
                                 fontSize: 11.5,

@@ -1,4 +1,4 @@
-﻿# How to Publish a New App Update
+# How to Publish a New App Update
 
 This guide walks you through every step to release a new version of the Estimation app.
 Users will see an **"تحديث الآن"** button inside the app that downloads and installs the new APK automatically.
@@ -215,6 +215,8 @@ On a device with the **old** version installed:
 
 | Version | Build | Date       | Type    | Notes |
 |---------|-------|------------|---------|-------|
+| 1.8.0   | 19    | 2026-08-23 | Minor   | In-Game Reactions, Theme 3 & 4 Assets, 2-Row Hand, UI Polish |
+| 1.7.0   | 18    | 2026-08-23 | Minor   | Estimation Academy, Puzzles, Playstyle Engine, Identity Card |
 | 0.1.0   | 1     | 2026-07-23 | Initial | First release |
 
 ---

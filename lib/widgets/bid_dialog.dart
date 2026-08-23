@@ -110,7 +110,7 @@ class _BidDialogState extends State<BidDialog> {
             final isValid = _isValidFor(count, trump);
 
             return Dialog(
-              alignment: Alignment.center,
+              alignment: isPortrait ? const Alignment(0, -0.42) : const Alignment(0, -0.25),
               insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               backgroundColor: Colors.transparent,
               elevation: 0,

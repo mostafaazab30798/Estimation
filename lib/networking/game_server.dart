@@ -23,6 +23,7 @@ class GameServer {
   static final Random _rng = Random();
 
   final StateUpdateCallback onStateUpdate;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
   
   String? hostPlayerId;
   String? hostName;
@@ -46,7 +47,7 @@ class GameServer {
   final Set<String> _botPlayerIds = {};
   bool _botProcessing = false;
 
-  GameServer({required this.onStateUpdate});
+  GameServer({required this.onStateUpdate, this.onReaction});
 
 
   // ── Lifecycle ────────────────────────────────────────────────
@@ -267,6 +268,21 @@ class GameServer {
           _doDeal(); // _doDeal calls _broadcastState internally
         }
 
+      case ActionType.sendReaction:
+        final reactionData = {
+          'id': payload['reactionId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'],
+          'emoji': payload['emoji'] ?? '🔥',
+          'text': payload['text'],
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        _channel?.sendBroadcastMessage(
+          event: 'reaction',
+          payload: reactionData,
+        );
+        onReaction?.call(reactionData);
+
       case ActionType.changeTheme:
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
           final newTheme = payload['theme'] as String;
@@ -432,6 +448,7 @@ class GameServer {
     // The player to the right of the dealer acts first in the auction
     _state.auctionTurnSeatIndex =
         (_state.dealerSeatIndex + 1) % maxPlayers;
+    _state.trump = _state.fixedTrump;
 
     _state.voidCheckPassed.clear();
     _state.voidDeclaringPlayerId = null;
@@ -461,7 +478,7 @@ class GameServer {
     _state.currentHighBid = null;
     _state.currentHighBidderPlayerId = null;
     _state.bidderPlayerId = null;
-    _state.trumpSuit = null;
+    _state.trump = _state.fixedTrump;
     _state.currentTrick = [];
     _state.tricksPlayedThisRound = 0;
     _state.voidCheckPassed = {};

@@ -13,6 +13,7 @@ class LocalNinetyNineGameClient {
 
   void Function(NinetyNineGameState)? onStateUpdate;
   final void Function(String) onError;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
 
   String? _lastHostIp;
   int? _lastPort;
@@ -27,6 +28,7 @@ class LocalNinetyNineGameClient {
   LocalNinetyNineGameClient({
     this.onStateUpdate,
     required this.onError,
+    this.onReaction,
   });
 
   Future<void> connect(
@@ -97,6 +99,10 @@ class LocalNinetyNineGameClient {
         case MessageType.stateUpdate:
           final state = NinetyNineGameState.fromJson(msg.payload);
           onStateUpdate?.call(state);
+
+        case MessageType.reaction:
+          final data = msg.payload;
+          onReaction?.call(data);
 
         case MessageType.error:
           final err = msg.payload['error'] as String? ?? 'حدث خطأ غير معروف';

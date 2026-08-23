@@ -22,6 +22,7 @@ class LocalNinetyNineGameServer {
 
   late NinetyNineGameState _state;
   final void Function(NinetyNineGameState) onStateUpdate;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
   String _hostId = '';
   String _hostName = '';
   int _maxPlayers = 2;
@@ -31,7 +32,7 @@ class LocalNinetyNineGameServer {
   bool _isStopped = false;
   final Random _random = Random();
 
-  LocalNinetyNineGameServer({required this.onStateUpdate});
+  LocalNinetyNineGameServer({required this.onStateUpdate, this.onReaction});
 
   Future<void> start(
     String hostName,
@@ -216,6 +217,25 @@ class LocalNinetyNineGameServer {
           NinetyNineGameEngine.advanceToNextRound(_state);
           _broadcastState();
         }
+
+      case ActionType.sendReaction:
+        final reactionData = {
+          'id': payload['reactionId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'],
+          'emoji': payload['emoji'] ?? '🔥',
+          'text': payload['text'],
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        for (final socket in _clientSockets.values) {
+          try {
+            socket.sink.add(GameMessage(
+              type: MessageType.reaction,
+              payload: reactionData,
+            ).toJsonString());
+          } catch (_) {}
+        }
+        onReaction?.call(reactionData);
 
       case ActionType.changeTheme:
         if (playerId == _state.hostId) {

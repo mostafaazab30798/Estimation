@@ -6,11 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:estimation/core/constants.dart';
 import 'package:estimation/core/models/game_state.dart';
 import 'package:estimation/core/models/player.dart';
-import 'package:estimation/core/models/bid.dart';
 import 'package:estimation/services/device_performance_service.dart';
 import 'package:estimation/widgets/fixed_trump_round_overlay.dart';
 import 'package:estimation/widgets/hud/top_hud.dart';
-import 'package:estimation/widgets/bid_dialog.dart';
 
 void main() {
   List<Player> createTestPlayers() {
@@ -23,7 +21,7 @@ void main() {
   }
 
   group('Fixed Trump Round Presentation Overlay Tests', () {
-    testWidgets('Round 14 Fixed Trump Overlay displays SANS rules and 8+ override', (tester) async {
+    testWidgets('Round 14 Fixed Trump Overlay displays SANS rules and direct declaration', (tester) async {
       bool dismissed = false;
 
       await tester.pumpWidget(
@@ -47,7 +45,7 @@ void main() {
       expect(find.text('ROUND 14'), findsOneWidget);
       expect(find.text('SANS ROUND'), findsOneWidget);
       expect(find.text('Trump is fixed to SANS.'), findsOneWidget);
-      expect(find.text('Bid 8+ to override the fixed contract.'), findsOneWidget);
+      expect(find.text('Direct Declarations • Highest Declarer Starts'), findsOneWidget);
       expect(find.text('FIXED CONTRACT ACTIVE'), findsOneWidget);
 
       // Tap to dismiss
@@ -75,7 +73,7 @@ void main() {
       expect(find.text('ROUND 15'), findsOneWidget);
       expect(find.text('SPADE ROUND'), findsOneWidget);
       expect(find.text('Trump is fixed to SPADES.'), findsOneWidget);
-      expect(find.text('Bid 8+ to override the fixed contract.'), findsOneWidget);
+      expect(find.text('Direct Declarations • Highest Declarer Starts'), findsOneWidget);
     });
 
     testWidgets('Round 16 Fixed Trump Overlay displays HEART rules', (tester) async {
@@ -136,17 +134,19 @@ void main() {
     });
   });
 
-  group('Fixed Trump HUD & Bid Dialog Integration Tests', () {
-    testWidgets('TopHud displays championship fixed badge during rounds 14-18', (tester) async {
-      tester.view.physicalSize = const Size(1024, 768);
+  group('Fixed Trump HUD Integration Tests', () {
+    testWidgets('TopHud displays championship fixed badge during rounds 14-18 without flex overflow', (tester) async {
+      // Test portrait mobile dimensions (360x640)
+      tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
       final state = GameState(
         players: createTestPlayers(),
-        phase: GamePhase.auction,
+        phase: GamePhase.declarations,
         roundNumber: 14,
         totalRounds: 18,
+        trump: Trump.sans,
       );
 
       await tester.pumpWidget(
@@ -166,26 +166,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('♟ SANS'), findsOneWidget);
-    });
-
-    testWidgets('BidDialog renders Championship fixed trump banner with 8+ override instruction', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: BidDialog(
-              roundNumber: 14,
-              fixedTrump: Trump.sans,
-              onBid: (_) {},
-              onPass: () {},
-            ),
-          ),
-        ),
-      );
-
-      await tester.pump();
-
-      expect(find.textContaining('ROUND 14 • SANS ROUND'), findsOneWidget);
-      expect(find.textContaining('Trump is fixed to SANS. Bid 8+ to override.'), findsOneWidget);
+      expect(tester.takeException(), isNull); // Verify no RenderFlex overflow
     });
   });
 }

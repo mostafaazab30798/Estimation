@@ -16,7 +16,7 @@ class DashCallDialog extends StatelessWidget {
     final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.90 : 0.55);
 
     return Dialog(
-      alignment: Alignment.center,
+      alignment: isPortrait ? const Alignment(0, -0.42) : const Alignment(0, -0.25),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       backgroundColor: Colors.transparent,
       elevation: 0,

@@ -23,6 +23,8 @@ import 'package:estimation/services/history_service.dart';
 import 'package:estimation/services/auth_service.dart';
 import 'package:estimation/widgets/level_up_dialog.dart';
 import 'package:estimation/widgets/rank_tier_badge.dart';
+import 'package:estimation/widgets/hud/reaction_bubble_widget.dart';
+import 'package:estimation/widgets/hud/reaction_picker_sheet.dart';
 
 class NinetyNineGameScreen extends StatefulWidget {
   const NinetyNineGameScreen({super.key});
@@ -127,6 +129,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                     alignment: const Alignment(0, -0.15),
                     child: _buildCenterHud(game),
                   ),
+
+                  // ── Reactions Overlay ────────────────────────────
+                  _buildReactionsOverlay(context, game),
 
                   // ── Local Player ─────────────────────────────────
                   Positioned(
@@ -303,6 +308,17 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
           isLeft: isLeft,
           isRight: isRight,
         ),
+        const SizedBox(height: 10),
+        if (isRight || (game.players.length == 2 && player == game.players.last))
+          _buildReactionTriggerButton(context, game)
+        else if (isLeft)
+          Visibility(
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            visible: false,
+            child: _buildReactionTriggerButton(context, game),
+          ),
       ],
     );
   }
@@ -967,6 +983,169 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReactionsOverlay(BuildContext context, NinetyNineGameProvider game) {
+    if (game.activeReactions.isEmpty) return const SizedBox.shrink();
+
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final players = game.players;
+    final localP = game.localPlayer;
+
+    final List<Widget> bubbles = [];
+
+    // Local player reaction
+    if (localP != null && game.activeReactions.containsKey(localP.id)) {
+      bubbles.add(
+        Positioned(
+          bottom: isPortrait ? 138 : 88,
+          left: isPortrait ? 20 : 110,
+          child: ReactionBubbleWidget(
+            key: ValueKey(game.activeReactions[localP.id]!.id),
+            reaction: game.activeReactions[localP.id]!,
+            anchorAlignment: Alignment.bottomLeft,
+          ),
+        ),
+      );
+    }
+
+    // Opponent reactions
+    for (int i = 1; i < players.length; i++) {
+      final player = players[i];
+      if (game.activeReactions.containsKey(player.id)) {
+        final reaction = game.activeReactions[player.id]!;
+        Positioned bubble;
+        if (players.length == 2) {
+          bubble = Positioned(
+            top: 200,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ReactionBubbleWidget(
+                key: ValueKey(reaction.id),
+                reaction: reaction,
+                anchorAlignment: Alignment.topCenter,
+              ),
+            ),
+          );
+        } else if (players.length == 3) {
+          if (i == 1) {
+            bubble = Positioned(
+              left: 16,
+              bottom: 240,
+              child: ReactionBubbleWidget(
+                key: ValueKey(reaction.id),
+                reaction: reaction,
+                anchorAlignment: Alignment.centerLeft,
+              ),
+            );
+          } else {
+            bubble = Positioned(
+              right: 16,
+              bottom: 240,
+              child: ReactionBubbleWidget(
+                key: ValueKey(reaction.id),
+                reaction: reaction,
+                anchorAlignment: Alignment.centerRight,
+              ),
+            );
+          }
+        } else {
+          if (i == 1) {
+            bubble = Positioned(
+              left: 16,
+              bottom: 250,
+              child: ReactionBubbleWidget(
+                key: ValueKey(reaction.id),
+                reaction: reaction,
+                anchorAlignment: Alignment.centerLeft,
+              ),
+            );
+          } else if (i == players.length - 1) {
+            bubble = Positioned(
+              right: 16,
+              bottom: 250,
+              child: ReactionBubbleWidget(
+                key: ValueKey(reaction.id),
+                reaction: reaction,
+                anchorAlignment: Alignment.centerRight,
+              ),
+            );
+          } else {
+            bubble = Positioned(
+              top: 150,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ReactionBubbleWidget(
+                  key: ValueKey(reaction.id),
+                  reaction: reaction,
+                  anchorAlignment: Alignment.topCenter,
+                ),
+              ),
+            );
+          }
+        }
+        bubbles.add(bubble);
+      }
+    }
+
+    return Stack(children: bubbles);
+  }
+
+  Widget _buildReactionTriggerButton(BuildContext context, NinetyNineGameProvider game) {
+    return GestureDetector(
+      onTap: () {
+        ReactionPickerSheet.show(
+          context,
+          onSelectReaction: (emoji, [text]) {
+            game.sendReaction(emoji, text);
+          },
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.navyDark.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: AppTheme.gold.withValues(alpha: 0.6),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.gold.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppTheme.gold,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'تفاعل 🔥',
+              style: GoogleFonts.cairo(
+                color: AppTheme.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
       ),
     );

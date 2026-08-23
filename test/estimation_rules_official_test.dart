@@ -239,16 +239,48 @@ void main() {
       expect(fixedTrumpForRound(18), equals(Trump.club));
     });
 
-    test('Overriding fixed trump requires 8 or more tricks', () {
-      const fixed = Trump.spade;
+    test('Round 14 skips auction and transitions from void check directly to declarations with fixed trump', () {
+      final state = GameState(
+        players: createTestPlayers(),
+        phase: GamePhase.voidCheck,
+        roundNumber: 14,
+        dealerSeatIndex: 0,
+      );
 
-      // Bid in different suit (Hearts) with 7 tricks -> invalid
-      const bid7Hearts = Bid(trickCount: 7, trump: Trump.heart);
-      expect(GameEngine.isValidBid(bid7Hearts, null, fixedTrump: fixed), isFalse);
+      GameEngine.passVoidCheck(state, 'p1');
+      GameEngine.passVoidCheck(state, 'p2');
+      GameEngine.passVoidCheck(state, 'p3');
+      GameEngine.passVoidCheck(state, 'p4');
 
-      // Bid in different suit with 8 tricks -> valid override
-      const bid8Hearts = Bid(trickCount: 8, trump: Trump.heart);
-      expect(GameEngine.isValidBid(bid8Hearts, null, fixedTrump: fixed), isTrue);
+      expect(state.phase, equals(GamePhase.declarations));
+      expect(state.trump, equals(Trump.sans));
+      expect(state.currentPlayerSeatIndex, equals(1)); // First declarer is seat after dealer
+    });
+
+    test('In fixed trump rounds, highest declarer becomes bidder and leads trick 1', () {
+      final state = GameState(
+        players: createTestPlayers(),
+        phase: GamePhase.declarations,
+        roundNumber: 15, // Spade
+        trump: Trump.spade,
+        dealerSeatIndex: 0,
+        currentPlayerSeatIndex: 1,
+      );
+
+      // P2 declares 3
+      expect(GameEngine.submitDeclaration(state, 'p2', 3), isTrue);
+      // P3 declares 6 (highest)
+      expect(GameEngine.submitDeclaration(state, 'p3', 6), isTrue);
+      // P4 declares 2
+      expect(GameEngine.submitDeclaration(state, 'p4', 2), isTrue);
+      // P1 declares 1 (sum = 12, legal)
+      expect(GameEngine.submitDeclaration(state, 'p1', 1), isTrue);
+
+      // All declared -> Trick taking begins, P3 (highest = 6) is the bidder & trick leader
+      expect(state.phase, equals(GamePhase.trickTaking));
+      expect(state.bidderPlayerId, equals('p3'));
+      expect(state.trickLeaderSeatIndex, equals(2)); // P3's seatIndex is 2
+      expect(state.currentPlayerSeatIndex, equals(2));
     });
   });
 }

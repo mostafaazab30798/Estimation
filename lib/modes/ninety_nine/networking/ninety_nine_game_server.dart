@@ -21,6 +21,7 @@ class NinetyNineGameServer {
 
   late NinetyNineGameState _state;
   final void Function(NinetyNineGameState) onStateUpdate;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
   String _hostId = '';
   String _hostName = '';
   int _maxPlayers = 2;
@@ -29,8 +30,7 @@ class NinetyNineGameServer {
   final Random _random = Random();
   bool _isStopped = false;
 
-
-  NinetyNineGameServer({required this.onStateUpdate});
+  NinetyNineGameServer({required this.onStateUpdate, this.onReaction});
 
   Future<void> start(
     String hostName,
@@ -267,6 +267,22 @@ class NinetyNineGameServer {
           NinetyNineGameEngine.advanceToNextRound(_state);
           _broadcastState();
         }
+        break;
+
+      case ActionType.sendReaction:
+        final reactionData = {
+          'id': payload['reactionId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'],
+          'emoji': payload['emoji'] ?? '🔥',
+          'text': payload['text'],
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        _channel?.sendBroadcastMessage(
+          event: 'reaction',
+          payload: reactionData,
+        );
+        onReaction?.call(reactionData);
         break;
 
       case ActionType.changeTheme:

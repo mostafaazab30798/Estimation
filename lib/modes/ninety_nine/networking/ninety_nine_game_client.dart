@@ -13,6 +13,7 @@ class NinetyNineGameClient {
 
   void Function(NinetyNineGameState)? onStateUpdate;
   final void Function(String) onError;
+  final void Function(Map<String, dynamic> reactionData)? onReaction;
 
   String _roomId = '';
   String _playerId = '';
@@ -20,6 +21,7 @@ class NinetyNineGameClient {
   NinetyNineGameClient({
     this.onStateUpdate,
     required this.onError,
+    this.onReaction,
   });
 
   Future<void> connect(
@@ -39,6 +41,18 @@ class NinetyNineGameClient {
       event: 'state',
       callback: (payload) {
         _handleStatePayload(payload);
+      },
+    );
+
+    // ── Listen for reaction broadcasts ──
+    _channel!.onBroadcast(
+      event: 'reaction',
+      callback: (payload) {
+        final data = (payload.containsKey('payload') &&
+                payload['payload'] is Map<String, dynamic>)
+            ? payload['payload'] as Map<String, dynamic>
+            : payload;
+        onReaction?.call(data);
       },
     );
 

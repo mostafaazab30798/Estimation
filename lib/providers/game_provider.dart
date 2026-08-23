@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
+import '../core/models/game_reaction.dart';
 import '../core/models/bid.dart';
 import '../core/models/player.dart';
 import '../core/game_engine.dart';
@@ -131,8 +132,13 @@ class GameProvider extends ChangeNotifier {
 
   NinetyNineGameClient? get nnClient => _nnClient;
 
-  List<String> _availableThemes = ['theme_1', 'theme_2'];
+  List<String> _availableThemes = ['theme_1', 'theme_2', 'theme_3', 'theme_4'];
   List<String> get availableThemes => _availableThemes;
+
+  // ── Reactions State ───────────────────────────────────────────
+  final Map<String, GameReaction> _activeReactions = {};
+  Map<String, GameReaction> get activeReactions => Map.unmodifiable(_activeReactions);
+  final Map<String, Timer> _reactionTimers = {};
 
   Future<void> _loadAvailableThemes() async {
     try {
@@ -283,6 +289,7 @@ class GameProvider extends ChangeNotifier {
           onStateUpdate: (state) {
             nnProvider?.syncState(state);
           },
+          onReaction: handleIncomingReaction,
         );
         await _localNnServer!.start(
           name,
@@ -298,6 +305,7 @@ class GameProvider extends ChangeNotifier {
           onStateUpdate: (state) {
             _updateState(state);
           },
+          onReaction: handleIncomingReaction,
         );
         await _localServer!.start(
           name,
@@ -363,6 +371,7 @@ class GameProvider extends ChangeNotifier {
           onStateUpdate: (state) {
             nnProvider?.syncState(state);
           },
+          onReaction: handleIncomingReaction,
         );
         await _localNnClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
       } else {
@@ -371,6 +380,7 @@ class GameProvider extends ChangeNotifier {
             _updateState(state);
           },
           onError: (err) => _setError(err),
+          onReaction: handleIncomingReaction,
         );
         await _localClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
       }
@@ -444,6 +454,7 @@ class GameProvider extends ChangeNotifier {
           onStateUpdate: (state) {
             nnProvider?.syncState(state);
           },
+          onReaction: handleIncomingReaction,
         );
         final myPhoto = await ProfileService.getProfilePhoto();
         await _nnServer!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
@@ -452,6 +463,7 @@ class GameProvider extends ChangeNotifier {
           onStateUpdate: (state) {
             _updateState(state);
           },
+          onReaction: handleIncomingReaction,
         );
         final myPhoto = await ProfileService.getProfilePhoto();
         await _server!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
@@ -500,6 +512,7 @@ class GameProvider extends ChangeNotifier {
         onStateUpdate: (state) {
           _updateState(state);
         },
+        onReaction: handleIncomingReaction,
       );
       final dummyRoomId = 'test_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
@@ -530,6 +543,7 @@ class GameProvider extends ChangeNotifier {
         onStateUpdate: (state) {
           nnProvider?.syncState(state);
         },
+        onReaction: handleIncomingReaction,
       );
       final dummyRoomId = 'test_99_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
@@ -563,6 +577,7 @@ class GameProvider extends ChangeNotifier {
         onStateUpdate: (state) {
           nnProvider?.syncState(state);
         },
+        onReaction: handleIncomingReaction,
       );
     } else {
       _client = GameClient(
@@ -570,6 +585,7 @@ class GameProvider extends ChangeNotifier {
           _updateState(state);
         },
         onError: (err) => _setError(err),
+        onReaction: handleIncomingReaction,
       );
     }
 
@@ -785,6 +801,41 @@ class GameProvider extends ChangeNotifier {
 
   void nextRound() => _sendAction(ActionType.nextRound);
 
+  // ── Reactions ──────────────────────────────────────────────────
+
+  void handleIncomingReaction(Map<String, dynamic> data) {
+    try {
+      final reaction = GameReaction.fromJson(data);
+      _activeReactions[reaction.playerId] = reaction;
+      _reactionTimers[reaction.playerId]?.cancel();
+      _reactionTimers[reaction.playerId] = Timer(const Duration(milliseconds: 3200), () {
+        _activeReactions.remove(reaction.playerId);
+        notifyListeners();
+      });
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[GameProvider] Error handling incoming reaction: $e');
+    }
+  }
+
+  void sendReaction(String emoji, [String? text]) {
+    final reaction = GameReaction(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      playerId: myPlayerId,
+      playerName: _myName,
+      emoji: emoji,
+      text: text,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    handleIncomingReaction(reaction.toJson());
+    _sendAction(ActionType.sendReaction, {
+      'reactionId': reaction.id,
+      'emoji': emoji,
+      'text': text,
+      'timestamp': reaction.timestamp,
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────────
 
   /// Translates raw Supabase/network error strings into user-friendly Arabic.
@@ -829,6 +880,12 @@ class GameProvider extends ChangeNotifier {
     _roomSub = null;
     _playersSub?.cancel();
     _playersSub = null;
+
+    for (final t in _reactionTimers.values) {
+      t.cancel();
+    }
+    _reactionTimers.clear();
+    _activeReactions.clear();
 
     await _discoveryService.stopBroadcasting();
     if (_localServer != null) {

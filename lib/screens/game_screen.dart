@@ -30,6 +30,8 @@ import '../widgets/hud/ready_phase_overlay.dart';
 import '../widgets/hud/local_player_ready_button.dart';
 import '../widgets/hud/game_event_banner.dart';
 import '../widgets/hud/turn_timer_badge.dart';
+import '../widgets/hud/reaction_bubble_widget.dart';
+import '../widgets/hud/reaction_picker_sheet.dart';
 import '../services/audio_service.dart';
 import '../services/reconnection_manager.dart';
 import 'scoring_screen.dart';
@@ -47,13 +49,10 @@ class _GameScreenState extends State<GameScreen> {
   bool _bidDialogOpen = false;
   bool _declarationDialogOpen = false;
   bool _delayingScoring = false;
-  bool _showEmotes = false;
   bool _showDoubleRoundOverlay = false;
   int? _lastAnnouncedDoubleRound;
   bool _showFixedTrumpOverlay = false;
   int? _lastAnnouncedFixedRound;
-  String? _floatingEmote;
-  Timer? _emoteTimer;
 
   // Fix #1/#9: Track last-seen values so we only trigger dialog logic
   // when the relevant state actually changes, not on every rebuild.
@@ -66,24 +65,8 @@ class _GameScreenState extends State<GameScreen> {
     AudioService.instance.bindToEventBus();
   }
 
-  void _triggerEmote(String emote) {
-    setState(() {
-      _floatingEmote = emote;
-      _showEmotes = false;
-    });
-    _emoteTimer?.cancel();
-    _emoteTimer = Timer(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        setState(() {
-          _floatingEmote = null;
-        });
-      }
-    });
-  }
-
   @override
   void dispose() {
-    _emoteTimer?.cancel();
     super.dispose();
   }
 
@@ -235,7 +218,7 @@ class _GameScreenState extends State<GameScreen> {
                   // ── Active Local Turn Timer above player hand (Non-overlapping) ───
                   if (state.phase == GamePhase.trickTaking && isMyTurn)
                     Positioned(
-                      bottom: isPortrait ? 215 : 132,
+                      bottom: isPortrait ? 255 : 155,
                       left: 0,
                       right: 0,
                       child: Center(
@@ -449,50 +432,9 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
 
-                  // ── Floating Emote Animation ─────────────────────────────
-                  if (_floatingEmote != null)
-                    Positioned(
-                      bottom: isPortrait ? 135 : 85,
-                      left: isPortrait ? 24 : 110,
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 1800),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, val, child) {
-                          return Transform.translate(
-                            offset: Offset(0, -val * 60),
-                            child: Opacity(
-                              opacity: (1.0 - val).clamp(0.0, 1.0),
-                              child: Transform.scale(
-                                scale: 1.0 + val * 0.4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.navyDark.withValues(alpha: 0.85),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.4),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(_floatingEmote!, style: const TextStyle(fontSize: 32)),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                  // ── Floating Emote Drawer Trigger ─────────────────────────
-                  Positioned(
-                    bottom: isPortrait ? 8 : 12,
-                    right: isPortrait ? 8 : 16,
-                    child: _buildEmoteDrawer(isPortrait),
+                  // ── Reactions Overlay (Bubbles over player seats) ───────
+                  Consumer<GameProvider>(
+                    builder: (ctx, prov, _) => _buildReactionsOverlay(prov, isPortrait),
                   ),
 
                   // ── Phase overlay ─────────────────────────────────
@@ -555,78 +497,132 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildEmoteDrawer(bool isPortrait) {
-    const emotes = ['🔥', '👑', '👏', '😂', '💀', '💩', '⚡'];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
+  Widget _buildReactionsOverlay(GameProvider prov, bool isPortrait) {
+    if (prov.activeReactions.isEmpty) return const SizedBox.shrink();
+
+    final state = prov.state;
+    if (state == null) return const SizedBox.shrink();
+
+    final total = state.players.length;
+    final mySeat = prov.me?.seatIndex ?? 0;
+
+    final leftSeat = total == 4 ? (mySeat + 3) % 4 : (total == 3 ? (mySeat + 2) % 3 : -1);
+    final rightSeat = total == 4 ? (mySeat + 1) % 4 : (total == 3 ? (mySeat + 1) % 3 : -1);
+    final topSeat = total == 4 ? (mySeat + 2) % 4 : -1;
+
+    final leftPlayer = state.players.where((p) => p.seatIndex == leftSeat).firstOrNull;
+    final rightPlayer = state.players.where((p) => p.seatIndex == rightSeat).firstOrNull;
+    final topPlayer = state.players.where((p) => p.seatIndex == topSeat).firstOrNull;
+    final myPlayer = prov.me;
+
+    return Stack(
       children: [
-        if (_showEmotes)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.navyDark.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.45)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final emote in emotes)
-                  GestureDetector(
-                    onTap: () => _triggerEmote(emote),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      child: Text(emote, style: const TextStyle(fontSize: 24)),
-                    ),
-                  ),
-              ],
+        // My reaction (bottom)
+        if (myPlayer != null && prov.activeReactions.containsKey(myPlayer.id))
+          Positioned(
+            bottom: isPortrait ? 138 : 88,
+            left: isPortrait ? 20 : 110,
+            child: ReactionBubbleWidget(
+              key: ValueKey(prov.activeReactions[myPlayer.id]!.id),
+              reaction: prov.activeReactions[myPlayer.id]!,
+              anchorAlignment: Alignment.bottomLeft,
             ),
           ),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _showEmotes = !_showEmotes;
-            });
-          },
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.navyDark.withValues(alpha: 0.85),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: _showEmotes ? AppTheme.gold : Colors.white.withValues(alpha: 0.3),
-                width: 1.4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                ),
-              ],
+
+        // Left opponent reaction
+        if (leftPlayer != null && prov.activeReactions.containsKey(leftPlayer.id))
+          Positioned(
+            left: isPortrait ? 8 : 16,
+            bottom: isPortrait ? 260 : 180,
+            child: ReactionBubbleWidget(
+              key: ValueKey(prov.activeReactions[leftPlayer.id]!.id),
+              reaction: prov.activeReactions[leftPlayer.id]!,
+              anchorAlignment: Alignment.centerLeft,
             ),
+          ),
+
+        // Right opponent reaction
+        if (rightPlayer != null && prov.activeReactions.containsKey(rightPlayer.id))
+          Positioned(
+            right: isPortrait ? 8 : 16,
+            bottom: isPortrait ? 260 : 180,
+            child: ReactionBubbleWidget(
+              key: ValueKey(prov.activeReactions[rightPlayer.id]!.id),
+              reaction: prov.activeReactions[rightPlayer.id]!,
+              anchorAlignment: Alignment.centerRight,
+            ),
+          ),
+
+        // Top opponent reaction
+        if (topPlayer != null && prov.activeReactions.containsKey(topPlayer.id))
+          Positioned(
+            top: isPortrait ? 80 : 70,
+            left: 0,
+            right: 0,
             child: Center(
-              child: Text(
-                _showEmotes ? '✕' : '💬',
-                style: TextStyle(
-                  fontSize: _showEmotes ? 16 : 18,
-                  color: _showEmotes ? AppTheme.gold : Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: ReactionBubbleWidget(
+                key: ValueKey(prov.activeReactions[topPlayer.id]!.id),
+                reaction: prov.activeReactions[topPlayer.id]!,
+                anchorAlignment: Alignment.topCenter,
               ),
             ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildReactionTriggerButton(BuildContext context, GameProvider provider, bool isPortrait) {
+    return GestureDetector(
+      onTap: () {
+        ReactionPickerSheet.show(
+          context,
+          onSelectReaction: (emoji, [text]) {
+            provider.sendReaction(emoji, text);
+          },
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.navyDark.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: AppTheme.gold.withValues(alpha: 0.6),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.gold.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppTheme.gold,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'تفاعل 🔥',
+              style: GoogleFonts.cairo(
+                color: AppTheme.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -730,6 +726,17 @@ class _GameScreenState extends State<GameScreen> {
               isLeft: isLeft,
               isRight: !isLeft),
         ),
+        const SizedBox(height: 10),
+        if (!isLeft)
+          _buildReactionTriggerButton(context, provider, MediaQuery.of(context).orientation == Orientation.portrait)
+        else
+          Visibility(
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            visible: false,
+            child: _buildReactionTriggerButton(context, provider, MediaQuery.of(context).orientation == Orientation.portrait),
+          ),
       ],
     );
   }

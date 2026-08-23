@@ -3,7 +3,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:estimation/core/constants.dart';
-import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/models/bid.dart';
 import 'package:estimation/core/models/player.dart';
 import 'package:estimation/core/models/game_state.dart';

@@ -1,8 +1,8 @@
 // lib/widgets/player_hand.dart
 //
-// Fanned/overlapping hand for the local player.
-// Cards are displayed 2 → A left to right so Ace is rightmost (most visible).
-// The underlying sorted list is [A, K, ... 2]; we render reversed so Ace is on top/right.
+// Fanned/two-row hand for the local player.
+// When cards > 6 (e.g. 13 cards), renders in two clear rows so the full card is visible.
+// When cards <= 6, renders in a single spacious centered row.
 
 import 'package:flutter/material.dart';
 import '../core/models/card.dart';
@@ -63,6 +63,58 @@ class _PlayerHandState extends State<PlayerHand> {
     }
   }
 
+  Widget _buildCardRow({
+    required List<PlayingCard> cards,
+    required List<int> originalIndices,
+    required double cardWidth,
+    required double cardHeight,
+    required PlayingCard? selected,
+    required List<bool> playable,
+    required bool isTrickTurn,
+    required double availableWidth,
+    required bool isPortrait,
+    required bool isTablet,
+  }) {
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    // Overlap calculation for this row
+    final maxCardStep = cardWidth + 4.0;
+    double step = maxCardStep;
+    if (cards.length > 1) {
+      final calculatedStep = (availableWidth - cardWidth) / (cards.length - 1);
+      step = calculatedStep < maxCardStep ? calculatedStep : maxCardStep;
+    }
+
+    final rowWidth = cardWidth + (cards.length - 1) * step;
+
+    return SizedBox(
+      width: rowWidth,
+      height: cardHeight + 10.0,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.centerLeft,
+        children: [
+          for (int i = 0; i < cards.length; i++)
+            AnimatedPositioned(
+              key: ValueKey(cards[i].id),
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              left: i * step,
+              bottom: selected == cards[i] ? 10.0 : 0.0,
+              child: PlayingCardWidget(
+                card: cards[i],
+                selected: selected == cards[i],
+                playable: playable[originalIndices[i]],
+                dimmed: isTrickTurn && !playable[originalIndices[i]],
+                width: cardWidth,
+                onTap: () => _handleTap(cards[i]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<PlayingCard?>(
@@ -78,35 +130,24 @@ class _PlayerHandState extends State<PlayerHand> {
         final isPortrait = media.orientation == Orientation.portrait;
         final isTablet = screenWidth >= 600;
 
-        // Responsive available width & card dimensions for both orientations
         final availableWidth = isPortrait
-            ? (screenWidth - 48).clamp(260.0, screenWidth * 0.88)
-            : (screenWidth - 240).clamp(260.0, screenWidth * 0.70);
+            ? (screenWidth - 32).clamp(280.0, screenWidth * 0.94)
+            : (screenWidth - 220).clamp(300.0, screenWidth * 0.75);
 
+        final bool useTwoRows = cards.length > 6;
+
+        // Card width calculation: with 2 rows, max cards per row is 7
         final cardWidth = isPortrait
-            ? (screenWidth * 0.155).clamp(50.0, isTablet ? 82.0 : 66.0)
-            : (screenHeight * 0.155).clamp(40.0, isTablet ? 70.0 : 55.0);
+            ? (useTwoRows
+                ? (availableWidth / 7.2).clamp(44.0, isTablet ? 72.0 : 56.0)
+                : (availableWidth / (cards.length + 0.5)).clamp(48.0, isTablet ? 84.0 : 66.0))
+            : (useTwoRows
+                ? (screenHeight * 0.16).clamp(42.0, isTablet ? 70.0 : 54.0)
+                : (screenHeight * 0.18).clamp(46.0, isTablet ? 76.0 : 60.0));
+
         final cardHeight = cardWidth / playingCardAspectRatio;
 
-        // Calculate overlap dynamically so they always fit perfectly
-        double overlap = 0.0;
-        if (cards.length > 1) {
-          overlap = (availableWidth - cardWidth) / (cards.length - 1);
-        }
-
-        // Limit maximum overlap so cards don't spread too far when few are left
-        final maxOverlap = isTablet ? 48.0 : (isPortrait ? 38.0 : 34.0);
-        double actualOverlap = overlap < maxOverlap ? overlap : maxOverlap;
-
-        final needsScroll = cards.length > 13;
-        if (needsScroll) {
-          actualOverlap = maxOverlap; // Keep a comfortable overlap for large hands
-        }
-
-        final totalWidth = cardWidth + (cards.length - 1) * actualOverlap;
-        final stackHeight = cardHeight + (isPortrait ? 32.0 : 16.0);
-
-        // Fix #7: Compute playability ONCE per card per build.
+        // Compute playability ONCE per card per build.
         final isTrickTurn =
             widget.isMyTurn && widget.state?.phase == GamePhase.trickTaking;
         final playable = List<bool>.generate(
@@ -114,65 +155,65 @@ class _PlayerHandState extends State<PlayerHand> {
           (i) => _isPlayable(cards[i]),
         );
 
-        final centerIndex = (cards.length - 1) / 2.0;
+        Widget content;
 
-        Widget content = SizedBox(
-          width: totalWidth,
-          child: Stack(
-            clipBehavior: Clip.none,
+        if (useTwoRows) {
+          final splitIndex = (cards.length + 1) ~/ 2;
+          final row1Cards = cards.sublist(0, splitIndex);
+          final row2Cards = cards.sublist(splitIndex);
+
+          final row1Indices = List<int>.generate(row1Cards.length, (i) => i);
+          final row2Indices =
+              List<int>.generate(row2Cards.length, (i) => splitIndex + i);
+
+          content = Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              for (int i = 0; i < cards.length; i++)
-                Builder(
-                  builder: (context) {
-                    final normPos = cards.length > 1
-                        ? (i - centerIndex) / (cards.length / 2.0)
-                        : 0.0;
-                    final rotationAngle = isPortrait ? (normPos * 0.24) : (normPos * 0.06);
-                    final arcOffsetY = isPortrait ? ((1.0 - normPos * normPos) * 12.0) : 0.0;
-
-                    return AnimatedPositioned(
-                      key: ValueKey(cards[i].id),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      left: i * actualOverlap,
-                      bottom: arcOffsetY,
-                      child: Transform.rotate(
-                        angle: rotationAngle,
-                        alignment: Alignment.bottomCenter,
-                        child: PlayingCardWidget(
-                          card: cards[i],
-                          selected: selected == cards[i],
-                          playable: playable[i],
-                          dimmed: isTrickTurn && !playable[i],
-                          width: cardWidth,
-                          onTap: () => _handleTap(cards[i]),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              _buildCardRow(
+                cards: row1Cards,
+                originalIndices: row1Indices,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                selected: selected,
+                playable: playable,
+                isTrickTurn: isTrickTurn,
+                availableWidth: availableWidth,
+                isPortrait: isPortrait,
+                isTablet: isTablet,
+              ),
+              const SizedBox(height: 2),
+              _buildCardRow(
+                cards: row2Cards,
+                originalIndices: row2Indices,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                selected: selected,
+                playable: playable,
+                isTrickTurn: isTrickTurn,
+                availableWidth: availableWidth,
+                isPortrait: isPortrait,
+                isTablet: isTablet,
+              ),
             ],
-          ),
-        );
-
-        if (needsScroll) {
-          content = SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: content,
-            ),
+          );
+        } else {
+          final allIndices = List<int>.generate(cards.length, (i) => i);
+          content = _buildCardRow(
+            cards: cards,
+            originalIndices: allIndices,
+            cardWidth: cardWidth,
+            cardHeight: cardHeight,
+            selected: selected,
+            playable: playable,
+            isTrickTurn: isTrickTurn,
+            availableWidth: availableWidth,
+            isPortrait: isPortrait,
+            isTablet: isTablet,
           );
         }
 
-        return SizedBox(
-          height: stackHeight,
-          width: needsScroll ? availableWidth : totalWidth,
-          child: Center(
-            child: content,
-          ),
-        );
+        return content;
       },
     );
   }
