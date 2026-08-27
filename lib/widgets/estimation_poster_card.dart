@@ -10,6 +10,7 @@ import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
 import '../services/achievement_service.dart';
 import '../core/widgets/player_avatar.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class EstimationPosterCard extends StatelessWidget {
   final String playerName;
@@ -179,11 +180,11 @@ class EstimationPosterCard extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.star_rounded, size: 10, color: gold),
+            const AppIcon(AppIcons.star, size: 10, color: gold),
             const SizedBox(width: 6),
             const Text('👑', style: TextStyle(fontSize: 16)),
             const SizedBox(width: 6),
-            const Icon(Icons.star_rounded, size: 10, color: gold),
+            const AppIcon(AppIcons.star, size: 10, color: gold),
           ],
         ),
         const SizedBox(height: 2),

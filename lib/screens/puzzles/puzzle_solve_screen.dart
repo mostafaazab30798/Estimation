@@ -11,6 +11,8 @@ import '../../services/puzzle_service.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
+import '../../core/widgets/app_buttons.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PuzzleSolveScreen extends StatefulWidget {
   final String puzzleId;
@@ -251,10 +253,12 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
       child: Row(
         children: [
           // Back Button
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.gold, size: 20),
+          AppIconButton(
+            icon: AppIcons.arrowBackIosNew,
+            color: AppTheme.gold,
+            size: AppIconButtonSize.md,
             tooltip: 'رجوع',
+            onTap: () => Navigator.pop(context),
           ),
 
           const SizedBox(width: 4),
@@ -322,7 +326,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.bolt_rounded, color: AppTheme.gold, size: 14),
+                const AppIcon(AppIcons.bolt, color: AppTheme.gold, size: 14),
                 const SizedBox(width: 2),
                 Text(
                   '+${puzzle.xpReward} XP',
@@ -404,13 +408,13 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
               runSpacing: 6,
               children: [
                 if (ctx.highBidInfo != null)
-                  _buildHudTag(Icons.gavel_rounded, ctx.highBidInfo!, const Color(0xFFF59E0B)),
+                  _buildHudTag(AppIcons.gavel, ctx.highBidInfo!, const Color(0xFFF59E0B)),
                 if (ctx.declaredCallsInfo != null)
-                  _buildHudTag(Icons.format_list_numbered_rounded, ctx.declaredCallsInfo!, const Color(0xFF10B981)),
+                  _buildHudTag(AppIcons.formatListNumbered, ctx.declaredCallsInfo!, const Color(0xFF10B981)),
                 if (ctx.currentTricksWon != null)
-                  _buildHudTag(Icons.stars_rounded, 'أكلاتك المحققة: ${ctx.currentTricksWon}', const Color(0xFF8B5CF6)),
+                  _buildHudTag(AppIcons.stars, 'أكلاتك المحققة: ${ctx.currentTricksWon}', const Color(0xFF8B5CF6)),
                 if (ctx.scoreSituation != null)
-                  _buildHudTag(Icons.bar_chart_rounded, ctx.scoreSituation!, const Color(0xFF38BDF8)),
+                  _buildHudTag(AppIcons.barChart, ctx.scoreSituation!, const Color(0xFF38BDF8)),
               ],
             ),
           ],
@@ -460,7 +464,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
     );
   }
 
-  Widget _buildHudTag(IconData icon, String text, Color color) {
+  Widget _buildHudTag(AppIconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -471,7 +475,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 12),
+          AppIcon(icon, color: color, size: 12),
           const SizedBox(width: 4),
           Text(
             text,
@@ -566,7 +570,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                   color: puzzle.category.color.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.help_outline_rounded, color: puzzle.category.color, size: 18),
+                child: AppIcon(AppIcons.helpOutline, color: puzzle.category.color, size: 18),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -652,7 +656,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                       ),
                     ),
                     child: isSelected
-                        ? const Icon(Icons.check_rounded, color: AppTheme.navyDark, size: 16)
+                        ? const AppIcon(AppIcons.checkRounded, color: AppTheme.navyDark, size: 16)
                         : null,
                   ),
                   const SizedBox(width: 12),
@@ -703,7 +707,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
           : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle_outline_rounded, color: AppTheme.navyDark, size: 20),
+                const AppIcon(AppIcons.checkCircleOutline, color: AppTheme.navyDark, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'تأكيد الإجابة',

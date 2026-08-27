@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
 import 'performance_blur.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class ReconnectionBanner extends StatelessWidget {
   const ReconnectionBanner({
@@ -144,8 +145,8 @@ class ReconnectionBanner extends StatelessWidget {
                       color: AppTheme.errorRed.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.wifi_off_rounded,
+                  child: const AppIcon(
+                    AppIcons.wifiOff,
                     color: AppTheme.errorRed,
                     size: 36,
                   ),
@@ -182,8 +183,8 @@ class ReconnectionBanner extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onGoHome,
-                        icon: const Icon(
-                          Icons.home_rounded,
+                        icon: const AppIcon(
+                          AppIcons.home,
                           size: 18,
                           color: AppTheme.textSecondary,
                         ),
@@ -207,7 +208,7 @@ class ReconnectionBanner extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: onRetry,
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        icon: const AppIcon(AppIcons.refresh, size: 18),
                         label: Text(
                           'إعادة المحاولة',
                           style: GoogleFonts.cairo(

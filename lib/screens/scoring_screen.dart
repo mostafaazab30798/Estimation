@@ -14,6 +14,7 @@ import '../widgets/performance_blur.dart';
 import '../widgets/perfect_estimate_overlay.dart';
 import '../widgets/comeback_overlay.dart';
 import '../services/audio_service.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class ScoringScreen extends StatefulWidget {
   final GameState state;
@@ -117,7 +118,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                     shape: BoxShape.circle,
                     border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
                   ),
-                  child: const Icon(Icons.flag_circle_rounded, color: AppTheme.gold, size: 20),
+                  child: const AppIcon(AppIcons.flagCircle, color: AppTheme.gold, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -353,7 +354,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                   border: Border.all(
                       color: AppTheme.playerRed.withValues(alpha: 0.3)),
                 ),
-                child: const Icon(Icons.exit_to_app_rounded,
+                child: const AppIcon(AppIcons.exitToApp,
                     color: AppTheme.playerRed, size: 28),
               ),
               const SizedBox(height: 16),
@@ -638,8 +639,8 @@ class _PrimaryActionButtonState extends State<_PrimaryActionButton> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                widget.isFinal ? Icons.emoji_events_rounded : Icons.arrow_back_ios_new_rounded,
+              AppIcon(
+                widget.isFinal ? AppIcons.emojiEvents : AppIcons.arrowForwardIos,
                 size: 17,
                 color: AppTheme.navyDark,
               ),

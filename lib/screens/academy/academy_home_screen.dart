@@ -7,7 +7,9 @@ import '../../models/academy_models.dart';
 import '../../services/academy_service.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
+import '../../core/widgets/app_buttons.dart';
 import 'academy_lesson_screen.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class AcademyHomeScreen extends StatefulWidget {
   const AcademyHomeScreen({super.key});
@@ -178,43 +180,15 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Back Button
-          InkWell(
+          AppIconCapsule(
+            icon: AppIcons.arrowBackIosNew,
+            label: 'رجوع',
+            accent: AppTheme.gold,
+            dense: true,
             onTap: () {
-              HapticFeedback.lightImpact();
               AudioService.instance.playCard();
               Navigator.pop(context);
             },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.navyDark.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.35),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppTheme.gold,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'رجوع',
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.goldLight,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
 
           // Title & Badge
@@ -396,8 +370,8 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.check_circle_outline_rounded,
+                  const AppIcon(
+                    AppIcons.checkCircleOutline,
                     color: AppTheme.gold,
                     size: 16,
                   ),
@@ -425,7 +399,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                icon: const AppIcon(AppIcons.playArrow, size: 18),
                 label: Text(
                   completedCount == totalLessons ? 'مراجعة الدروس 🔄' : 'استئناف ⚡',
                   style: GoogleFonts.cairo(
@@ -605,10 +579,10 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Icon(
+                      AppIcon(
                         isExpanded
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
+                            ? AppIcons.keyboardArrowUp
+                            : AppIcons.keyboardArrowDown,
                         color: AppTheme.steelBlue,
                         size: 20,
                       ),
@@ -685,8 +659,8 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                 ),
               ),
               alignment: Alignment.center,
-              child: Icon(
-                isDone ? Icons.check_rounded : Icons.play_arrow_rounded,
+              child: AppIcon(
+                isDone ? AppIcons.checkRounded : AppIcons.playArrow,
                 color: isDone ? AppTheme.gold : AppTheme.cream,
                 size: 16,
               ),

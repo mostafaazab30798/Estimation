@@ -22,13 +22,12 @@ import '../widgets/declaration_dialog.dart';
 import '../widgets/tricks_dialog.dart';
 import '../widgets/double_round_overlay.dart';
 import '../widgets/fixed_trump_round_overlay.dart';
+import '../widgets/earthquake/earthquake_effect_overlay.dart';
 import '../widgets/reconnection_banner.dart';
 import '../widgets/hud/game_background.dart';
 import '../widgets/hud/casino_table.dart';
 import '../widgets/hud/top_hud.dart';
 import '../widgets/hud/ready_phase_overlay.dart';
-import '../widgets/hud/local_player_ready_button.dart';
-import '../widgets/hud/game_event_banner.dart';
 import '../widgets/hud/turn_timer_badge.dart';
 import '../widgets/hud/reaction_bubble_widget.dart';
 import '../widgets/hud/reaction_picker_sheet.dart';
@@ -36,6 +35,7 @@ import '../services/audio_service.dart';
 import '../services/reconnection_manager.dart';
 import 'scoring_screen.dart';
 import 'match_end_screen.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -141,7 +141,7 @@ class _GameScreenState extends State<GameScreen> {
       _showDoubleRoundOverlay = true;
     }
 
-    // Trigger Fixed Trump Round presentation when entering a championship fixed trump round (rounds 14-18)
+    // Trigger Fixed Trump Round presentation when entering a championship fixed trump round
     if (state.fixedTrump != null && _lastAnnouncedFixedRound != state.roundNumber) {
       _lastAnnouncedFixedRound = state.roundNumber;
       _showFixedTrumpOverlay = true;
@@ -166,8 +166,9 @@ class _GameScreenState extends State<GameScreen> {
         _confirmExit(context, provider);
       },
       child: Scaffold(
-        body: Stack(
-          children: [
+        body: EarthquakeEffectOverlay(
+          child: Stack(
+            children: [
             // ── 1. Animated layered background ──────────────────────
             Positioned.fill(
               child: RepaintBoundary(
@@ -205,32 +206,7 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
 
-                  // ── Live Contextual Game Events Banner ────────────
-                  Positioned(
-                    top: isPortrait ? 58 : 68,
-                    left: 16,
-                    right: 16,
-                    child: const Center(
-                      child: GameEventBanner(),
-                    ),
-                  ),
 
-                  // ── Active Local Turn Timer above player hand (Non-overlapping) ───
-                  if (state.phase == GamePhase.trickTaking && isMyTurn)
-                    Positioned(
-                      bottom: isPortrait ? 255 : 155,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Consumer<GameProvider>(
-                          builder: (ctx, prov, _) => TurnTimerBadge(
-                            state: prov.state!,
-                            isMyTurn: true,
-                            compact: true,
-                          ),
-                        ),
-                      ),
-                    ),
 
                   // ── Center Trick Area ─────────────────────────────
                   Align(
@@ -343,6 +319,7 @@ class _GameScreenState extends State<GameScreen> {
                             state: prov.state!,
                             me: prov.me,
                             onPlayCard: prov.playCard,
+                            onEarthquakeStrike: prov.triggerEarthquakeStrike,
                           );
 
                           final playerInfoCard = KeyedSubtree(
@@ -367,39 +344,29 @@ class _GameScreenState extends State<GameScreen> {
                             ),
                           );
 
-                          final readyBtn =
-                              prov.state!.phase == GamePhase.voidCheck
-                                  ? LocalPlayerReadyButton(
-                                      isReady: prov.state!.voidCheckPassed
-                                          .contains(prov.myPlayerId),
-                                      onTap: () {
-                                        final isReady = prov.state!
-                                            .voidCheckPassed
-                                            .contains(prov.myPlayerId);
-                                        if (isReady) {
-                                          prov.unready();
-                                        } else {
-                                          prov.confirmNoVoid();
-                                        }
-                                      },
-                                    )
-                                  : null;
+                          final bool showTurnTimer =
+                              prov.state?.phase == GamePhase.trickTaking &&
+                                  prov.isMyTurn;
 
                           if (isPortrait) {
                             return Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
+                                if (showTurnTimer) ...[
+                                  TurnTimerBadge(
+                                    state: prov.state!,
+                                    isMyTurn: true,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
                                 handWidget,
                                 const SizedBox(height: 4),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     playerInfoCard,
-                                    if (readyBtn != null) ...[
-                                      const SizedBox(width: 10),
-                                      readyBtn,
-                                    ],
                                   ],
                                 ),
                               ],
@@ -412,19 +379,24 @@ class _GameScreenState extends State<GameScreen> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 6.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    playerInfoCard,
-                                    if (readyBtn != null) ...[
-                                      const SizedBox(height: 6),
-                                      readyBtn,
-                                    ],
-                                  ],
-                                ),
+                                child: playerInfoCard,
                               ),
                               const SizedBox(width: 14),
-                              handWidget,
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (showTurnTimer) ...[
+                                    TurnTimerBadge(
+                                      state: prov.state!,
+                                      isMyTurn: true,
+                                      compact: true,
+                                    ),
+                                    const SizedBox(height: 6),
+                                  ],
+                                  handWidget,
+                                ],
+                              ),
                             ],
                           );
                         },
@@ -491,7 +463,8 @@ class _GameScreenState extends State<GameScreen> {
                   },
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -572,55 +545,66 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildReactionTriggerButton(BuildContext context, GameProvider provider, bool isPortrait) {
-    return GestureDetector(
-      onTap: () {
-        ReactionPickerSheet.show(
-          context,
-          onSelectReaction: (emoji, [text]) {
-            provider.sendReaction(emoji, text);
-          },
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.navyDark.withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: AppTheme.gold.withValues(alpha: 0.6),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.gold.withValues(alpha: 0.25),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          ReactionPickerSheet.show(
+            context,
+            onSelectReaction: (emoji, [text]) {
+              provider.sendReaction(emoji, text);
+            },
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.navyDark.withValues(alpha: 0.88),
+                AppTheme.surface2.withValues(alpha: 0.82),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.gold.withValues(alpha: 0.45),
+              width: 1.1,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.chat_bubble_outline_rounded,
-              color: AppTheme.gold,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'تفاعل 🔥',
-              style: GoogleFonts.cairo(
-                color: AppTheme.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.gold.withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
               ),
-            ),
-          ],
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppIcon(
+                AppIcons.chatBubbleOutline,
+                color: AppTheme.goldLight,
+                size: 16,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'تفاعل',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.cream,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -777,19 +761,19 @@ class _GameScreenState extends State<GameScreen> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xF02A4560), Color(0xF01D3348)],
+              colors: [Color(0xF2324F6A), Color(0xF2182C3E)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(26),
             border: Border.all(
-              color: AppTheme.steelBlue.withValues(alpha: 0.2),
-              width: 1.2,
+              color: AppTheme.cream.withValues(alpha: 0.10),
+              width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 32,
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 36,
                 spreadRadius: 4,
               ),
             ],
@@ -798,15 +782,16 @@ class _GameScreenState extends State<GameScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.playerRed.withValues(alpha: 0.15),
+                  color: AppTheme.playerRed.withValues(alpha: 0.14),
                   border: Border.all(
-                      color: AppTheme.playerRed.withValues(alpha: 0.3)),
+                    color: AppTheme.playerRed.withValues(alpha: 0.32),
+                  ),
                 ),
-                child: const Icon(Icons.exit_to_app_rounded,
+                child: const AppIcon(AppIcons.exitToApp,
                     color: AppTheme.playerRed, size: 28),
               ),
               const SizedBox(height: 16),
@@ -824,7 +809,8 @@ class _GameScreenState extends State<GameScreen> {
                 'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
                 style: GoogleFonts.cairo(
                   color: AppTheme.steelBlue,
-                  fontSize: 12,
+                  fontSize: 12.5,
+                  height: 1.45,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -834,14 +820,15 @@ class _GameScreenState extends State<GameScreen> {
                   Expanded(
                     child: InkWell(
                       onTap: () => Navigator.pop(ctx),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
                         decoration: BoxDecoration(
                           color: AppTheme.steelBlue.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: AppTheme.steelBlue.withValues(alpha: 0.3)),
+                            color: AppTheme.steelBlue.withValues(alpha: 0.28),
+                          ),
                         ),
                         child: Text(
                           'إلغاء',
@@ -863,16 +850,16 @@ class _GameScreenState extends State<GameScreen> {
                         Navigator.of(context, rootNavigator: true)
                             .pushNamedAndRemoveUntil('/', (route) => false);
                       },
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [AppTheme.playerRed, Color(0xFFB03050)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
                               color: AppTheme.playerRed.withValues(alpha: 0.35),
@@ -1046,7 +1033,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-// ── HiddenCardFan Widget — unchanged ────────────────────────────────────────
+// ── HiddenCardFan Widget — presentation only ────────────────────────────────
 class HiddenCardFan extends StatelessWidget {
   final int count;
   final bool isLeft;
@@ -1060,47 +1047,52 @@ class HiddenCardFan extends StatelessWidget {
     if (count == 0) return const SizedBox();
 
     final displayCount = count > 4 ? 4 : count;
-    const cardW = 32.0;
+    const cardW = 30.0;
     const cardH = cardW / 0.65;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (!isRight) _buildRemainingText(),
-        if (!isRight) const SizedBox(width: 8),
+        if (!isRight) const SizedBox(width: 7),
         SizedBox(
-          width: cardW + (displayCount - 1) * 12.0,
+          width: cardW + (displayCount - 1) * 11.0,
           height: cardH,
           child: Stack(
             clipBehavior: Clip.none,
             children: List.generate(displayCount, (i) {
               return Positioned(
-                left: i * 12.0,
-                child: Container(
-                  width: cardW,
-                  height: cardH,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(
-                        color: AppTheme.steelBlue.withValues(alpha: 0.3),
-                        width: 1),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                          offset: Offset(-2, 2)),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: Image.asset('assets/back.png', fit: BoxFit.cover),
+                left: i * 11.0,
+                child: Transform.rotate(
+                  angle: (i - (displayCount - 1) / 2) * 0.04,
+                  child: Container(
+                    width: cardW,
+                    height: cardH,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                        color: AppTheme.cream.withValues(alpha: 0.14),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 5,
+                          offset: const Offset(-1.5, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset('assets/back.png', fit: BoxFit.cover),
+                    ),
                   ),
                 ),
               );
             }),
           ),
         ),
-        if (isRight) const SizedBox(width: 8),
+        if (isRight) const SizedBox(width: 7),
         if (isRight) _buildRemainingText(),
       ],
     );
@@ -1108,17 +1100,22 @@ class HiddenCardFan extends StatelessWidget {
 
   Widget _buildRemainingText() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppTheme.deepNavy.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: AppTheme.steelBlue.withValues(alpha: 0.25), width: 0.8),
+        color: AppTheme.deepNavy.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppTheme.cream.withValues(alpha: 0.12),
+          width: 0.9,
+        ),
       ),
       child: Text(
         '$count',
-        style: const TextStyle(
-            color: AppTheme.cream, fontSize: 12, fontWeight: FontWeight.bold),
+        style: GoogleFonts.cairo(
+          color: AppTheme.cream,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

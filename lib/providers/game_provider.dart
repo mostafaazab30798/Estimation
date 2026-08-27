@@ -3,20 +3,25 @@
 // Central state manager. Bridges networking layer ↔ UI.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math';
+import 'dart:ui' show Offset, Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle, AssetManifest;
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/constants.dart';
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
 import '../core/models/game_reaction.dart';
 import '../core/models/bid.dart';
 import '../core/models/player.dart';
 import '../core/game_engine.dart';
+import '../core/events/estimation_event_bus.dart';
 import '../core/events/estimation_event_dispatcher.dart';
+import '../core/events/estimation_game_events.dart';
 import '../networking/game_server.dart';
 import '../networking/game_client.dart';
 import '../networking/messages.dart';
@@ -93,11 +98,43 @@ class GameProvider extends ChangeNotifier {
   StreamSubscription? _roomSub;
   StreamSubscription? _playersSub;
 
+  Timer? _autoPlayCardTimer;
+
   void _updateState(GameState newState) {
     final oldState = _state;
     _state = newState;
     EstimationEventDispatcher.instance.dispatchStateTransition(oldState, newState);
+    _checkAutoPlayCard();
     notifyListeners();
+  }
+
+  void _checkAutoPlayCard() {
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
+
+    final st = _state;
+    final localMe = me;
+    if (st == null || localMe == null) return;
+    if (st.phase != GamePhase.trickTaking) return;
+    if (st.currentPlayerSeatIndex != localMe.seatIndex) return;
+
+    // Find all legal playable cards for me
+    final legalCards = localMe.hand
+        .where((c) => GameEngine.canPlayCard(st, localMe, c))
+        .toList();
+
+    // If there is strictly only 1 legal card (either last card in hand or forced follow-suit)
+    if (legalCards.length == 1) {
+      final cardToPlay = legalCards.first;
+      _autoPlayCardTimer = Timer(const Duration(milliseconds: 550), () {
+        if (_state != null &&
+            _state!.phase == GamePhase.trickTaking &&
+            _state!.currentPlayerSeatIndex == me?.seatIndex &&
+            me?.hand.contains(cardToPlay) == true) {
+          playCard(cardToPlay);
+        }
+      });
+    }
   }
 
   // ── Getters ───────────────────────────────────────────────────
@@ -142,6 +179,9 @@ class GameProvider extends ChangeNotifier {
 
   Future<void> _loadAvailableThemes() async {
     try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       final assets = manifest.listAssets();
       
@@ -182,6 +222,9 @@ class GameProvider extends ChangeNotifier {
       case GamePhase.declarations:
         return _state!.currentPlayerSeatIndex == me!.seatIndex && me!.declared == null;
       case GamePhase.voidCheck:
+        if (_state!.voidDeclaringPlayerId != null) {
+          return !_state!.voidRedealRejections.contains(myPlayerId);
+        }
         return !_state!.voidCheckPassed.contains(myPlayerId);
       default:
         return false;
@@ -252,6 +295,7 @@ class GameProvider extends ChangeNotifier {
     int expectedPlayers = 4,
     String gameType = 'kotchina',
     int port = 7890,
+    int totalRounds = kBoulaTotalRounds,
   }) async {
     await reset();
     _transport = ConnectionTransport.local;
@@ -306,6 +350,7 @@ class GameProvider extends ChangeNotifier {
             _updateState(state);
           },
           onReaction: handleIncomingReaction,
+          onEarthquake: handleIncomingEarthquake,
         );
         await _localServer!.start(
           name,
@@ -314,6 +359,7 @@ class GameProvider extends ChangeNotifier {
           myPhoto,
           maxPlayers: expectedPlayers,
           port: port,
+          totalRounds: totalRounds,
         );
         _localPort = _localServer!.boundPort;
       }
@@ -381,6 +427,7 @@ class GameProvider extends ChangeNotifier {
           },
           onError: (err) => _setError(err),
           onReaction: handleIncomingReaction,
+          onEarthquake: handleIncomingEarthquake,
         );
         await _localClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
       }
@@ -394,7 +441,12 @@ class GameProvider extends ChangeNotifier {
 
   // ── Host a game ───────────────────────────────────────────────
 
-  Future<void> hostGame(String name, {int expectedPlayers = 4, String gameType = 'kotchina'}) async {
+  Future<void> hostGame(
+    String name, {
+    int expectedPlayers = 4,
+    String gameType = 'kotchina',
+    int totalRounds = kBoulaTotalRounds,
+  }) async {
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     nnProvider?.setPlayerId(_myPlayerId!);
@@ -464,9 +516,17 @@ class GameProvider extends ChangeNotifier {
             _updateState(state);
           },
           onReaction: handleIncomingReaction,
+          onEarthquake: handleIncomingEarthquake,
         );
         final myPhoto = await ProfileService.getProfilePhoto();
-        await _server!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
+        await _server!.start(
+          name,
+          myPlayerId,
+          createdRoom.id,
+          myPhoto,
+          maxPlayers: expectedPlayers,
+          totalRounds: totalRounds,
+        );
       }
 
       _currentRoom = createdRoom;
@@ -498,12 +558,13 @@ class GameProvider extends ChangeNotifier {
 
   // ── Test mode (3 bot players) ─────────────────────────────────
 
-  Future<void> startTestGame(String name) async {
+  Future<void> startTestGame(String name, {int totalRounds = kBoulaTotalRounds}) async {
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     _myName = name;
     _role = ConnectionRole.host;
     _isTestMode = true;
+    _expectedPlayers = 4;
     _status = ConnectionStatus.connecting;
     notifyListeners();
 
@@ -513,10 +574,11 @@ class GameProvider extends ChangeNotifier {
           _updateState(state);
         },
         onReaction: handleIncomingReaction,
+        onEarthquake: handleIncomingEarthquake,
       );
       final dummyRoomId = 'test_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
-      await _server!.start(name, myPlayerId, dummyRoomId, myPhoto);
+      await _server!.start(name, myPlayerId, dummyRoomId, myPhoto, totalRounds: totalRounds);
       // Add 3 bot players to fill the remaining seats
       _server!.addBotPlayers(count: 3);
       _status = ConnectionStatus.connected;
@@ -586,6 +648,7 @@ class GameProvider extends ChangeNotifier {
         },
         onError: (err) => _setError(err),
         onReaction: handleIncomingReaction,
+        onEarthquake: handleIncomingEarthquake,
       );
     }
 
@@ -793,15 +856,86 @@ class GameProvider extends ChangeNotifier {
     _sendAction(ActionType.submitDeclaration, {'declared': declared});
   }
 
-  void playCard(PlayingCard card) =>
-      _sendAction(ActionType.playCard, {'card': card.toJson()});
+  void playCard(PlayingCard card) {
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
+    _sendAction(ActionType.playCard, {'card': card.toJson()});
+  }
 
   void requestStateSync() => _sendAction(ActionType.requestStateSync);
 
 
   void nextRound() => _sendAction(ActionType.nextRound);
 
-  // ── Reactions ──────────────────────────────────────────────────
+  // ── Reactions & Earthquakes ───────────────────────────────────
+
+  final Set<String> _handledEarthquakeIds = {};
+
+  void handleIncomingEarthquake(Map<String, dynamic> data) {
+    try {
+      final id = data['earthquakeId']?.toString() ?? data['id']?.toString() ?? '';
+      if (id.isNotEmpty) {
+        if (_handledEarthquakeIds.contains(id)) return;
+        _handledEarthquakeIds.add(id);
+        if (_handledEarthquakeIds.length > 60) {
+          _handledEarthquakeIds.remove(_handledEarthquakeIds.first);
+        }
+      }
+
+      final playerId = data['playerId'] as String? ?? '';
+      if (playerId == myPlayerId && id.isEmpty) return;
+
+      final playerName = data['playerName'] as String? ?? 'Player';
+      final roundNumber = data['roundNumber'] as int? ?? _state?.roundNumber ?? 1;
+      PlayingCard? card;
+      if (data['card'] != null) {
+        if (data['card'] is Map<String, dynamic>) {
+          card = PlayingCard.fromJson(data['card'] as Map<String, dynamic>);
+        }
+      }
+      card ??= PlayingCard(rank: Rank.ace, suit: Suit.spade);
+
+      EstimationEventBus.instance.fire(
+        EarthquakeStrikeUsed(
+          playerId: playerId,
+          playerName: playerName,
+          card: card,
+          roundNumber: roundNumber,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[GameProvider] Error handling incoming earthquake: $e');
+    }
+  }
+
+  void triggerEarthquakeStrike(
+    PlayingCard card, {
+    Offset? flightOrigin,
+    Size? cardSize,
+  }) {
+    final earthquakeId = DateTime.now().microsecondsSinceEpoch.toString();
+    _handledEarthquakeIds.add(earthquakeId);
+
+    // Fire locally immediately on striker device for 0ms latency
+    EstimationEventBus.instance.fire(
+      EarthquakeStrikeUsed(
+        playerId: myPlayerId,
+        playerName: _myName,
+        card: card,
+        roundNumber: _state?.roundNumber ?? 1,
+        flightOriginGlobal: flightOrigin,
+        flightCardSize: cardSize,
+      ),
+    );
+
+    // Broadcast action to all other players and server
+    _sendAction(ActionType.triggerEarthquake, {
+      'earthquakeId': earthquakeId,
+      'card': card.toJson(),
+      'roundNumber': _state?.roundNumber ?? 1,
+      'playerName': _myName,
+    });
+  }
 
   void handleIncomingReaction(Map<String, dynamic> data) {
     try {
@@ -881,6 +1015,9 @@ class GameProvider extends ChangeNotifier {
     _playersSub?.cancel();
     _playersSub = null;
 
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
+
     for (final t in _reactionTimers.values) {
       t.cancel();
     }
@@ -931,6 +1068,8 @@ class GameProvider extends ChangeNotifier {
     _errorMessage = '';
     _isSearching = false;
     _isTestMode = false;
+    _expectedPlayers = 4;
+    EstimationEventBus.instance.clearHistory();
     notifyListeners();
   }
 
@@ -1116,6 +1255,8 @@ class GameProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
     _roomSub?.cancel();
     _playersSub?.cancel();
     _server?.stop();

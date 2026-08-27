@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/settings_service.dart';
 import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class SettingsDialog extends StatefulWidget {
   const SettingsDialog({super.key});
@@ -86,7 +87,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           children: [
                             IconButton(
                               onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.close_rounded, color: AppTheme.steelBlue),
+                              icon: const AppIcon(AppIcons.close, color: AppTheme.steelBlue),
                               splashRadius: 20,
                             ),
                             Row(
@@ -101,7 +102,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(Icons.settings_rounded, color: AppTheme.gold, size: 22),
+                                const AppIcon(AppIcons.settings, color: AppTheme.gold, size: 22),
                               ],
                             ),
                           ],
@@ -125,8 +126,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                         // SFX Toggle
                         _buildSettingTile(
                           icon: _settings.sfxEnabled
-                              ? Icons.volume_up_rounded
-                              : Icons.volume_off_rounded,
+                              ? AppIcons.volumeUp
+                              : AppIcons.volumeOff,
                           title: 'المؤثرات الصوتية',
                           subtitle: 'أصوات رمي الكروت وسحب اللمات',
                           trailing: Switch(
@@ -150,8 +151,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                             padding: const EdgeInsets.symmetric(horizontal: 4.0),
                             child: Row(
                               children: [
-                                Icon(
-                                  Icons.volume_mute_rounded,
+                                AppIcon(
+                                  AppIcons.volumeMute,
                                   color: AppTheme.steelBlue.withValues(alpha: 0.6),
                                   size: 20,
                                 ),
@@ -177,8 +178,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                                     ),
                                   ),
                                 ),
-                                const Icon(
-                                  Icons.volume_up_rounded,
+                                const AppIcon(
+                                  AppIcons.volumeUp,
                                   color: AppTheme.gold,
                                   size: 20,
                                 ),
@@ -190,7 +191,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
                         // Haptics Toggle
                         _buildSettingTile(
-                          icon: Icons.vibration_rounded,
+                          icon: AppIcons.vibration,
                           title: 'الاهتزازات التفاعلية',
                           subtitle: 'اهتزاز عند لعب كارت أو الفوز بالجولة',
                           trailing: Switch(
@@ -246,7 +247,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   }
 
   Widget _buildSettingTile({
-    required IconData icon,
+    required AppIconData icon,
     required String title,
     required String subtitle,
     required Widget trailing,
@@ -298,7 +299,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 color: AppTheme.gold.withValues(alpha: 0.2),
               ),
             ),
-            child: Icon(icon, color: AppTheme.gold, size: 18),
+            child: AppIcon(icon, color: AppTheme.gold, size: 18),
           ),
         ],
       ),

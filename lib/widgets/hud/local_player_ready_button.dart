@@ -5,6 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
+import '../../core/widgets/app_buttons.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 /// Toggle-ready button for the local player.
 /// Modern, clean, sleek design with touch feedback and glowing animations.
@@ -216,11 +218,12 @@ class _LocalPlayerReadyButtonState extends State<LocalPlayerReadyButton>
                                 duration: const Duration(milliseconds: 250),
                                 transitionBuilder: (child, anim) =>
                                     ScaleTransition(scale: anim, child: child),
-                                child: Icon(
-                                  isReady ? Icons.task_alt_rounded : Icons.bolt_rounded,
+                                child: AppIcon(
+                                  isReady ? AppIcons.taskAlt : AppIcons.bolt,
                                   key: ValueKey(isReady),
-                                  size: 19,
+                                  size: AppIconTokens.sizeLg,
                                   color: isReady ? _readyColor : AppTheme.deepNavy,
+                                  strokeWidth: AppIconTokens.strokeBold,
                                 ),
                               ),
                               const SizedBox(width: 8),

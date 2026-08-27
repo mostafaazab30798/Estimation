@@ -25,6 +25,7 @@ import 'package:estimation/widgets/level_up_dialog.dart';
 import 'package:estimation/widgets/rank_tier_badge.dart';
 import 'package:estimation/widgets/hud/reaction_bubble_widget.dart';
 import 'package:estimation/widgets/hud/reaction_picker_sheet.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class NinetyNineGameScreen extends StatefulWidget {
   const NinetyNineGameScreen({super.key});
@@ -651,7 +652,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
 
             ElevatedButton.icon(
               onPressed: () => game.advanceToNextRound(),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              icon: const AppIcon(AppIcons.arrowForward, size: 18),
               label: Text(
                 'الجولة التالية',
                 style: GoogleFonts.cairo(
@@ -804,7 +805,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.auto_awesome_rounded, color: AppTheme.gold, size: 18),
+                    const AppIcon(AppIcons.autoAwesome, color: AppTheme.gold, size: 18),
                     const SizedBox(width: 6),
                     Text(
                       '+${_ninetyNineXp!.totalXp} XP مكافأة 99',
@@ -892,7 +893,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                   border: Border.all(
                       color: AppTheme.playerRed.withValues(alpha: 0.3)),
                 ),
-                child: const Icon(Icons.exit_to_app_rounded,
+                child: const AppIcon(AppIcons.exitToApp,
                     color: AppTheme.playerRed, size: 28),
               ),
               const SizedBox(height: 16),
@@ -1131,8 +1132,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.chat_bubble_outline_rounded,
+            const AppIcon(
+              AppIcons.chatBubbleOutline,
               color: AppTheme.gold,
               size: 18,
             ),

@@ -18,8 +18,9 @@ class GameClient {
   final StateUpdateCallback onStateUpdate;
   final ErrorCallback onError;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
+  final void Function(Map<String, dynamic> earthquakeData)? onEarthquake;
 
-  GameClient({required this.onStateUpdate, required this.onError, this.onReaction});
+  GameClient({required this.onStateUpdate, required this.onError, this.onReaction, this.onEarthquake});
 
   // ── Connection ────────────────────────────────────────────────
 
@@ -40,6 +41,16 @@ class GameClient {
             ? payload['payload'] as Map<String, dynamic>
             : payload;
         onReaction?.call(data);
+      },
+    );
+
+    _channel!.onBroadcast(
+      event: 'earthquake',
+      callback: (payload) {
+        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+            ? payload['payload'] as Map<String, dynamic>
+            : payload;
+        onEarthquake?.call(data);
       },
     );
 

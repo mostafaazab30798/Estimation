@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/models/game_state.dart';
 import '../core/models/comeback_event.dart';
 import '../models/rank_tier.dart';
+import '../models/match_rank.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
 
@@ -135,7 +136,7 @@ class RankingService {
 
     if (myRankIndex < 0) myRankIndex = 3;
 
-    final rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
+    final rankTitles = MatchRank.all.map((r) => r.titleAr).toList();
     final rankTitle = myRankIndex < rankTitles.length ? rankTitles[myRankIndex] : 'لاعب';
 
     // 1. Base Placement XP

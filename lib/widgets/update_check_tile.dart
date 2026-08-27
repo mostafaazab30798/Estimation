@@ -11,6 +11,7 @@ import '../services/update_checker_service.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../theme/app_theme.dart';
 import 'performance_blur.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class UpdateCheckTile extends StatefulWidget {
   const UpdateCheckTile({super.key});
@@ -99,8 +100,8 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
                       color: AppTheme.accentBlue.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Icon(
-                    Icons.system_update_alt_rounded,
+                  child: const AppIcon(
+                    AppIcons.systemUpdateAlt,
                     color: AppTheme.accentBlue,
                     size: 22,
                   ),
@@ -140,8 +141,8 @@ class _UpdateCheckTileState extends State<UpdateCheckTile> {
                               strokeWidth: 2.5,
                             ),
                           )
-                        : Icon(
-                            Icons.arrow_forward_ios_rounded,
+                        : AppIcon(
+                            AppIcons.arrowForwardIos,
                             color: AppTheme.accentLight.withValues(alpha: 0.8),
                             size: 16,
                           );
@@ -361,8 +362,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                                     ),
                                   ],
                                 ),
-                                child: const Icon(
-                                  Icons.system_update_alt_rounded,
+                                child: const AppIcon(
+                                  AppIcons.systemUpdateAlt,
                                   color: Colors.white,
                                   size: 28,
                                 ),
@@ -447,8 +448,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(
-                                      Icons.auto_awesome_rounded,
+                                    const AppIcon(
+                                      AppIcons.autoAwesome,
                                       color: AppTheme.accentBlue,
                                       size: 15,
                                     ),
@@ -497,8 +498,8 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  Icons.error_outline_rounded,
+                                const AppIcon(
+                                  AppIcons.errorOutline,
                                   color: AppTheme.errorRed,
                                   size: 18,
                                 ),
@@ -673,7 +674,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.download_rounded,
+                            const AppIcon(AppIcons.download,
                                 color: Colors.white, size: 17),
                             const SizedBox(width: 5),
                             FittedBox(
@@ -701,7 +702,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
       case _Phase.downloading:
         return OutlinedButton.icon(
           onPressed: _cancelDownload,
-          icon: const Icon(Icons.close_rounded, size: 17),
+          icon: const AppIcon(AppIcons.close, size: 17),
           label: Text(
             'إلغاء التحميل',
             style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13),
@@ -781,7 +782,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.refresh_rounded,
+                              const AppIcon(AppIcons.refresh,
                                   color: Colors.white, size: 17),
                               const SizedBox(width: 5),
                               FittedBox(
@@ -808,7 +809,7 @@ class _UpdateDialogState extends State<_UpdateDialog> {
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _openInBrowser,
-                icon: const Icon(Icons.open_in_browser_rounded,
+                icon: const AppIcon(AppIcons.openInBrowser,
                     size: 18, color: AppTheme.mintSoft),
                 label: Text(
                   'فتح رابط التنزيل في المتصفح',

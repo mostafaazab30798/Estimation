@@ -4,37 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/widgets/mode_home_shell.dart';
+import '../core/widgets/app_buttons.dart';
 import '../theme/app_theme.dart';
 import '../services/audio_service.dart';
 import '../services/settings_service.dart';
 import '../services/profile_service.dart';
-import '../core/widgets/player_avatar.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
-// ── Game Mode Data ────────────────────────────────────────────────────────────
+// ── Game Mode Model ──────────────────────────────────────────────────────────
 
-class _ModeData {
+class _MainGameMode {
   final String title;
-  final String description;
-  final String badgeText;
-  final Color accentColor;
-  final Color secondaryColor;
-  final String symbol;
+  final String subtitle;
+  final String meta;
+  final Color accent;
+  final String artAsset;
   final String route;
-  final List<String> tags;
+  /// When true, art sits above the disc and may overhang its rim.
+  final bool artOverflows;
 
-  const _ModeData({
+  const _MainGameMode({
     required this.title,
-    required this.description,
-    required this.badgeText,
-    required this.accentColor,
-    required this.secondaryColor,
-    required this.symbol,
+    required this.subtitle,
+    required this.meta,
+    required this.accent,
+    required this.artAsset,
     required this.route,
-    required this.tags,
+    this.artOverflows = false,
   });
 }
 
-// ── Main Screen ──────────────────────────────────────────────────────────────
+// ── Main Mode Selection Screen ───────────────────────────────────────────────
 
 class ModeSelectionScreen extends StatefulWidget {
   const ModeSelectionScreen({super.key});
@@ -43,37 +44,58 @@ class ModeSelectionScreen extends StatefulWidget {
   State<ModeSelectionScreen> createState() => _ModeSelectionScreenState();
 }
 
-class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
+class _ModeSelectionScreenState extends State<ModeSelectionScreen>
+    with SingleTickerProviderStateMixin {
   String _playerName = 'لاعب كوتشينة';
   String _playerPhoto = ProfileService.presetAvatars.first.id;
+  late final AnimationController _animController;
+  late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideIn;
 
-  static const List<_ModeData> _modes = [
-    _ModeData(
+  static const List<_MainGameMode> _modes = [
+    _MainGameMode(
       title: 'إستميشن',
-      description: 'البولة الرسمية ١٨ جولة • سانز وداش كول وكول عادي',
-      badgeText: 'كلاسيك ♠️',
-      accentColor: AppTheme.gold,
-      secondaryColor: Color(0xFFD97706),
-      symbol: '♠',
+      subtitle: 'البولة الكلاسيكية والميني جيم',
+      meta: 'كلاسيك ١٨ · ميني ١٠',
+      accent: Color(0xFFC8F542),
+      artAsset: 'assets/estimation.png',
       route: '/kotchina/home',
-      tags: ['٤ لاعبين', '١٨ جولة', 'ذكاء وتكتيك'],
+      artOverflows: true,
     ),
-    _ModeData(
+    _MainGameMode(
       title: 'مود الـ 99',
-      description: 'وصل مجموع الأرض لـ 99 وتفادى الخسارة السريعة',
-      badgeText: 'حماسي 🔥',
-      accentColor: Color(0xFFEF4444),
-      secondaryColor: Color(0xFF991B1B),
-      symbol: '99',
+      subtitle: 'تحدي السرعة والموت المفاجئ',
+      meta: 'سرعة · ضغط · خروج',
+      accent: Color(0xFFFF2D95),
+      artAsset: 'assets/99.png',
       route: '/ninety_nine/home',
-      tags: ['٢ - ٧ لاعبين', 'موت مفاجئ', 'إيقاع سريع'],
     ),
   ];
 
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _fadeIn = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    );
+    _slideIn = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero)
+        .animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+    _animController.forward();
     _loadPlayerProfile();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPlayerProfile() async {
@@ -96,6 +118,12 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     _loadPlayerProfile();
   }
 
+  void _tap(VoidCallback action) {
+    HapticFeedback.mediumImpact();
+    AudioService.instance.playCard();
+    action();
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -106,65 +134,38 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background wallpaper
-          Positioned.fill(
-            child: Image.asset(
-              'assets/wallpapers/w1.jpg',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
-              ),
-            ),
+          const ModeHomeBackground(
+            wallpaperAsset: 'assets/wallpapers/w1.jpg',
+            primaryGlow: AppTheme.gold,
+            secondaryGlow: AppTheme.midBlue,
           ),
-
-          // Deep modern glass gradient overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.60),
-                    AppTheme.deepNavy.withValues(alpha: 0.88),
-                    AppTheme.deepNavy.withValues(alpha: 0.98),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // Main content
           SafeArea(
-            child: Column(
-              children: [
-                // Top Bar (Profile + Sound)
-                _buildTopBar(),
-
-                // Compact Modern Title Header
-                _buildCompactHeader(),
-
-                // Center Mode Cards
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isLandscape ? 860 : 460,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: SlideTransition(
+                position: _slideIn,
+                child: Column(
+                  children: [
+                    _buildTopBar(),
+                    SizedBox(height: isLandscape ? 4 : 12),
+                    _buildHeroHeader(compact: isLandscape),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isLandscape ? 880 : 420,
+                        ),
                         child: isLandscape
                             ? _buildLandscapeModes(context)
                             : _buildPortraitModes(context),
                       ),
                     ),
-                  ),
+                    const Spacer(),
+                    const ModeHomeSuitFooter(),
+                  ],
                 ),
-
-                // Compact Footer
-                _buildSuitFooter(),
-              ],
+              ),
             ),
           ),
         ],
@@ -172,99 +173,33 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // ── Top Bar ────────────────────────────────────────────────────────────────
-
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Profile Capsule (Avatar + Name)
-          InkWell(
+          ModeHomeProfileChip(
+            photo: _playerPhoto,
+            name: _playerName,
             onTap: _openProfile,
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.navyDark.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.gold, width: 1.4),
-                    ),
-                    child: PlayerAvatar(
-                      photoData: _playerPhoto,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _playerName,
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.cream,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.tune_rounded,
-                    color: AppTheme.gold.withValues(alpha: 0.8),
-                    size: 14,
-                  ),
-                ],
-              ),
-            ),
           ),
-
-          // Sound Quick Toggle
+          const Spacer(),
           ListenableBuilder(
             listenable: SettingsService.instance,
             builder: (context, _) {
               final sfx = SettingsService.instance.sfxEnabled;
-              return InkWell(
+              return AppIconButton(
+                icon: sfx ? AppIcons.volumeUp : AppIcons.volumeOff,
+                color: sfx ? AppTheme.gold : Colors.white54,
+                backgroundColor: AppTheme.navyDark.withValues(alpha: 0.72),
+                borderColor: sfx
+                    ? AppTheme.gold.withValues(alpha: 0.35)
+                    : Colors.white12,
+                size: AppIconButtonSize.md,
                 onTap: () {
-                  HapticFeedback.lightImpact();
                   SettingsService.instance.setSfxEnabled(!sfx);
                   if (!sfx) AudioService.instance.playCard();
                 },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.navyDark.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: sfx
-                          ? AppTheme.gold.withValues(alpha: 0.3)
-                          : Colors.white12,
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    sfx ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                    color: sfx ? AppTheme.gold : Colors.white54,
-                    size: 18,
-                  ),
-                ),
               );
             },
           ),
@@ -273,63 +208,31 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
     );
   }
 
-  // ── Compact Header ─────────────────────────────────────────────────────────
-
-  Widget _buildCompactHeader() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'اختر نمط اللعب',
-                style: GoogleFonts.cairo(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: AppTheme.gold.withValues(alpha: 0.4),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  'مودات كوتشينة 🎴',
-                  style: GoogleFonts.cairo(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.goldLight,
-                  ),
-                ),
-              ),
-            ],
+  Widget _buildHeroHeader({bool compact = false}) {
+    return Column(
+      children: [
+        Text(
+          'كوتشينة',
+          style: GoogleFonts.cairo(
+            fontSize: compact ? 26 : 34,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.white,
+            letterSpacing: 0.5,
+            height: 1.1,
           ),
-          const SizedBox(height: 2),
-          Text(
-            'استمتع باللعب الفردي مع البوتات أو تنافس أونلاين ومحلياً',
-            style: GoogleFonts.cairo(
-              fontSize: 11.5,
-              color: AppTheme.steelBlue,
-              fontWeight: FontWeight.w500,
-            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'اختر نمط اللعب',
+          style: GoogleFonts.cairo(
+            fontSize: compact ? 12 : 13.5,
+            color: AppTheme.steelBlue,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
-
-  // ── Portrait Modes ─────────────────────────────────────────────────────────
 
   Widget _buildPortraitModes(BuildContext context) {
     return Column(
@@ -338,20 +241,16 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
       children: [
         for (int i = 0; i < _modes.length; i++) ...[
           if (i > 0) const SizedBox(height: 14),
-          _SleekModeCard(
+          _ModeCard(
             mode: _modes[i],
-            onTap: () {
-              HapticFeedback.mediumImpact();
-              AudioService.instance.playCard();
-              Navigator.pushNamed(context, _modes[i].route);
-            },
+            onTap: () => _tap(
+              () => Navigator.pushNamed(context, _modes[i].route),
+            ),
           ),
         ],
       ],
     );
   }
-
-  // ── Landscape Modes ────────────────────────────────────────────────────────
 
   Widget _buildLandscapeModes(BuildContext context) {
     return Row(
@@ -359,263 +258,336 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen> {
         for (int i = 0; i < _modes.length; i++) ...[
           if (i > 0) const SizedBox(width: 16),
           Expanded(
-            child: _SleekModeCard(
+            child: _ModeCard(
               mode: _modes[i],
-              onTap: () {
-                HapticFeedback.mediumImpact();
-                AudioService.instance.playCard();
-                Navigator.pushNamed(context, _modes[i].route);
-              },
+              tall: true,
+              onTap: () => _tap(
+                () => Navigator.pushNamed(context, _modes[i].route),
+              ),
             ),
           ),
         ],
       ],
     );
   }
-
-  // ── Compact Suit Footer ────────────────────────────────────────────────────
-
-  Widget _buildSuitFooter() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Text('♠', style: TextStyle(fontSize: 13, color: AppTheme.accentLight)),
-            SizedBox(width: 12),
-            Text('♥', style: TextStyle(fontSize: 13, color: AppTheme.suitRed)),
-            SizedBox(width: 12),
-            Text('♦', style: TextStyle(fontSize: 13, color: AppTheme.suitRed)),
-            SizedBox(width: 12),
-            Text('♣', style: TextStyle(fontSize: 13, color: AppTheme.accentLight)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// ── Sleek Modern Mode Card ───────────────────────────────────────────────────
+// ── Mode Card ────────────────────────────────────────────────────────────────
 
-class _SleekModeCard extends StatefulWidget {
-  final _ModeData mode;
+class _ModeCard extends StatefulWidget {
+  final _MainGameMode mode;
   final VoidCallback onTap;
+  final bool tall;
 
-  const _SleekModeCard({required this.mode, required this.onTap});
+  const _ModeCard({
+    required this.mode,
+    required this.onTap,
+    this.tall = false,
+  });
 
   @override
-  State<_SleekModeCard> createState() => _SleekModeCardState();
+  State<_ModeCard> createState() => _ModeCardState();
 }
 
-class _SleekModeCardState extends State<_SleekModeCard> {
-  bool _isPressed = false;
+class _ModeCardState extends State<_ModeCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
 
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
-        setState(() => _isPressed = false);
+        setState(() => _pressed = false);
         widget.onTap();
       },
-      onTapCancel: () => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _isPressed ? 0.98 : 1.0,
+        scale: _pressed ? 0.98 : 1.0,
         duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(16),
+          duration: const Duration(milliseconds: 160),
+          height: widget.tall ? 248 : 128,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                mode.accentColor.withValues(alpha: _isPressed ? 0.20 : 0.10),
-                AppTheme.navyDark.withValues(alpha: 0.85),
-                AppTheme.navyDark.withValues(alpha: 0.95),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(22),
+            color: AppTheme.navyDark.withValues(alpha: 0.78),
             border: Border.all(
-              color: _isPressed
-                  ? mode.accentColor.withValues(alpha: 0.85)
-                  : mode.accentColor.withValues(alpha: 0.35),
-              width: _isPressed ? 1.6 : 1.1,
+              color: _pressed
+                  ? mode.accent.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: mode.accentColor.withValues(alpha: _isPressed ? 0.35 : 0.12),
-                blurRadius: _isPressed ? 24 : 14,
-                offset: const Offset(0, 4),
+                color: mode.accent.withValues(alpha: _pressed ? 0.22 : 0.1),
+                blurRadius: _pressed ? 22 : 16,
+                offset: const Offset(0, 6),
               ),
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 10,
+                color: Colors.black.withValues(alpha: 0.28),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
             children: [
-              // Top Row: Emblem + Title + Badge + Arrow Pill
-              Row(
-                children: [
-                  // Emblem Circle/Square
-                  Container(
-                    width: 46,
-                    height: 46,
+              // Soft accent wash — clipped to card shape
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Align(
+                  alignment: widget.tall
+                      ? Alignment.topCenter
+                      : Alignment.centerRight,
+                  child: Container(
+                    width: widget.tall ? double.infinity : 160,
+                    height: widget.tall ? 140 : double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                      gradient: RadialGradient(
+                        center: widget.tall
+                            ? const Alignment(0, -0.2)
+                            : const Alignment(0.6, 0),
+                        radius: 0.95,
                         colors: [
-                          mode.accentColor.withValues(alpha: 0.3),
-                          mode.secondaryColor.withValues(alpha: 0.15),
+                          mode.accent.withValues(alpha: 0.16),
+                          mode.accent.withValues(alpha: 0.0),
                         ],
                       ),
-                      border: Border.all(
-                        color: mode.accentColor.withValues(alpha: 0.5),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: mode.accentColor.withValues(alpha: 0.25),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      mode.symbol,
-                      style: GoogleFonts.cairo(
-                        fontSize: mode.symbol == '99' ? 20 : 24,
-                        fontWeight: FontWeight.w900,
-                        color: mode.accentColor,
-                        height: 1,
-                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-
-                  // Title + Subtitle description
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              mode.title,
-                              style: GoogleFonts.cairo(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: mode.accentColor.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: mode.accentColor.withValues(alpha: 0.4),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                mode.badgeText,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: mode.accentColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          mode.description,
-                          style: GoogleFonts.cairo(
-                            fontSize: 11.5,
-                            color: AppTheme.steelBlue,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Action Chevron Pill
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: mode.accentColor.withValues(alpha: 0.12),
-                      border: Border.all(
-                        color: mode.accentColor.withValues(alpha: 0.35),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      color: mode.accentColor,
-                      size: 14,
-                    ),
-                  ),
-                ],
+                ),
               ),
 
-              const SizedBox(height: 12),
-
-              // Feature Tags Row
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: mode.tags.map((tag) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      tag,
-                      style: GoogleFonts.cairo(
-                        fontSize: 10.5,
-                        color: AppTheme.cream.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  );
-                }).toList(),
+              // Content (art may overhang the disc)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.tall ? 20 : 16,
+                  vertical: widget.tall ? 20 : 14,
+                ),
+                child: widget.tall
+                    ? _buildTall(mode)
+                    : _buildRow(mode),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRow(_MainGameMode mode) {
+    return Row(
+      children: [
+        _ModeArt(
+          asset: mode.artAsset,
+          accent: mode.accent,
+          size: 88,
+          overflows: mode.artOverflows,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                mode.title,
+                style: GoogleFonts.cairo(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.white,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                mode.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.cairo(
+                  fontSize: 12.5,
+                  color: Colors.white.withValues(alpha: 0.62),
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                mode.meta,
+                style: GoogleFonts.cairo(
+                  fontSize: 11.5,
+                  color: mode.accent.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        _Chevron(accent: mode.accent),
+      ],
+    );
+  }
+
+  Widget _buildTall(_MainGameMode mode) {
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: _ModeArt(
+              asset: mode.artAsset,
+              accent: mode.accent,
+              size: 112,
+              overflows: mode.artOverflows,
+            ),
+          ),
+        ),
+        Text(
+          mode.title,
+          style: GoogleFonts.cairo(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: AppTheme.white,
+            height: 1.1,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          mode.subtitle,
+          style: GoogleFonts.cairo(
+            fontSize: 12.5,
+            color: Colors.white.withValues(alpha: 0.62),
+            fontWeight: FontWeight.w600,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          mode.meta,
+          style: GoogleFonts.cairo(
+            fontSize: 11.5,
+            color: mode.accent.withValues(alpha: 0.9),
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 14),
+        _Chevron(accent: mode.accent),
+      ],
+    );
+  }
+}
+
+class _ModeArt extends StatelessWidget {
+  final String asset;
+  final Color accent;
+  final double size;
+  final bool overflows;
+
+  const _ModeArt({
+    required this.asset,
+    required this.accent,
+    required this.size,
+    this.overflows = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!overflows) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF07070C),
+          border: Border.all(
+            color: accent.withValues(alpha: 0.45),
+            width: 1.6,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.22),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.05),
+            child: Image.asset(
+              asset,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Estimation: black disc behind, art stacked on top so edges can overhang.
+    final disc = size * 0.78;
+    final artSize = size * 1.18;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: disc,
+            height: disc,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF07070C),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.45),
+                width: 1.6,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.22),
+                  blurRadius: 18,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: artSize,
+            height: artSize,
+            child: Image.asset(
+              asset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chevron extends StatelessWidget {
+  final Color accent;
+
+  const _Chevron({required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppIconWell(
+      icon: AppIcons.arrowForwardIos,
+      size: 34,
+      iconSize: 13,
+      color: accent.withValues(alpha: 0.95),
+      fill: accent.withValues(alpha: 0.10),
+      borderColor: accent.withValues(alpha: 0.28),
+      strokeWidth: AppIconTokens.stroke,
     );
   }
 }

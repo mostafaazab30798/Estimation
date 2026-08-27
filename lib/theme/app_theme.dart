@@ -253,38 +253,52 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: midBlue,
           foregroundColor: white,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
           elevation: 0,
           shadowColor: Colors.transparent,
           textStyle: GoogleFonts.cairo(
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
+            height: 1.15,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: steelBlue,
-          side: const BorderSide(color: steelBlue, width: 1.5),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          side: BorderSide(color: steelBlue.withValues(alpha: 0.55), width: 1.2),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
           ),
           textStyle: GoogleFonts.cairo(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
+            height: 1.15,
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: steelBlue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           textStyle: GoogleFonts.cairo(
             fontSize: 15,
             fontWeight: FontWeight.w600,
+            height: 1.15,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: steelBlue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),

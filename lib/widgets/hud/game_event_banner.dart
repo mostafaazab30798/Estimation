@@ -44,6 +44,7 @@ class _GameEventBannerState extends State<GameEventBanner>
     'ComebackDetected',
     'AllPlayersPassed',
     'AuctionWon',
+    'EarthquakeStrikeUsed',
   };
 
   @override
@@ -142,40 +143,55 @@ class _GameEventBannerState extends State<GameEventBanner>
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [bgGradientStart, bgGradientEnd],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor, width: 1.5),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: borderColor.withValues(alpha: 0.75),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
-                color: glowColor,
-                blurRadius: 14,
-                spreadRadius: 1,
-                offset: const Offset(0, 3),
+                color: glowColor.withValues(alpha: 0.45),
+                blurRadius: 16,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                event.emoji,
-                style: const TextStyle(fontSize: 18),
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: borderColor.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(event.emoji, style: const TextStyle(fontSize: 14)),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Flexible(
                 child: Text(
                   event.messageAr,
                   style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    color: AppTheme.cream,
+                    fontWeight: FontWeight.w700,
                     fontSize: 12.5,
+                    height: 1.25,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

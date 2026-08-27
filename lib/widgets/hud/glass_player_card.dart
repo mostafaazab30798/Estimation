@@ -79,21 +79,31 @@ class _GlassPlayerCardState extends State<GlassPlayerCard>
               ]
             : AppTheme.cardShadow;
 
+        final radius = widget.compact ? 18.0 : 22.0;
+
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2A4560), Color(0xFF1D3348)],
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xE82F4A64),
+                const Color(0xE81A3044),
+                if (widget.isCurrentTurn)
+                  widget.accentColor.withValues(alpha: 0.12)
+                else
+                  const Color(0xE8162838),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
+              stops: const [0.0, 0.55, 1.0],
             ),
-            borderRadius: BorderRadius.circular(widget.compact ? 16 : 22),
+            borderRadius: BorderRadius.circular(radius),
             border: Border.all(
               color: widget.isCurrentTurn
-                  ? widget.accentColor.withValues(alpha: 0.55)
-                  : AppTheme.steelBlue.withValues(alpha: 0.14),
-              width: widget.isCurrentTurn ? 1.4 : 1.0,
+                  ? widget.accentColor.withValues(alpha: 0.6)
+                  : AppTheme.cream.withValues(alpha: 0.08),
+              width: widget.isCurrentTurn ? 1.35 : 1.0,
             ),
             boxShadow: shadows,
           ),
@@ -101,21 +111,21 @@ class _GlassPlayerCardState extends State<GlassPlayerCard>
         );
       },
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.compact ? 16 : 22),
+        borderRadius: BorderRadius.circular(widget.compact ? 18 : 22),
         child: Stack(
           children: [
-            // ── Subtle inner highlight line at top ─────────────────
+            // Soft top specular highlight
             Positioned(
               top: 0,
-              left: 0,
-              right: 0,
-              height: 1,
-              child: Container(
+              left: 12,
+              right: 12,
+              height: 1.2,
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      AppTheme.steelBlue.withValues(alpha: 0.25),
+                      AppTheme.cream.withValues(alpha: 0.22),
                       Colors.transparent,
                     ],
                   ),
@@ -123,19 +133,21 @@ class _GlassPlayerCardState extends State<GlassPlayerCard>
               ),
             ),
 
-            // ── Left accent strip ──────────────────────────────────
+            // Left accent rail
             Positioned(
               left: 0,
-              top: 0,
-              bottom: 0,
-              width: 3,
+              top: 8,
+              bottom: 8,
+              width: 2.5,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 400),
                 decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
                     colors: [
                       widget.accentColor.withValues(alpha: 0.0),
-                      widget.accentColor.withValues(alpha: 0.8),
+                      widget.accentColor.withValues(
+                          alpha: widget.isCurrentTurn ? 0.95 : 0.55),
                       widget.accentColor.withValues(alpha: 0.0),
                     ],
                     begin: Alignment.topCenter,
@@ -145,13 +157,12 @@ class _GlassPlayerCardState extends State<GlassPlayerCard>
               ),
             ),
 
-            // ── Content ────────────────────────────────────────────
             Padding(
               padding: EdgeInsets.only(
-                left: widget.compact ? 10 : 14,
-                right: widget.compact ? 8 : 12,
-                top: widget.compact ? 6 : 10,
-                bottom: widget.compact ? 6 : 10,
+                left: widget.compact ? 8 : 14,
+                right: widget.compact ? 7 : 12,
+                top: widget.compact ? 5 : 10,
+                bottom: widget.compact ? 5 : 10,
               ),
               child: widget.child,
             ),

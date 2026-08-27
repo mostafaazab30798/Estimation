@@ -6,6 +6,7 @@ import '../models/rank_tier.dart';
 import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import 'rank_tier_badge.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class LevelUpDialog extends StatefulWidget {
   final int oldLevel;
@@ -186,7 +187,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Icon(Icons.arrow_forward_rounded, color: AppTheme.gold, size: 20),
+                      const AppIcon(AppIcons.arrowForward, color: AppTheme.gold, size: 20),
                       const SizedBox(width: 14),
                       Text(
                         'مستوى ${widget.newLevel}',

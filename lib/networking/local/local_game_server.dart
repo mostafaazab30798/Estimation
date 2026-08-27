@@ -25,6 +25,7 @@ class LocalGameServer {
 
   final StateUpdateCallback onStateUpdate;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
+  final void Function(Map<String, dynamic> earthquakeData)? onEarthquake;
 
   String? hostPlayerId;
   String? hostName;
@@ -48,7 +49,7 @@ class LocalGameServer {
   final Set<String> _botPlayerIds = {};
   bool _botProcessing = false;
 
-  LocalGameServer({required this.onStateUpdate, this.onReaction});
+  LocalGameServer({required this.onStateUpdate, this.onReaction, this.onEarthquake});
 
   // ── Lifecycle ────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ class LocalGameServer {
     String hostPhoto, {
     int maxPlayers = 4,
     int port = 7890,
+    int totalRounds = kBoulaTotalRounds,
   }) async {
     _isStopped = false;
     this.hostName = hostName;
@@ -73,7 +75,7 @@ class LocalGameServer {
       seatIndex: 0,
       photo: hostPhoto,
     );
-    _state = GameEngine.createInitialState([hostPlayer]);
+    _state = GameEngine.createInitialState([hostPlayer], totalRounds: totalRounds);
 
     // Start Shelf WebSocket HTTP server
     final handler = webSocketHandler((WebSocketChannel webSocket, _) {
@@ -284,6 +286,21 @@ class LocalGameServer {
         ));
         onReaction?.call(reactionData);
 
+      case ActionType.triggerEarthquake:
+        final earthquakeData = {
+          'id': payload['earthquakeId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'] ?? 'Player',
+          'card': payload['card'],
+          'roundNumber': payload['roundNumber'] ?? _state.roundNumber,
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        _broadcast(GameMessage(
+          type: MessageType.earthquake,
+          payload: earthquakeData,
+        ));
+        onEarthquake?.call(earthquakeData);
+
       case ActionType.changeTheme:
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
           final newTheme = payload['theme'] as String;
@@ -292,6 +309,7 @@ class LocalGameServer {
         }
 
       case ActionType.approveRedeal:
+        // Any single approve while a void suit was detected → redeal immediately.
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _triggerRedeal();
         }
@@ -300,8 +318,8 @@ class LocalGameServer {
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _state.voidRedealRejections.add(playerId);
           if (_state.voidRedealRejections.length >= maxPlayers) {
-            _state.voidDeclaringPlayerId = null;
-            _state.voidRedealRejections.clear();
+            // Everyone chose continue — proceed to dash call / declarations.
+            GameEngine.proceedAfterVoidCheck(_state);
           }
           _broadcastState();
         }
@@ -434,23 +452,16 @@ class LocalGameServer {
 
   void _doDeal() {
     if (_isStopped) return;
-    _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
-    _state.auctionTurnSeatIndex = (_state.dealerSeatIndex + 1) % maxPlayers;
+    final firstBidder = (_state.roundNumber - 1) % maxPlayers;
+    _state.dealerSeatIndex = (firstBidder - 1 + maxPlayers) % maxPlayers;
+    _state.auctionTurnSeatIndex = firstBidder;
     _state.trump = _state.fixedTrump;
 
-    _state.voidCheckPassed.clear();
-    _state.voidDeclaringPlayerId = null;
-    _state.voidRedealRejections.clear();
     GameEngine.dealCards(_state);
 
-    final playerWithVoid = _state.players
-        .where((p) => p.hand.map((c) => c.suit).toSet().length < 4)
-        .firstOrNull;
-    if (playerWithVoid != null) {
-      _state.voidDeclaringPlayerId = playerWithVoid.id;
-    }
+    // If anyone has an empty suit, pause for a redistribute/continue vote.
+    GameEngine.enterPostDealPhase(_state);
 
-    _state.phase = GamePhase.voidCheck;
     _broadcastState();
   }
 
@@ -697,15 +708,14 @@ class LocalGameServer {
             if (!_state.voidRedealRejections.contains(id)) {
               final bot = _state.players.where((p) => p.id == id).firstOrNull;
               if (bot == null) continue;
-              if (id == _state.voidDeclaringPlayerId) {
-                _handlePlayerAction({'action': ActionType.approveRedeal, 'playerId': id});
-              } else {
-                final approve = EstimationBotAi.shouldApproveRedeal(bot, _state);
-                _handlePlayerAction({
-                  'action': approve ? ActionType.approveRedeal : ActionType.rejectRedeal,
-                  'playerId': id,
-                });
-              }
+              // Void holders lean toward redeal; others use hand-strength heuristic.
+              final approve = id == _state.voidDeclaringPlayerId ||
+                  GameEngine.hasVoidSuit(bot) ||
+                  EstimationBotAi.shouldApproveRedeal(bot, _state);
+              _handlePlayerAction({
+                'action': approve ? ActionType.approveRedeal : ActionType.rejectRedeal,
+                'playerId': id,
+              });
               return;
             }
           }

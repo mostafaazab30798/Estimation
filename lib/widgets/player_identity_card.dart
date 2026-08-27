@@ -13,8 +13,10 @@ import '../services/auth_service.dart';
 import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import '../core/widgets/player_avatar.dart';
+import '../core/widgets/app_buttons.dart';
 import '../core/utils/snackbar_helper.dart';
 import 'estimation_poster_card.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PlayerIdentityCard extends StatefulWidget {
   final String playerName;
@@ -42,6 +44,8 @@ class PlayerIdentityCard extends StatefulWidget {
 
 class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     with SingleTickerProviderStateMixin {
+  static const double _cardFaceHeight = 400;
+
   final GlobalKey _cardBoundaryKey = GlobalKey();
   final GlobalKey _posterBoundaryKey = GlobalKey();
   late AnimationController _flipController;
@@ -54,7 +58,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     super.initState();
     _flipController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 560),
     );
     _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _flipController, curve: Curves.easeInOutCubic),
@@ -125,17 +129,32 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.navyDark,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) => _IdentityCardCustomizerSheet(
         config: widget.config,
         onChanged: (newConfig) {
           widget.onConfigChanged?.call(newConfig);
         },
       ),
+    );
+  }
+
+  Widget _actionChip({
+    required AppIconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool emphasized = false,
+    bool loading = false,
+  }) {
+    final theme = widget.config.theme;
+    return AppIconChip(
+      icon: icon,
+      label: label,
+      onTap: onTap,
+      color: theme.borderColor,
+      emphasized: emphasized,
+      loading: loading,
     );
   }
 
@@ -147,7 +166,6 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // ── Hidden Offscreen Full Template Poster for Capture ──────────────
         Positioned(
           left: -99999,
           top: 0,
@@ -165,82 +183,35 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
             ),
           ),
         ),
-
-        // ── Visible Interactive Card ───────────────────────────────────────
         Column(
           children: [
-            // Action Controls Toolbar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Flip indicator
-                  InkWell(
+            // Compact action bar
+            Row(
+              children: [
+                Expanded(
+                  child: _actionChip(
+                    icon: AppIcons.flip,
+                    label: _isBack ? 'الوجه الأمامي' : 'التحليل التكتيكي',
                     onTap: _flipCard,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.flip_camera_android_rounded, size: 14, color: AppTheme.gold),
-                          const SizedBox(width: 6),
-                          Text(
-                            _isBack ? 'الوجه الأمامي للبطاقة' : 'التحليل والشخصية (الخلف)',
-                            style: GoogleFonts.cairo(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.cream,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    emphasized: true,
                   ),
-
-                  // Customize & Share buttons
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _openCustomizerSheet,
-                        icon: const Icon(Icons.palette_rounded, color: AppTheme.gold, size: 20),
-                        tooltip: 'تخصيص مظهر البطاقة واللقب',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          padding: const EdgeInsets.all(8),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: _isSharing ? null : _shareCard,
-                        icon: _isSharing
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(color: AppTheme.gold, strokeWidth: 2),
-                              )
-                            : const Icon(Icons.share_rounded, color: Colors.white, size: 20),
-                        tooltip: 'مشاركة البوستر بالخارج',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          padding: const EdgeInsets.all(8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                _actionChip(
+                  icon: AppIcons.palette,
+                  label: 'تخصيص',
+                  onTap: _openCustomizerSheet,
+                ),
+                const SizedBox(width: 8),
+                _actionChip(
+                  icon: AppIcons.iosShare,
+                  label: 'مشاركة',
+                  onTap: _isSharing ? null : _shareCard,
+                  loading: _isSharing,
+                ),
+              ],
             ),
-
-            const SizedBox(height: 8),
-
-            // Flippable 3D Card
+            const SizedBox(height: 14),
             RepaintBoundary(
               key: _cardBoundaryKey,
               child: GestureDetector(
@@ -251,18 +222,22 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     final angle = _flipAnimation.value * pi;
                     final isUnder = angle > pi / 2;
 
-                    return Transform(
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001) // 3D perspective
-                        ..rotateY(angle),
-                      alignment: Alignment.center,
-                      child: isUnder
-                          ? Transform(
-                              transform: Matrix4.identity()..rotateY(pi),
-                              alignment: Alignment.center,
-                              child: _buildBackFace(),
-                            )
-                          : _buildFrontFace(),
+                    return SizedBox(
+                      height: _cardFaceHeight,
+                      width: double.infinity,
+                      child: Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateY(angle),
+                        alignment: Alignment.center,
+                        child: isUnder
+                            ? Transform(
+                                transform: Matrix4.identity()..rotateY(pi),
+                                alignment: Alignment.center,
+                                child: _buildBackFace(),
+                              )
+                            : _buildFrontFace(),
+                      ),
                     );
                   },
                 ),
@@ -274,117 +249,157 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     );
   }
 
-  // ── FRONT FACE: Identity, Rank, Archetype & Showcase Stats ─────────────────
+  // ── FRONT FACE ─────────────────────────────────────────────────────────────
 
   Widget _buildFrontFace() {
     final theme = widget.config.theme;
     final level = AuthService.instance.currentProfile?.level ?? 1;
     final tier = RankTier.fromLevel(level);
     final archetype = widget.profile.primaryArchetype;
+    final name =
+        widget.playerName.isNotEmpty ? widget.playerName : 'لاعب كوتشينة';
 
-    return Container(
+    return SizedBox(
+      height: _cardFaceHeight,
       width: double.infinity,
+      child: Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
-          colors: theme.gradientColors,
+          colors: [
+            theme.gradientColors.first,
+            theme.gradientColors.length > 1
+                ? theme.gradientColors[1]
+                : theme.gradientColors.first,
+            theme.gradientColors.last,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: theme.borderColor.withValues(alpha: 0.8),
-          width: 2.0,
+          color: theme.borderColor.withValues(alpha: 0.45),
+          width: 1.4,
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.accentGlow.withValues(alpha: 0.30),
-            blurRadius: 24,
-            spreadRadius: 2,
+            color: theme.accentGlow.withValues(alpha: 0.22),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(26.5),
         child: Stack(
           children: [
-            // Background Suit Watermarks
+            // Soft ambient orbs
             Positioned(
-              right: -20,
-              top: -20,
-              child: Text(
-                '♠',
-                style: TextStyle(
-                  fontSize: 160,
-                  color: Colors.white.withValues(alpha: 0.04),
-                  fontWeight: FontWeight.bold,
+              top: -60,
+              right: -40,
+              child: Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      theme.accentGlow.withValues(alpha: 0.22),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
             ),
             Positioned(
-              left: -20,
-              bottom: -20,
+              bottom: -50,
+              left: -30,
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      theme.borderColor.withValues(alpha: 0.10),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Suit watermark
+            Positioned(
+              right: 12,
+              top: 8,
               child: Text(
-                '♦',
+                '♠',
                 style: TextStyle(
-                  fontSize: 140,
-                  color: Colors.white.withValues(alpha: 0.03),
-                  fontWeight: FontWeight.bold,
+                  fontSize: 92,
+                  height: 1,
+                  color: Colors.white.withValues(alpha: 0.04),
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
 
-            // Card Content
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Top Row: Game Badge & Card Title
+                  // Top meta row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: theme.borderColor.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('♠️', style: const TextStyle(fontSize: 12)),
-                            const SizedBox(width: 4),
-                            Text(
-                              'إستميشن • بطاقة اللاعب',
-                              style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: theme.borderColor,
-                              ),
-                            ),
-                          ],
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: theme.borderColor.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Text(
+                          '♠️ بطاقة اللاعب',
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: theme.borderColor,
+                          ),
                         ),
                       ),
-                      // Level Badge
+                      const Spacer(),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: tier.primaryColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: tier.primaryColor),
+                          color: tier.primaryColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(
+                            color: tier.primaryColor.withValues(alpha: 0.55),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(tier.badgeEmoji, style: const TextStyle(fontSize: 14)),
-                            const SizedBox(width: 6),
+                            Text(tier.badgeEmoji,
+                                style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 5),
                             Text(
-                              'مستوى $level',
+                              'Lv $level',
                               style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
                                 color: Colors.white,
                               ),
                             ),
@@ -394,80 +409,96 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     ],
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
 
-                  // Player Info Section
+                  // Hero identity
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Avatar
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: theme.borderColor, width: 2),
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.borderColor,
+                              theme.accentGlow.withValues(alpha: 0.7),
+                            ],
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.accentGlow.withValues(alpha: 0.4),
-                              blurRadius: 12,
+                              color: theme.accentGlow.withValues(alpha: 0.35),
+                              blurRadius: 16,
                             ),
                           ],
                         ),
-                        child: PlayerAvatar(
-                          photoData: widget.avatarUrl,
-                          size: 68,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.gradientColors.first,
+                          ),
+                          child: PlayerAvatar(
+                            photoData: widget.avatarUrl,
+                            size: 72,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 14),
-
-                      // Name, Title & Personality Badge
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.playerName.isNotEmpty ? widget.playerName : 'لاعب كوتشينة',
+                              name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.cairo(
-                                fontSize: 19,
+                                fontSize: 21,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.white,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    blurRadius: 6,
-                                  ),
-                                ],
+                                height: 1.15,
                               ),
                             ),
+                            const SizedBox(height: 3),
                             Text(
                               widget.config.selectedTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: theme.borderColor,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: theme.borderColor.withValues(alpha: 0.95),
                               ),
                             ),
-                            const SizedBox(height: 4),
-
-                            // Archetype Chip
+                            const SizedBox(height: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: archetype.primaryColor.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: archetype.primaryColor, width: 1),
+                                color: archetype.primaryColor
+                                    .withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: archetype.primaryColor
+                                      .withValues(alpha: 0.45),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(archetype.emoji, style: const TextStyle(fontSize: 12)),
-                                  const SizedBox(width: 4),
+                                  Text(
+                                    archetype.emoji,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 5),
                                   Text(
                                     archetype.titleAr,
                                     style: GoogleFonts.cairo(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
                                       color: Colors.white,
                                     ),
                                   ),
@@ -480,52 +511,63 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     ],
                   ),
 
-                  const SizedBox(height: 20),
+                  const Spacer(),
 
-                  // Showcase Stats Grid (4 Cards)
+                  // Stats grid 2×2
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                      color: Colors.black.withValues(alpha: 0.28),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.07),
+                      ),
                     ),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: _buildShowcaseStatItem(
-                            title: 'دقة الكول',
-                            value: '${widget.stats.declarationAccuracy.toStringAsFixed(0)}%',
-                            icon: Icons.track_changes_rounded,
-                            color: const Color(0xFF38BDF8),
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildShowcaseStatItem(
+                                title: 'دقة الكول',
+                                value:
+                                    '${widget.stats.declarationAccuracy.toStringAsFixed(0)}%',
+                                icon: AppIcons.trackChanges,
+                                color: const Color(0xFF38BDF8),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildShowcaseStatItem(
+                                title: 'الانتصارات',
+                                value: '${widget.stats.gamesWon}',
+                                icon: AppIcons.emojiEvents,
+                                color: AppTheme.gold,
+                              ),
+                            ),
+                          ],
                         ),
-                        Container(width: 1, height: 36, color: Colors.white12),
-                        Expanded(
-                          child: _buildShowcaseStatItem(
-                            title: 'الانتصارات',
-                            value: '${widget.stats.gamesWon}',
-                            icon: Icons.emoji_events_rounded,
-                            color: AppTheme.gold,
-                          ),
-                        ),
-                        Container(width: 1, height: 36, color: Colors.white12),
-                        Expanded(
-                          child: _buildShowcaseStatItem(
-                            title: 'كول مثالي',
-                            value: '${widget.stats.perfectEstimates}',
-                            icon: Icons.stars_rounded,
-                            color: const Color(0xFF10B981),
-                          ),
-                        ),
-                        Container(width: 1, height: 36, color: Colors.white12),
-                        Expanded(
-                          child: _buildShowcaseStatItem(
-                            title: 'أطول سلسلة',
-                            value: '🔥 ${widget.stats.longestWinningStreak}',
-                            icon: Icons.local_fire_department_rounded,
-                            color: const Color(0xFFFF7043),
-                          ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildShowcaseStatItem(
+                                title: 'كول مثالي',
+                                value: '${widget.stats.perfectEstimates}',
+                                icon: AppIcons.autoAwesome,
+                                color: const Color(0xFF10B981),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildShowcaseStatItem(
+                                title: 'أطول سلسلة',
+                                value: '${widget.stats.longestWinningStreak}',
+                                icon: AppIcons.localFireDepartment,
+                                color: const Color(0xFFFF7043),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -533,17 +575,21 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
 
                   const SizedBox(height: 12),
 
-                  // Card Bottom Footer Prompt
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.touch_app_rounded, size: 13, color: Colors.white54),
-                      const SizedBox(width: 4),
+                      AppIcon(
+                        AppIcons.swipe,
+                        size: 13,
+                        color: Colors.white.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(width: 5),
                       Text(
-                        'اضغط على البطاقة لقلبها وكشف التحليل التكتيكي',
+                        'اضغط لقلب البطاقة',
                         style: GoogleFonts.cairo(
-                          fontSize: 10,
-                          color: Colors.white60,
+                          fontSize: 10.5,
+                          color: Colors.white.withValues(alpha: 0.45),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -554,217 +600,361 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
           ],
         ),
       ),
+    ),
     );
   }
 
-  // ── BACK FACE: Personality Breakdown, Reasons, Strengths & Tips ────────────
+  // ── BACK FACE ──────────────────────────────────────────────────────────────
 
   Widget _buildBackFace() {
     final theme = widget.config.theme;
-    final archetype = widget.profile.primaryArchetype;
+    final profile = widget.profile;
+    final archetype = profile.primaryArchetype;
+    final secondary = profile.secondaryArchetype;
+    final metrics = profile.metrics;
+    final accent = archetype.primaryColor;
 
-    return Container(
+    final metricBars = <({String label, double value, Color color})>[
+      (label: 'الدقة', value: metrics.precision, color: const Color(0xFF38BDF8)),
+      (label: 'الهجوم', value: metrics.aggression, color: const Color(0xFFF87171)),
+      (label: 'الانضباط', value: metrics.bidDiscipline, color: const Color(0xFF34D399)),
+    ];
+
+    final tip = profile.recommendation.isNotEmpty
+        ? profile.recommendation
+        : archetype.descriptionAr;
+
+    return SizedBox(
+      height: _cardFaceHeight,
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: theme.gradientColors,
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          color: const Color(0xFF0C1520),
+          border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: accent.withValues(alpha: 0.28),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
-        border: Border.all(
-          color: archetype.primaryColor.withValues(alpha: 0.9),
-          width: 2.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: archetype.primaryColor.withValues(alpha: 0.35),
-            blurRadius: 24,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Archetype Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: archetype.primaryColor.withValues(alpha: 0.25),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: archetype.primaryColor),
-                    ),
-                    child: Text(archetype.emoji, style: const TextStyle(fontSize: 22)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'الشخصية: ${archetype.titleAr}',
-                          style: GoogleFonts.cairo(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26.5),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(color: accent.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        'تحليل تكتيكي',
+                        style: GoogleFonts.cairo(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: accent,
                         ),
-                        Text(
-                          archetype.taglineAr,
-                          style: GoogleFonts.cairo(
-                            fontSize: 11,
-                            color: archetype.primaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  // Secondary Archetype Badge
+                    const Spacer(),
+                    Text(
+                      '${metrics.confidenceLabelAr} · ${metrics.profileConfidence.toStringAsFixed(0)}%',
+                      style: GoogleFonts.cairo(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white60,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: accent.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(archetype.emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            archetype.titleAr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.cairo(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            archetype.taglineAr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              color: Colors.white60,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: theme.borderColor.withValues(alpha: 0.35)),
+                      ),
+                      child: Text(
+                        '${secondary.emoji} ${secondary.titleAr}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (profile.signatureBehavior.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white24),
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border(right: BorderSide(color: accent, width: 3)),
                     ),
                     child: Text(
-                      '${widget.profile.secondaryArchetype.emoji} ${widget.profile.secondaryArchetype.titleAr}',
-                      style: GoogleFonts.cairo(fontSize: 10, color: Colors.white70),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              // "Why You Are [Archetype]" Evidence Box
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'لماذا أنت "${archetype.titleAr}"؟',
+                      '«${profile.signatureBehavior}»',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.cairo(
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.gold,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.white.withValues(alpha: 0.88),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    ...widget.profile.measurableReasons.take(3).map((r) => Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Text(
-                            r,
-                            style: GoogleFonts.cairo(fontSize: 11, color: Colors.white),
-                          ),
-                        )),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Strengths & Coaching Tip
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.tips_and_updates_rounded, size: 14, color: AppTheme.gold),
-                        const SizedBox(width: 6),
-                        Text(
-                          'نصيحة لتطوير لعبك:',
-                          style: GoogleFonts.cairo(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.gold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.profile.recommendation,
-                      style: GoogleFonts.cairo(
-                        fontSize: 11,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Bottom Return Prompt
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.flip_camera_android_rounded, size: 13, color: Colors.white54),
-                  const SizedBox(width: 4),
-                  Text(
-                    'اضغط للعودة إلى وجه البطاقة الرئيسي',
-                    style: GoogleFonts.cairo(
-                      fontSize: 10,
-                      color: Colors.white60,
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 12),
+                ...metricBars.map(
+                  (m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: _metricBar(label: m.label, value: m.value, color: m.color),
+                  ),
+                ),
+                if (profile.strengths.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: profile.strengths.take(3).map((s) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(99),
+                          border: Border.all(color: accent.withValues(alpha: 0.28)),
+                        ),
+                        child: Text(
+                          s,
+                          style: GoogleFonts.cairo(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const AppIcon(AppIcons.lightbulb, size: 14, color: AppTheme.goldLight),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          tip,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.cairo(
+                            fontSize: 11,
+                            height: 1.3,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AppIcon(AppIcons.flip, size: 12, color: Colors.white.withValues(alpha: 0.35)),
+                    const SizedBox(width: 5),
+                    Text(
+                      'اضغط للعودة',
+                      style: GoogleFonts.cairo(
+                        fontSize: 10,
+                        color: Colors.white.withValues(alpha: 0.4),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _metricBar({
+    required String label,
+    required double value,
+    required Color color,
+  }) {
+    final clamped = (value / 100.0).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 54,
+          child: Text(
+            label,
+            style: GoogleFonts.cairo(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white70,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: SizedBox(
+              height: 6,
+              child: Stack(
+                children: [
+                  Container(color: Colors.white.withValues(alpha: 0.08)),
+                  FractionallySizedBox(
+                    widthFactor: clamped,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [color.withValues(alpha: 0.7), color],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 26,
+          child: Text(
+            value.toStringAsFixed(0),
+            textAlign: TextAlign.end,
+            style: GoogleFonts.cairo(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildShowcaseStatItem({
     required String title,
     required String value,
-    required IconData icon,
+    required AppIconData icon,
     required Color color,
   }) {
-    return Column(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.cairo(
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: AppIcon(icon, size: 15, color: color),
           ),
-        ),
-        Text(
-          title,
-          style: GoogleFonts.cairo(
-            fontSize: 10,
-            color: Colors.white60,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.cairo(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.cairo(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white60,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -810,49 +1000,92 @@ class _IdentityCardCustomizerSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.navyDark,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: AppTheme.gold, width: 1.2)),
+      ),
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
-        top: 20,
+        top: 12,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+          ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'تخصيص بطاقة الهوية واللاعب',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.cream,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'تخصيص البطاقة',
+                      style: GoogleFonts.cairo(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.cream,
+                      ),
+                    ),
+                    Text(
+                      'المظهر واللقب والخصوصية',
+                      style: GoogleFonts.cairo(
+                        fontSize: 12,
+                        color: AppTheme.steelBlue,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Ink(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const AppIcon(
+                      AppIcons.close,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // 1. Theme Skin Picker
           Text(
-            'مظهر البطاقة (Skin)',
+            'مظهر البطاقة',
             style: GoogleFonts.cairo(
               fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.gold,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.goldLight,
             ),
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 48,
+            height: 52,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: CardSkinTheme.values.length,
@@ -861,38 +1094,45 @@ class _IdentityCardCustomizerSheetState
                 final theme = CardSkinTheme.values[index];
                 final isSelected = _selectedTheme == theme;
 
-                return InkWell(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedTheme = theme);
-                    _applyChange();
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: theme.gradientColors),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? theme.borderColor : Colors.white24,
-                        width: isSelected ? 2.2 : 1.0,
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedTheme = theme);
+                      _applyChange();
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: theme.gradientColors),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.borderColor
+                              : Colors.white.withValues(alpha: 0.12),
+                          width: isSelected ? 1.8 : 1.0,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color:
+                                      theme.accentGlow.withValues(alpha: 0.4),
+                                  blurRadius: 10,
+                                ),
+                              ]
+                            : null,
                       ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: theme.accentGlow.withValues(alpha: 0.5),
-                                blurRadius: 8,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      theme.titleAr,
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      alignment: Alignment.center,
+                      child: Text(
+                        theme.titleAr,
+                        style: GoogleFonts.cairo(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -903,13 +1143,12 @@ class _IdentityCardCustomizerSheetState
 
           const SizedBox(height: 20),
 
-          // 2. Title Picker
           Text(
-            'اللقب المختار على البطاقة',
+            'اللقب على البطاقة',
             style: GoogleFonts.cairo(
               fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.gold,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.goldLight,
             ),
           ),
           const SizedBox(height: 10),
@@ -918,25 +1157,42 @@ class _IdentityCardCustomizerSheetState
             runSpacing: 8,
             children: PlayerIdentityCardConfig.availableTitles.map((title) {
               final isSelected = _selectedTitle == title;
-              return ChoiceChip(
-                label: Text(title),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) {
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
                     HapticFeedback.selectionClick();
                     setState(() => _selectedTitle = title);
                     _applyChange();
-                  }
-                },
-                selectedColor: AppTheme.gold.withValues(alpha: 0.25),
-                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                labelStyle: GoogleFonts.cairo(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? AppTheme.gold : Colors.white70,
-                ),
-                side: BorderSide(
-                  color: isSelected ? AppTheme.gold : Colors.white12,
+                  },
+                  borderRadius: BorderRadius.circular(99),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.gold.withValues(alpha: 0.16)
+                          : Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.gold.withValues(alpha: 0.5)
+                            : Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Text(
+                      title,
+                      style: GoogleFonts.cairo(
+                        fontSize: 11.5,
+                        fontWeight:
+                            isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected ? AppTheme.goldLight : Colors.white70,
+                      ),
+                    ),
+                  ),
                 ),
               );
             }).toList(),
@@ -944,20 +1200,32 @@ class _IdentityCardCustomizerSheetState
 
           const SizedBox(height: 20),
 
-          // 3. Privacy Toggle
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
             child: Row(
               children: [
-                Icon(
-                  _isPublic ? Icons.public_rounded : Icons.lock_rounded,
-                  color: _isPublic ? const Color(0xFF10B981) : Colors.white60,
-                  size: 20,
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: (_isPublic
+                            ? const Color(0xFF10B981)
+                            : Colors.white)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: AppIcon(
+                    _isPublic ? AppIcons.public : AppIcons.lock,
+                    color: _isPublic
+                        ? const Color(0xFF10B981)
+                        : Colors.white60,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -965,19 +1233,19 @@ class _IdentityCardCustomizerSheetState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'إتاحة البطاقة والشخصية للعامة',
+                        'إتاحة البطاقة للعامة',
                         style: GoogleFonts.cairo(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
                       ),
                       Text(
                         _isPublic
-                            ? 'يمكن للاعبين الآخرين رؤية بطاقتك وشخصيتك التكتيكية'
-                            : 'بطاقتك خاصة ومخفية عن بقية اللاعبين',
+                            ? 'يمكن للاعبين رؤية بطاقتك وشخصيتك'
+                            : 'بطاقتك خاصة ومخفية عن الآخرين',
                         style: GoogleFonts.cairo(
-                          fontSize: 10,
+                          fontSize: 11,
                           color: Colors.white54,
                         ),
                       ),
@@ -991,6 +1259,7 @@ class _IdentityCardCustomizerSheetState
                     _applyChange();
                   },
                   activeThumbColor: AppTheme.gold,
+                  activeTrackColor: AppTheme.gold.withValues(alpha: 0.4),
                 ),
               ],
             ),

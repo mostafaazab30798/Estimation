@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import '../../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class SnackbarHelper {
   static void showSuccess(BuildContext context, String message, {String? title}) {
@@ -10,7 +11,7 @@ class SnackbarHelper {
       context: context,
       title: title,
       message: message,
-      icon: Icons.check_circle_rounded,
+      icon: AppIcons.checkCircle,
       color: AppTheme.playerGreen,
     );
   }
@@ -20,7 +21,7 @@ class SnackbarHelper {
       context: context,
       title: title,
       message: message,
-      icon: Icons.error_rounded,
+      icon: AppIcons.error,
       color: AppTheme.playerRed,
     );
   }
@@ -30,7 +31,7 @@ class SnackbarHelper {
       context: context,
       title: title,
       message: message,
-      icon: Icons.info_rounded,
+      icon: AppIcons.info,
       color: AppTheme.accentLight,
     );
   }
@@ -40,7 +41,7 @@ class SnackbarHelper {
       context: context,
       title: title,
       message: message,
-      icon: Icons.warning_rounded,
+      icon: AppIcons.warning,
       color: AppTheme.gold,
     );
   }
@@ -49,7 +50,7 @@ class SnackbarHelper {
     required BuildContext context,
     String? title,
     required String message,
-    required IconData icon,
+    required AppIconData icon,
     required Color color,
   }) {
     DelightToastBar(
@@ -83,7 +84,7 @@ class SnackbarHelper {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: color, size: 24),
+              AppIcon(icon, color: color, size: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

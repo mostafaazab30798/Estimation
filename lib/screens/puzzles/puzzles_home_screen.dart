@@ -8,7 +8,9 @@ import '../../models/puzzle_models.dart';
 import '../../services/puzzle_service.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
+import '../../core/widgets/app_buttons.dart';
 import 'puzzle_solve_screen.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PuzzlesHomeScreen extends StatefulWidget {
   const PuzzlesHomeScreen({super.key});
@@ -103,7 +105,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                 child: Column(
                   children: [
                     // Top App Bar
-                    _buildTopBar(context),
+                    _buildTopBar(context, progress),
 
                     // Main Scrollable Area
                     Expanded(
@@ -192,63 +194,62 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
 
   // ── Top Bar ────────────────────────────────────────────────────────────────
 
-  Widget _buildTopBar(BuildContext context) {
+  Widget _buildTopBar(BuildContext context, PuzzleProgress progress) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          AppIconCapsule(
+            icon: AppIcons.arrowBackIosNew,
+            label: 'رجوع',
+            accent: AppTheme.gold,
+            dense: true,
+            onTap: () {
+              AudioService.instance.playCard();
+              Navigator.pop(context);
+            },
+          ),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.gold, size: 20),
-                tooltip: 'رجوع',
+              Text(
+                'ألغاز الإستميشن',
+                style: GoogleFonts.cairo(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: AppTheme.white,
+                ),
               ),
-              const SizedBox(width: 4),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'ألغاز الإستميشن',
-                        style: GoogleFonts.cairo(
-                          color: AppTheme.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF8B5CF6), width: 0.8),
-                        ),
-                        child: Text(
-                          'Puzzle Mode 🧩',
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFFA78BFA),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'تحديات تكتيكية منفصلة وسيناريوهات استراتيجية',
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.steelBlue,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(width: 6),
+              const Text('🧩', style: TextStyle(fontSize: 16)),
             ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppTheme.gold.withValues(alpha: 0.4),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('⭐', style: TextStyle(fontSize: 11)),
+                const SizedBox(width: 4),
+                Text(
+                  '${progress.totalXpEarned} XP',
+                  style: GoogleFonts.cairo(
+                    color: AppTheme.gold,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -276,28 +277,28 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatPill(
-            icon: Icons.local_fire_department_rounded,
+            icon: AppIcons.localFireDepartment,
             color: const Color(0xFFF97316),
             label: 'الحماسة اليومية',
             value: '${progress.dailyPuzzleStreak} أيام',
           ),
           _buildStatDivider(),
           _buildStatPill(
-            icon: Icons.extension_rounded,
+            icon: AppIcons.extension,
             color: const Color(0xFF10B981),
             label: 'الألغاز المحلولة',
             value: '${progress.totalSolvedCount} / $totalPuzzles',
           ),
           _buildStatDivider(),
           _buildStatPill(
-            icon: Icons.stars_rounded,
+            icon: AppIcons.stars,
             color: const Color(0xFFA855F7),
             label: 'أداء مثالي 100%',
             value: '${progress.perfectCount}',
           ),
           _buildStatDivider(),
           _buildStatPill(
-            icon: Icons.bolt_rounded,
+            icon: AppIcons.bolt,
             color: AppTheme.gold,
             label: 'إجمالي الـ XP',
             value: '${progress.totalXpEarned}',
@@ -312,7 +313,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
   }
 
   Widget _buildStatPill({
-    required IconData icon,
+    required AppIconData icon,
     required Color color,
     required String label,
     required String value,
@@ -323,7 +324,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 14),
+            AppIcon(icon, color: color, size: 14),
             const SizedBox(width: 3),
             Text(
               value,
@@ -390,7 +391,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                         color: const Color(0xFFF472B6).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.psychology_alt_rounded, color: Color(0xFFF472B6), size: 20),
+                      child: const AppIcon(AppIcons.psychologyAlt, color: Color(0xFFF472B6), size: 20),
                     ),
                     const SizedBox(width: 8),
                     Column(
@@ -426,7 +427,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 14),
+                        const AppIcon(AppIcons.checkCircle, color: Color(0xFF10B981), size: 14),
                         const SizedBox(width: 4),
                         Text(
                           'تم الحل اليوم ✅',
@@ -597,7 +598,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
         alignment: Alignment.center,
         child: Column(
           children: [
-            const Icon(Icons.search_off_rounded, color: Colors.white38, size: 48),
+            const AppIcon(AppIcons.searchOff, color: Colors.white38, size: 48),
             const SizedBox(height: 8),
             Text(
               'لا توجد ألغاز تطابق هذا الفلتر',
@@ -703,8 +704,8 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                       ),
                       if (isSolved) ...[
                         const SizedBox(width: 6),
-                        Icon(
-                          Icons.check_circle_rounded,
+                        AppIcon(
+                          AppIcons.checkCircle,
                           color: bestScore == 100 ? AppTheme.gold : const Color(0xFF10B981),
                           size: 16,
                         ),
@@ -753,8 +754,8 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
+                const AppIcon(
+                  AppIcons.arrowForwardIos,
                   color: Colors.white38,
                   size: 14,
                 ),

@@ -10,6 +10,8 @@ import '../../services/academy_service.dart';
 import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
+import '../../core/widgets/app_buttons.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class AcademyLessonScreen extends StatefulWidget {
   final String lessonId;
@@ -220,43 +222,15 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Back Button
-          InkWell(
+          AppIconCapsule(
+            icon: AppIcons.arrowBackIosNew,
+            label: 'المواضيع',
+            accent: AppTheme.gold,
+            dense: true,
             onTap: () {
-              HapticFeedback.lightImpact();
               AudioService.instance.playCard();
               Navigator.pop(context);
             },
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.navyDark.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.gold.withValues(alpha: 0.35),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: AppTheme.gold,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'المواضيع',
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.goldLight,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
 
           // Topic / Lesson Title
@@ -687,11 +661,11 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
               ),
               alignment: Alignment.center,
               child: _isSubmitted && option.isOptimal
-                  ? const Icon(Icons.check_rounded, color: Colors.black, size: 16)
+                  ? const AppIcon(AppIcons.checkRounded, color: Colors.black, size: 16)
                   : (_isSubmitted && isSelected && !option.isOptimal
-                      ? const Icon(Icons.close_rounded, color: Colors.black, size: 16)
+                      ? const AppIcon(AppIcons.close, color: Colors.black, size: 16)
                       : (isSelected
-                          ? const Icon(Icons.circle, color: Colors.black, size: 10)
+                          ? const AppIcon(AppIcons.circle, color: Colors.black, size: 10)
                           : null)),
             ),
             const SizedBox(width: 12),
@@ -766,8 +740,8 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    isSuccess ? Icons.stars_rounded : Icons.info_outline_rounded,
+                  AppIcon(
+                    isSuccess ? AppIcons.stars : AppIcons.infoOutline,
                     color: chosenOption.quality.color,
                     size: 24,
                   ),
@@ -885,7 +859,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    icon: const AppIcon(AppIcons.refresh, size: 18),
                     label: Text(
                       'إعادة المحاولة',
                       style: GoogleFonts.cairo(
@@ -908,7 +882,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  icon: const AppIcon(AppIcons.arrowForward, size: 18),
                   label: Text(
                     'الدرس التالي ➡️',
                     style: GoogleFonts.cairo(

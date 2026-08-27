@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/player.dart';
 import '../core/widgets/player_avatar.dart';
+import '../models/match_rank.dart';
 import '../theme/app_theme.dart';
+import 'hud/match_rank_badge.dart';
 
 class ScoreTable extends StatelessWidget {
   final List<Player> players;
@@ -83,13 +85,8 @@ class ScoreTable extends StatelessWidget {
     required bool isBidder,
     required bool positive,
   }) {
-    final rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-    final rankBorderColors = AppTheme.rankColors;
-
-    final borderColor = rankIndex < rankBorderColors.length
-        ? rankBorderColors[rankIndex]
-        : AppTheme.steelBlue;
-    final rankTitle = rankIndex < rankTitles.length ? rankTitles[rankIndex] : '';
+    final matchRank = MatchRank.fromIndex(rankIndex);
+    final borderColor = matchRank?.accentColor ?? AppTheme.steelBlue;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -164,14 +161,15 @@ class ScoreTable extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (rankTitle.isNotEmpty)
-                        Text(
-                          rankTitle,
-                          style: GoogleFonts.cairo(
-                            color: borderColor.withValues(alpha: 0.9),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            height: 1.1,
+                      if (matchRank != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: MatchRankChip(
+                              rankIndex: rankIndex,
+                              compact: true,
+                            ),
                           ),
                         ),
                     ],

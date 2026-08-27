@@ -17,6 +17,7 @@ class LocalGameClient {
   final StateUpdateCallback onStateUpdate;
   final ErrorCallback onError;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
+  final void Function(Map<String, dynamic> earthquakeData)? onEarthquake;
 
   String? _lastHostIp;
   int? _lastPort;
@@ -28,7 +29,7 @@ class LocalGameClient {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 3;
 
-  LocalGameClient({required this.onStateUpdate, required this.onError, this.onReaction});
+  LocalGameClient({required this.onStateUpdate, required this.onError, this.onReaction, this.onEarthquake});
 
   Future<void> connect(
     String hostIp,
@@ -107,6 +108,10 @@ class LocalGameClient {
         case MessageType.reaction:
           final data = msg.payload;
           onReaction?.call(data);
+
+        case MessageType.earthquake:
+          final data = msg.payload;
+          onEarthquake?.call(data);
 
         case MessageType.heartbeat:
           break;

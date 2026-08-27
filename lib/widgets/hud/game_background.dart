@@ -1,16 +1,13 @@
 // lib/widgets/hud/game_background.dart
 //
-// Layered animated game background — dark gradient base with a subtle
-// phase-reactive ambient glow and a very faint particle field.
+// Layered "Midnight Salon" atmosphere — deep radial base, phase ambient,
+// soft dust, and dual vignettes. Decorative only; no game logic.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../core/models/game_state.dart';
 
-/// Full-screen background widget that reacts to the current [phase] by
-/// subtly tinting the ambient light. Particles are purely decorative
-/// and run at very low repaint frequency via a custom Ticker.
 class GameBackground extends StatefulWidget {
   final GamePhase phase;
 
@@ -24,7 +21,7 @@ class _GameBackgroundState extends State<GameBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _particleCtrl;
   final _particles = <_Particle>[];
-  static const _kParticleCount = 8;
+  static const _kParticleCount = 10;
 
   @override
   void initState() {
@@ -36,7 +33,7 @@ class _GameBackgroundState extends State<GameBackground>
 
     _particleCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 20),
+      duration: const Duration(seconds: 24),
     )..repeat();
   }
 
@@ -70,40 +67,57 @@ class _GameBackgroundState extends State<GameBackground>
     final ambient = _ambientColor();
 
     return Stack(
+      fit: StackFit.expand,
       children: [
-        // ── Base gradient ──────────────────────────────────────────
-        Container(
+        // ── Base depth gradient ────────────────────────────────────
+        const DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment.topCenter,
-              radius: 1.6,
+              center: Alignment(0, -0.15),
+              radius: 1.35,
               colors: [
-                AppTheme.surface2,
-                AppTheme.deepNavy,
-                const Color(0xFF141E2A),
+                Color(0xFF2A4158),
+                Color(0xFF1A2B3C),
+                Color(0xFF0E1620),
               ],
-              stops: const [0.0, 0.5, 1.0],
+              stops: [0.0, 0.55, 1.0],
             ),
           ),
         ),
 
-        // ── Phase ambient glow — top radial tint ───────────────────
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
+        // ── Soft corner wash (warm counter-light) ──────────────────
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment.topCenter,
-              radius: 1.2,
+              center: const Alignment(0.85, 0.9),
+              radius: 0.9,
               colors: [
-                ambient.withValues(alpha: 0.07),
+                AppTheme.gold.withValues(alpha: 0.035),
                 Colors.transparent,
               ],
             ),
           ),
         ),
 
-        // ── Subtle floating dust particles ─────────────────────────
+        // ── Phase ambient glow ─────────────────────────────────────
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.topCenter,
+              radius: 1.15,
+              colors: [
+                ambient.withValues(alpha: 0.09),
+                ambient.withValues(alpha: 0.02),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.4, 1.0],
+            ),
+          ),
+        ),
+
+        // ── Floating dust ──────────────────────────────────────────
         AnimatedBuilder(
           animation: _particleCtrl,
           builder: (_, __) {
@@ -118,14 +132,29 @@ class _GameBackgroundState extends State<GameBackground>
           },
         ),
 
-        // ── Bottom vignette ────────────────────────────────────────
+        // ── Edge vignette ──────────────────────────────────────────
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 1.05,
+              colors: [
+                Colors.transparent,
+                Color(0x50101820),
+              ],
+              stops: [0.55, 1.0],
+            ),
+          ),
+        ),
+
+        // ── Bottom fade into hand area ─────────────────────────────
         Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            height: 200,
+            height: 220,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.transparent, Color(0x80141E2A)],
+                colors: [Colors.transparent, Color(0xA00E1620)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -137,15 +166,13 @@ class _GameBackgroundState extends State<GameBackground>
   }
 }
 
-// ── Particle ──────────────────────────────────────────────────────────────
-
 class _Particle {
   final double startX;
   final double startY;
-  final double speed;   // 0..1, relative to screen height
+  final double speed;
   final double size;
   final double opacity;
-  final double phase;   // phase offset for drift
+  final double phase;
 
   const _Particle({
     required this.startX,
@@ -159,9 +186,9 @@ class _Particle {
   factory _Particle.random(math.Random rng) => _Particle(
         startX: rng.nextDouble(),
         startY: rng.nextDouble(),
-        speed: 0.02 + rng.nextDouble() * 0.04,
-        size: 1.0 + rng.nextDouble() * 2.0,
-        opacity: 0.04 + rng.nextDouble() * 0.08,
+        speed: 0.015 + rng.nextDouble() * 0.035,
+        size: 1.0 + rng.nextDouble() * 2.2,
+        opacity: 0.035 + rng.nextDouble() * 0.07,
         phase: rng.nextDouble() * math.pi * 2,
       );
 }
@@ -179,10 +206,10 @@ class _ParticlePainter extends CustomPainter {
     for (final p in particles) {
       final t = (progress + p.phase / (math.pi * 2)) % 1.0;
       final y = (p.startY - t * p.speed * 10) % 1.0;
-      final x = p.startX + math.sin(t * math.pi * 2 + p.phase) * 0.03;
+      final x = p.startX + math.sin(t * math.pi * 2 + p.phase) * 0.025;
 
       paint.color =
-          AppTheme.steelBlue.withValues(alpha: p.opacity * math.sin(t * math.pi));
+          AppTheme.cream.withValues(alpha: p.opacity * math.sin(t * math.pi));
       canvas.drawCircle(
         Offset(x * size.width, y * size.height),
         p.size,

@@ -54,12 +54,7 @@ void main() {
   });
 
   group('2. Preserved Void Suit Redeal Rule', () {
-    test('Player with 0 cards in any suit is detected as having a void suit', () {
-      final playerWithVoid = Player(
-        id: 'p1',
-        name: 'Player 1',
-        seatIndex: 0,
-        hand: [
+    List<PlayingCard> voidHand() => [
           // 13 cards with no Diamonds
           const PlayingCard(suit: Suit.spade, rank: Rank.ace),
           const PlayingCard(suit: Suit.spade, rank: Rank.king),
@@ -74,10 +69,88 @@ void main() {
           const PlayingCard(suit: Suit.club, rank: Rank.queen),
           const PlayingCard(suit: Suit.club, rank: Rank.jack),
           const PlayingCard(suit: Suit.club, rank: Rank.ten),
-        ],
+        ];
+
+    List<PlayingCard> balancedHand() => [
+          const PlayingCard(suit: Suit.spade, rank: Rank.ace),
+          const PlayingCard(suit: Suit.spade, rank: Rank.king),
+          const PlayingCard(suit: Suit.spade, rank: Rank.queen),
+          const PlayingCard(suit: Suit.heart, rank: Rank.ace),
+          const PlayingCard(suit: Suit.heart, rank: Rank.king),
+          const PlayingCard(suit: Suit.heart, rank: Rank.queen),
+          const PlayingCard(suit: Suit.diamond, rank: Rank.ace),
+          const PlayingCard(suit: Suit.diamond, rank: Rank.king),
+          const PlayingCard(suit: Suit.diamond, rank: Rank.queen),
+          const PlayingCard(suit: Suit.club, rank: Rank.ace),
+          const PlayingCard(suit: Suit.club, rank: Rank.king),
+          const PlayingCard(suit: Suit.club, rank: Rank.queen),
+          const PlayingCard(suit: Suit.club, rank: Rank.jack),
+        ];
+
+    test('Player with 0 cards in any suit is detected as having a void suit', () {
+      final playerWithVoid = Player(
+        id: 'p1',
+        name: 'Player 1',
+        seatIndex: 0,
+        hand: voidHand(),
       );
 
       expect(GameEngine.hasVoidSuit(playerWithVoid), isTrue);
+    });
+
+    test('enterPostDealPhase opens voidCheck when a player has a void suit', () {
+      final players = createTestPlayers();
+      players[1].hand = voidHand();
+      for (final p in players) {
+        if (p.hand.isEmpty) p.hand = balancedHand();
+      }
+
+      final state = GameState(
+        players: players,
+        phase: GamePhase.dealing,
+        dealerSeatIndex: 0,
+      );
+
+      GameEngine.enterPostDealPhase(state);
+
+      expect(state.phase, equals(GamePhase.voidCheck));
+      expect(state.voidDeclaringPlayerId, equals('p2'));
+    });
+
+    test('enterPostDealPhase skips voidCheck when every hand has all suits', () {
+      final players = createTestPlayers();
+      for (final p in players) {
+        p.hand = balancedHand();
+      }
+
+      final state = GameState(
+        players: players,
+        phase: GamePhase.dealing,
+        dealerSeatIndex: 0,
+      );
+
+      GameEngine.enterPostDealPhase(state);
+
+      expect(state.phase, equals(GamePhase.dashCall));
+      expect(state.voidDeclaringPlayerId, isNull);
+      expect(state.currentPlayerSeatIndex, equals(1));
+    });
+
+    test('proceedAfterVoidCheck advances to dashCall when everyone continues', () {
+      final state = GameState(
+        players: createTestPlayers(),
+        phase: GamePhase.voidCheck,
+        dealerSeatIndex: 0,
+        voidDeclaringPlayerId: 'p2',
+        voidRedealRejections: {'p1', 'p2', 'p3'},
+      );
+
+      GameEngine.proceedAfterVoidCheck(state);
+
+      expect(state.phase, equals(GamePhase.dashCall));
+      expect(state.voidDeclaringPlayerId, isNull);
+      expect(state.voidRedealRejections, isEmpty);
+      expect(state.currentPlayerSeatIndex, equals(1));
     });
   });
 
@@ -237,6 +310,16 @@ void main() {
       expect(fixedTrumpForRound(16), equals(Trump.heart));
       expect(fixedTrumpForRound(17), equals(Trump.diamond));
       expect(fixedTrumpForRound(18), equals(Trump.club));
+      expect(fixedTrumpForRound(13), isNull);
+    });
+
+    test('Mini Boula (10 rounds) fixed trumps are enforced in rounds 6–10', () {
+      expect(fixedTrumpForRound(5, kMiniTotalRounds), isNull);
+      expect(fixedTrumpForRound(6, kMiniTotalRounds), equals(Trump.sans));
+      expect(fixedTrumpForRound(7, kMiniTotalRounds), equals(Trump.spade));
+      expect(fixedTrumpForRound(8, kMiniTotalRounds), equals(Trump.heart));
+      expect(fixedTrumpForRound(9, kMiniTotalRounds), equals(Trump.diamond));
+      expect(fixedTrumpForRound(10, kMiniTotalRounds), equals(Trump.club));
     });
 
     test('Round 14 skips auction and transitions from void check directly to declarations with fixed trump', () {
@@ -255,6 +338,25 @@ void main() {
       expect(state.phase, equals(GamePhase.declarations));
       expect(state.trump, equals(Trump.sans));
       expect(state.currentPlayerSeatIndex, equals(1)); // First declarer is seat after dealer
+    });
+
+    test('Mini round 6 skips auction and goes to declarations with Sans fixed', () {
+      final state = GameState(
+        players: createTestPlayers(),
+        phase: GamePhase.voidCheck,
+        roundNumber: 6,
+        totalRounds: kMiniTotalRounds,
+        dealerSeatIndex: 0,
+      );
+
+      GameEngine.passVoidCheck(state, 'p1');
+      GameEngine.passVoidCheck(state, 'p2');
+      GameEngine.passVoidCheck(state, 'p3');
+      GameEngine.passVoidCheck(state, 'p4');
+
+      expect(state.phase, equals(GamePhase.declarations));
+      expect(state.trump, equals(Trump.sans));
+      expect(state.isFixedTrumpRound, isTrue);
     });
 
     test('In fixed trump rounds, highest declarer becomes bidder and leads trick 1', () {

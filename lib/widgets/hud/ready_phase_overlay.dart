@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_state.dart';
 import '../../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 /// Overlay shown during [GamePhase.voidCheck].
 /// Displays per-player ready dots and, when a void suit is declared,
@@ -133,6 +134,8 @@ class ReadyPhaseOverlay extends StatelessWidget {
     final declarer = state.playerById(state.voidDeclaringPlayerId!);
     final hasRejected = myPlayerId != null &&
         state.voidRedealRejections.contains(myPlayerId);
+    final rejectCount = state.voidRedealRejections.length;
+    final totalCount = state.players.length;
 
     return Center(
       child: Container(
@@ -165,7 +168,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.warning_amber_rounded,
+            const AppIcon(AppIcons.warningAmber,
                 color: AppTheme.warningGlow, size: 28),
             const SizedBox(height: 8),
             Text(
@@ -177,15 +180,26 @@ class ReadyPhaseOverlay extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 4),
+            Text(
+              'لو لاعب واحد اختار إعادة التوزيع هتتوزع الكروت تاني',
+              style: GoogleFonts.cairo(
+                color: AppTheme.steelBlue.withValues(alpha: 0.9),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 14),
             if (hasRejected)
               Text(
-                'في انتظار باقي اللاعبين...',
+                'في انتظار باقي اللاعبين... ($rejectCount/$totalCount اختاروا الإكمال)',
                 style: GoogleFonts.cairo(
                   color: AppTheme.steelBlue,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
               )
             else
               Wrap(

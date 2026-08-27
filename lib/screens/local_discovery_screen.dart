@@ -13,6 +13,8 @@ import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../widgets/performance_blur.dart';
+import '../core/widgets/app_buttons.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class LocalDiscoveryScreen extends StatefulWidget {
   const LocalDiscoveryScreen({super.key});
@@ -315,25 +317,14 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
       ),
       child: Row(
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => Navigator.pop(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface2.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: AppTheme.cream,
-                  size: 18,
-                ),
-              ),
-            ),
+          AppIconButton(
+            icon: AppIcons.arrowBackIosNew,
+            color: AppTheme.cream,
+            backgroundColor: AppTheme.surface2.withValues(alpha: 0.6),
+            borderColor: Colors.white12,
+            size: AppIconButtonSize.md,
+            tooltip: 'رجوع',
+            onTap: () => Navigator.pop(context),
           ),
           const SizedBox(width: 14),
 
@@ -407,7 +398,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
           //   turns: _isSearching ? _radarCtrl : const AlwaysStoppedAnimation(0),
           //   child: IconButton(
           //     onPressed: _startScanning,
-          //     icon: const Icon(Icons.refresh_rounded, color: AppTheme.gold),
+          //     icon: const AppIcon(AppIcons.refresh, color: AppTheme.gold),
           //     tooltip: 'إعادة البحث',
           //   ),
           // ),
@@ -434,7 +425,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
               color: AppTheme.midBlue.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.wifi_rounded, color: AppTheme.steelBlue, size: 20),
+            child: const AppIcon(AppIcons.wifi, color: AppTheme.steelBlue, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -462,7 +453,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
           ),
           if (_myLocalIp != null)
             IconButton(
-              icon: const Icon(Icons.copy_rounded, color: AppTheme.gold, size: 18),
+              icon: const AppIcon(AppIcons.copy, color: AppTheme.gold, size: 18),
               tooltip: 'نسخ عنوان IP',
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: _myLocalIp!));
@@ -478,9 +469,9 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
 
   Widget _buildFilterChips() {
     final filters = [
-      {'label': 'الكل', 'icon': Icons.grid_view_rounded, 'color': AppTheme.gold},
-      {'label': 'إستميشن ♠', 'icon': Icons.style_rounded, 'color': AppTheme.goldLight},
-      {'label': 'مود الـ 99 🔥', 'icon': Icons.local_fire_department_rounded, 'color': const Color(0xFFEF4444)},
+      {'label': 'الكل', 'icon': AppIcons.gridView, 'color': AppTheme.gold},
+      {'label': 'إستميشن ♠', 'icon': AppIcons.style, 'color': AppTheme.goldLight},
+      {'label': 'مود الـ 99 🔥', 'icon': AppIcons.localFireDepartment, 'color': const Color(0xFFEF4444)},
     ];
 
     return Row(
@@ -568,8 +559,8 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                       color: AppTheme.gold,
                     ),
                     child: const Center(
-                      child: Icon(
-                        Icons.wifi_find_rounded,
+                      child: AppIcon(
+                        AppIcons.wifiFind,
                         color: AppTheme.gold,
                         size: 38,
                       ),
@@ -617,8 +608,8 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                 color: AppTheme.steelBlue.withValues(alpha: 0.12),
                 border: Border.all(color: AppTheme.steelBlue.withValues(alpha: 0.3)),
               ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
+              child: const AppIcon(
+                AppIcons.wifiOff,
                 color: AppTheme.steelBlue,
                 size: 38,
               ),
@@ -644,7 +635,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: _startScanning,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
+              icon: const AppIcon(AppIcons.refresh, size: 18),
               label: Text(
                 'إعادة البحث الآن',
                 style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
@@ -668,7 +659,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
-              const Icon(Icons.videogame_asset_rounded, color: AppTheme.gold, size: 18),
+              const AppIcon(AppIcons.videogameAsset, color: AppTheme.gold, size: 18),
               const SizedBox(width: 8),
               Text(
                 'الغرف المكتشفة (${rooms.length})',
@@ -798,7 +789,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.lan_rounded, size: 13, color: AppTheme.steelBlue),
+                            const AppIcon(AppIcons.lan, size: 13, color: AppTheme.steelBlue),
                             const SizedBox(width: 4),
                             Text(
                               'IP: ${room.ip}:${room.port}',
@@ -829,7 +820,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.person_rounded, size: 14, color: AppTheme.gold),
+                            const AppIcon(AppIcons.person, size: 14, color: AppTheme.gold),
                             const SizedBox(width: 4),
                             Text(
                               '${room.currentPlayers}/${room.maxPlayers}',
@@ -904,7 +895,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                   color: AppTheme.accentBlue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.edit_note_rounded, color: AppTheme.steelBlue, size: 20),
+                child: const AppIcon(AppIcons.editNote, color: AppTheme.steelBlue, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -940,7 +931,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                   controller: _ipController,
                   style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.lan_rounded, color: AppTheme.steelBlue, size: 18),
+                    prefixIcon: const AppIcon(AppIcons.lan, color: AppTheme.steelBlue, size: 18),
                     labelText: 'عنوان IP',
                     hintText: '192.168.1.10',
                     labelStyle: GoogleFonts.cairo(color: AppTheme.steelBlue, fontSize: 12),
@@ -993,7 +984,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             height: 52,
             child: ElevatedButton.icon(
               onPressed: _connectManual,
-              icon: const Icon(Icons.flash_on_rounded, size: 18),
+              icon: const AppIcon(AppIcons.flashOn, size: 18),
               label: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.center,

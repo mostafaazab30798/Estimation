@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/models/game_state.dart';
+import '../models/match_rank.dart';
 
 class MatchRecord {
   final String? id;
@@ -130,7 +131,7 @@ class HistoryService {
       final winner = sortedPlayers.isNotEmpty ? sortedPlayers.first : null;
       if (winner == null) return;
 
-      final rankTitles = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
+      final rankTitles = MatchRank.all.map((r) => r.titleAr).toList();
 
       final record = MatchRecord(
         date: DateTime.now().toIso8601String(),

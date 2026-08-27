@@ -8,6 +8,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
 import '../services/audio_service.dart';
+import 'earthquake/earthquake_strike_visuals.dart';
 import 'playing_card_widget.dart';
 
 // ---------------------------------------------------------------------------
@@ -360,6 +361,15 @@ class _AnimatedCard extends StatelessWidget {
     }
 
     if (isSweeping) {
+      return PlayingCardWidget(
+        card: trickCard!.card,
+        width: width,
+        playable: false,
+      );
+    }
+
+    // Earthquake strike already flew the card onto the table — skip slide-in.
+    if (EarthquakeStrikeVisuals.shouldSkipIntro(trickCard!.card.id)) {
       return PlayingCardWidget(
         card: trickCard!.card,
         width: width,

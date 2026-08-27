@@ -9,6 +9,7 @@ enum MessageType {
   stateUpdate,    // full game state broadcast
   playerJoined,   // new player joined the lobby
   reaction,       // player sent an emote / reaction
+  earthquake,     // player unleashed an earthquake strike
   error,
   // Client → Server
   playerAction,   // any game action from a player
@@ -58,6 +59,7 @@ class ActionType {
   static const String changeTheme = 'changeTheme';      // host changes card theme
   static const String requestStateSync = 'requestStateSync'; // client requests immediate full state broadcast
   static const String sendReaction = 'sendReaction';    // player sends an emote or tactical phrase
+  static const String triggerEarthquake = 'triggerEarthquake'; // player unleashed an earthquake card strike
 }
 
 

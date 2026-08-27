@@ -2,6 +2,8 @@
 //
 // Strongly-typed contextual game events specifically for Egyptian Estimation.
 
+import 'dart:ui' show Offset, Size;
+
 import '../constants.dart';
 import '../models/bid.dart';
 import '../models/card.dart';
@@ -992,6 +994,57 @@ class PlayerTakesLead extends EstimationGameEvent {
         'leaderScore': leaderScore,
         'previousLeaderId': previousLeaderId,
         'previousLeaderName': previousLeaderName,
+        'roundNumber': roundNumber,
+        'timestamp': timestamp.toIso8601String(),
+      };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. Special Ability / Card Strike Events
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Triggered when a player charges and performs an Earthquake Card Strike.
+class EarthquakeStrikeUsed extends EstimationGameEvent {
+  final String playerId;
+  final String playerName;
+  final PlayingCard card;
+  final int roundNumber;
+
+  /// Local-only: global center of the card in the hand when the strike begins.
+  /// Not serialized — remote clients animate a dive from above the table.
+  final Offset? flightOriginGlobal;
+
+  /// Local-only: measured card size for the flying clone.
+  final Size? flightCardSize;
+
+  EarthquakeStrikeUsed({
+    required this.playerId,
+    required this.playerName,
+    required this.card,
+    required this.roundNumber,
+    this.flightOriginGlobal,
+    this.flightCardSize,
+    super.timestamp,
+  });
+
+  @override
+  String get eventName => 'EarthquakeStrikeUsed';
+
+  @override
+  String get messageEn => '💥 $playerName unleashed an EARTHQUAKE STRIKE with $card! 🌋';
+
+  @override
+  String get messageAr => '💥 أطلق $playerName ضربة الزلزال بورقة $card! 🌋';
+
+  @override
+  String get emoji => '🌋';
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'eventName': eventName,
+        'playerId': playerId,
+        'playerName': playerName,
+        'card': card.toJson(),
         'roundNumber': roundNumber,
         'timestamp': timestamp.toIso8601String(),
       };

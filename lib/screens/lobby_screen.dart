@@ -9,9 +9,11 @@ import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
+import '../core/widgets/app_buttons.dart';
 import '../widgets/performance_blur.dart';
 import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import '../features/lobby/domain/models/game_room.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({super.key});
 
@@ -333,7 +335,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.exit_to_app_rounded, color: AppTheme.errorRed, size: 48),
+              const AppIcon(AppIcons.exitToApp, color: AppTheme.errorRed, size: 48),
               const SizedBox(height: 16),
               Text(
                 provider.isHost ? 'إلغاء الغرفة' : 'مغادرة الغرفة',
@@ -416,7 +418,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.share_rounded, size: 16, color: AppTheme.accentLight),
+              const AppIcon(
+                AppIcons.share,
+                size: AppIconTokens.sizeMd,
+                color: AppTheme.accentLight,
+                strokeWidth: AppIconTokens.stroke,
+              ),
               const SizedBox(width: 8),
               Text(
                 'كود الغرفة — شاركه مع أصدقائك',
@@ -485,36 +492,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ],
           Material(
             color: Colors.transparent,
-            child: InkWell(
+            child: AppIconChip(
+              icon: AppIcons.copy,
+              label: provider.isLocal ? 'اضغط لنسخ عنوان IP' : 'اضغط لنسخ الكود',
+              color: AppTheme.accentLight,
+              emphasized: true,
               onTap: () {
-                final textToCopy = provider.isLocal ? '${provider.localHostIp}:${provider.localPort}' : code;
+                final textToCopy = provider.isLocal
+                    ? '${provider.localHostIp}:${provider.localPort}'
+                    : code;
                 Clipboard.setData(ClipboardData(text: textToCopy));
                 SnackbarHelper.showSuccess(context, 'تم النسخ بنجاح! 📋', title: 'نسخ');
               },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.copy_rounded, size: 16, color: AppTheme.mintSoft),
-                    const SizedBox(width: 8),
-                    Text(
-                      provider.isLocal ? 'اضغط لنسخ عنوان IP' : 'اضغط لنسخ الكود',
-                      style: GoogleFonts.cairo(
-                        color: AppTheme.mintSoft,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
@@ -533,7 +522,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 20),
+          const AppIcon(AppIcons.checkCircle, color: Colors.greenAccent, size: 20),
           const SizedBox(width: 10),
           Text('متصل بالغرفة بنجاح ✓',
               style: GoogleFonts.cairo(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
@@ -553,7 +542,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.smart_toy_outlined, size: 18, color: AppTheme.mintSoft),
+          const AppIcon(AppIcons.smartToy, size: 18, color: AppTheme.mintSoft),
           const SizedBox(width: 8),
           Text('وضع التجربة — البوتات تلعب عنك',
               style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.w600)),
@@ -565,7 +554,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _buildPlayerCount(List<dynamic> players, GameProvider provider) {
     final isNinetyNine = provider.isNinetyNine;
     final totalSeats = isNinetyNine ? provider.expectedPlayers : 4;
-    final botSlots = totalSeats - provider.expectedPlayers;
+    final botSlots = (isNinetyNine || provider.isTestMode) ? 0 : (totalSeats - provider.expectedPlayers).clamp(0, 4);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -584,7 +573,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           child: Text(
             botSlots > 0
                 ? '${players.length} / ${provider.expectedPlayers} (المجموع: 4 مع البوت)'
-                : '${players.length} / ${provider.expectedPlayers}',
+                : '${players.length} / ${isNinetyNine ? provider.expectedPlayers : (provider.isTestMode ? 4 : provider.expectedPlayers)}',
             style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
@@ -681,7 +670,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     color: Colors.greenAccent,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: AppTheme.navyDark, size: 14),
+                  child: const AppIcon(AppIcons.check, color: AppTheme.navyDark, size: 14),
                 ),
               )
           ],
@@ -774,7 +763,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 style: GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
               const SizedBox(width: 12),
-              Icon(canStart ? Icons.play_circle_fill_rounded : Icons.hourglass_bottom_rounded, size: 28),
+              AppIconWell(
+                icon: canStart ? AppIcons.playCircleFill : AppIcons.hourglassBottom,
+                size: 36,
+                iconSize: AppIconTokens.sizeLg,
+                color: canStart ? Colors.white : AppTheme.accentLight.withValues(alpha: 0.55),
+                fill: Colors.white.withValues(alpha: canStart ? 0.18 : 0.06),
+                borderColor: Colors.white.withValues(alpha: canStart ? 0.28 : 0.10),
+                strokeWidth: AppIconTokens.strokeBold,
+              ),
             ],
           ),
         ),
@@ -796,7 +793,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           padding: const EdgeInsets.only(right: 8.0, bottom: 12.0),
           child: Row(
             children: [
-              const Icon(Icons.style_rounded, color: AppTheme.mintSoft, size: 20),
+              const AppIcon(AppIcons.style, color: AppTheme.mintSoft, size: 20),
               const SizedBox(width: 8),
               Text(
                 'شكل البطاقات:',
@@ -877,7 +874,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                   'assets/$themeId/A_S.png',
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) => 
-                                      Icon(Icons.style, color: AppTheme.accentLight.withValues(alpha: 0.5)),
+                                      AppIcon(AppIcons.style, color: AppTheme.accentLight.withValues(alpha: 0.5)),
                                 ),
                               ),
                             ),
@@ -903,8 +900,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               color: AppTheme.gold,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.check,
+                            child: const AppIcon(
+                              AppIcons.check,
                               color: AppTheme.deepNavy,
                               size: 12,
                             ),
@@ -956,8 +953,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.exit_to_app_rounded, size: 20),
-              const SizedBox(width: 6),
+              AppIconWell(
+                icon: AppIcons.exitToApp,
+                size: 30,
+                iconSize: AppIconTokens.sizeMd,
+                color: AppTheme.errorRed,
+                fill: AppTheme.errorRed.withValues(alpha: 0.12),
+                borderColor: AppTheme.errorRed.withValues(alpha: 0.28),
+              ),
+              const SizedBox(width: 8),
               Text(
                 isHost ? 'إلغاء الغرفة' : 'خروج',
                 style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.bold),

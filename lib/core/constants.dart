@@ -89,8 +89,14 @@ enum Rank {
       Rank.values.firstWhere((e) => e.name == s);
 }
 
-/// Standard official match total rounds (البولة الكاملة)
+/// Standard official match total rounds (البولة الكاملة): 13 free + 5 fixed
 const int kBoulaTotalRounds = 18;
+
+/// Mini Estimation match: 5 free + 5 fixed trump rounds
+const int kMiniTotalRounds = 10;
+
+/// Number of championship fixed-trump rounds at the end of a Boula
+const int kFixedTrumpRoundCount = 5;
 
 /// Minimum bid trick count in auction
 const int kMinBidTricks = 4;
@@ -98,19 +104,26 @@ const int kMinBidTricks = 4;
 /// Override bid trick count to change fixed trump in last 5 rounds
 const int kOverrideFixedTrumpTricks = 8;
 
-/// Fixed trump per round in the last 5 rounds of an 18-round Boula
+/// Whether [totalRounds] is a round-based Boula format (classic or mini).
+bool isRoundBasedBoula(int totalRounds) =>
+    totalRounds == kBoulaTotalRounds || totalRounds == kMiniTotalRounds;
+
+/// Fixed trump for the last 5 rounds: Sans → Spade → Heart → Diamond → Club.
+/// Classic: rounds 14–18. Mini: rounds 6–10.
 Trump? fixedTrumpForRound(int roundNumber, [int totalRounds = kBoulaTotalRounds]) {
-  if (totalRounds != 18) return null;
-  switch (roundNumber) {
-    case 14:
+  if (!isRoundBasedBoula(totalRounds)) return null;
+  final firstFixed = totalRounds - kFixedTrumpRoundCount + 1;
+  if (roundNumber < firstFixed || roundNumber > totalRounds) return null;
+  switch (roundNumber - firstFixed) {
+    case 0:
       return Trump.sans;
-    case 15:
+    case 1:
       return Trump.spade;
-    case 16:
+    case 2:
       return Trump.heart;
-    case 17:
+    case 3:
       return Trump.diamond;
-    case 18:
+    case 4:
       return Trump.club;
     default:
       return null;

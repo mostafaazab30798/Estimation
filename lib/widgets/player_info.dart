@@ -1,10 +1,10 @@
 // lib/widgets/player_info.dart
 //
-// AAA-quality PlayerInfoWidget — premium HUD card for each player position.
-// Preserves the exact same public API and game logic from the original.
-// Visual presentation is completely redesigned.
+// Premium HUD card for each player position.
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../core/constants.dart';
 import '../core/models/player.dart';
 import '../core/models/game_state.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +14,7 @@ import 'hud/rank_ribbon.dart';
 import 'hud/score_display.dart';
 import 'hud/trick_progress_indicator.dart';
 import 'hud/status_badge.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PlayerInfoWidget extends StatefulWidget {
   final Player player;
@@ -38,9 +39,6 @@ class PlayerInfoWidget extends StatefulWidget {
 }
 
 class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
-  // Delayed trick counter — lets the trick-win animation play before
-  // the score bar updates (same logic as the original widget).
-  // ValueNotifier — drives a ValueListenableBuilder rebuild; no setState needed.
   late final _displayActual = ValueNotifier<int>(0);
   bool _isWaitingToUpdate = false;
 
@@ -73,7 +71,6 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     }
   }
 
-  // O(n) rank computation — same logic as original, zero extra allocations.
   int _computeRankIndex() {
     int rankIndex = 0;
     for (final p in widget.state.players) {
@@ -92,6 +89,9 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
       tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
     );
   }
+
+  bool get _showTrumpOnBidder =>
+      widget.isBidder && widget.state.trump != null;
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +116,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     );
   }
 
-  // ── Full layout (portrait / local player) ─────────────────────────────────
+  // ── Full layout ───────────────────────────────────────────────────────────
 
   Widget _buildFull(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
     if (widget.isMe) {
@@ -124,34 +124,18 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Avatar with animated ring and Rank Tag
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              PlayerAvatarRing(
-                photoData: widget.player.photo,
-                playerName: widget.player.name,
-                size: 40,
-                ringColor: accentColor,
-                isCurrentTurn: widget.isCurrentTurn,
-                compact: false,
-                turnDurationSeconds: widget.state.turnDurationSeconds,
-                turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
-              ),
-              if (rankIndex >= 0 && rankIndex <= 3)
-                Positioned(
-                  bottom: -2,
-                  left: -2,
-                  child: RankRibbon(rankIndex: rankIndex, compact: false),
-                ),
-            ],
+          PlayerAvatarRing(
+            photoData: widget.player.photo,
+            playerName: widget.player.name,
+            size: 40,
+            ringColor: accentColor,
+            isCurrentTurn: widget.isCurrentTurn,
+            compact: false,
+            turnDurationSeconds: widget.state.turnDurationSeconds,
+            turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
           ),
           const SizedBox(width: 10),
-          // Points
-          ScoreDisplay(
-            score: widget.player.totalScore,
-            compact: false,
-          ),
+          ScoreDisplay(score: widget.player.totalScore, compact: false),
           if (widget.state.phase == GamePhase.trickTaking ||
               widget.player.declared != null) ...[
             const SizedBox(width: 10),
@@ -162,6 +146,14 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               compact: false,
             ),
           ],
+          if (rankIndex >= 0 && rankIndex <= 3) ...[
+            const SizedBox(width: 8),
+            RankRibbon(rankIndex: rankIndex, compact: false),
+          ],
+          if (_showTrumpOnBidder) ...[
+            const SizedBox(width: 6),
+            _BidderTrumpChip(trump: widget.state.trump!, compact: false),
+          ],
         ],
       );
     }
@@ -170,50 +162,28 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Avatar with animated ring
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            PlayerAvatarRing(
-              photoData: widget.player.photo,
-              playerName: widget.player.name,
-              size: 40,
-              ringColor: accentColor,
-              isCurrentTurn: widget.isCurrentTurn,
-              compact: false,
-              turnDurationSeconds: widget.state.turnDurationSeconds,
-              turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
-            ),
-            if (rankIndex >= 0 && rankIndex <= 3)
-              Positioned(
-                bottom: -2,
-                left: -2,
-                child: RankRibbon(rankIndex: rankIndex, compact: false),
-              ),
-          ],
+        PlayerAvatarRing(
+          photoData: widget.player.photo,
+          playerName: widget.player.name,
+          size: 40,
+          ringColor: accentColor,
+          isCurrentTurn: widget.isCurrentTurn,
+          compact: false,
+          turnDurationSeconds: widget.state.turnDurationSeconds,
+          turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
         ),
-
         const SizedBox(width: 10),
-
-        // Info column
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Name row ─────────────────────────────────────────────
             _buildNameRow(rankIndex, isDealer, compact: false),
-
             const SizedBox(height: 5),
-
-            // ── Score + trick progress ────────────────────────────────
             Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                ScoreDisplay(
-                  score: widget.player.totalScore,
-                  compact: false,
-                ),
+                ScoreDisplay(score: widget.player.totalScore, compact: false),
                 if (widget.state.phase == GamePhase.trickTaking ||
                     widget.player.declared != null) ...[
                   const SizedBox(width: 10),
@@ -226,10 +196,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                 ],
               ],
             ),
-
             const SizedBox(height: 5),
-
-            // ── Status badge ─────────────────────────────────────────
             StatusBadge(
               phase: widget.state.phase,
               player: widget.player,
@@ -243,7 +210,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     );
   }
 
-  // ── Compact layout (opponents, landscape) ─────────────────────────────────
+  // ── Compact layout (side / landscape opponents) ───────────────────────────
 
   Widget _buildCompact(int rankIndex, Color accentColor, bool isDealer, int displayActual) {
     if (widget.isMe) {
@@ -251,36 +218,21 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Smaller avatar ring
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              PlayerAvatarRing(
-                photoData: widget.player.photo,
-                playerName: widget.player.name,
-                size: 26,
-                ringColor: accentColor,
-                isCurrentTurn: widget.isCurrentTurn,
-                compact: true,
-                turnDurationSeconds: widget.state.turnDurationSeconds,
-                turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
-              ),
-              if (rankIndex >= 0 && rankIndex <= 3)
-                Positioned(
-                  bottom: -2,
-                  left: -2,
-                  child: RankRibbon(rankIndex: rankIndex, compact: true),
-                ),
-            ],
-          ),
-          const SizedBox(width: 6),
-          ScoreDisplay(
-            score: widget.player.totalScore,
+          PlayerAvatarRing(
+            photoData: widget.player.photo,
+            playerName: widget.player.name,
+            size: 24,
+            ringColor: accentColor,
+            isCurrentTurn: widget.isCurrentTurn,
             compact: true,
+            turnDurationSeconds: widget.state.turnDurationSeconds,
+            turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
           ),
+          const SizedBox(width: 5),
+          ScoreDisplay(score: widget.player.totalScore, compact: true),
           if (widget.state.phase == GamePhase.trickTaking ||
               widget.player.declared != null) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             TrickProgressIndicator(
               actual: displayActual,
               declared: widget.player.declared,
@@ -288,79 +240,136 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               compact: true,
             ),
           ],
+          if (rankIndex >= 0 && rankIndex <= 3) ...[
+            const SizedBox(width: 4),
+            RankRibbon(rankIndex: rankIndex, compact: true),
+          ],
+          if (_showTrumpOnBidder) ...[
+            const SizedBox(width: 3),
+            _BidderTrumpChip(trump: widget.state.trump!, compact: true),
+          ],
         ],
       );
     }
 
+    // Side cards: avatar + rank stacked, narrow info column.
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Smaller avatar ring
-        Stack(
-          clipBehavior: Clip.none,
+        Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             PlayerAvatarRing(
               photoData: widget.player.photo,
               playerName: widget.player.name,
-              size: 26,
+              size: 24,
               ringColor: accentColor,
               isCurrentTurn: widget.isCurrentTurn,
               compact: true,
               turnDurationSeconds: widget.state.turnDurationSeconds,
               turnDeadlineEpochMs: widget.state.turnDeadlineEpochMs,
             ),
-            if (rankIndex >= 0 && rankIndex <= 3)
-              Positioned(
-                bottom: -2,
-                left: -2,
-                child: RankRibbon(rankIndex: rankIndex, compact: true),
-              ),
+            if (rankIndex >= 0 && rankIndex <= 3) ...[
+              const SizedBox(height: 3),
+              RankRibbon(rankIndex: rankIndex, compact: true),
+            ],
           ],
         ),
-
-        const SizedBox(width: 6),
-
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildNameRow(rankIndex, isDealer, compact: true),
-            const SizedBox(height: 3),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ScoreDisplay(
-                  score: widget.player.totalScore,
+        const SizedBox(width: 5),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 84),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCompactNameRow(isDealer),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ScoreDisplay(score: widget.player.totalScore, compact: true),
+                  if (widget.player.declared != null) ...[
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: TrickProgressIndicator(
+                        actual: displayActual,
+                        declared: widget.player.declared,
+                        tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
+                        compact: true,
+                      ),
+                    ),
+                  ],
+                  if (_showTrumpOnBidder) ...[
+                    const SizedBox(width: 3),
+                    _BidderTrumpChip(trump: widget.state.trump!, compact: true),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: StatusBadge(
+                  phase: widget.state.phase,
+                  player: widget.player,
+                  state: widget.state,
+                  isCurrentTurn: widget.isCurrentTurn,
                   compact: true,
                 ),
-                if (widget.player.declared != null) ...[
-                  const SizedBox(width: 6),
-                  TrickProgressIndicator(
-                    actual: displayActual,
-                    declared: widget.player.declared,
-                    tricksPlayedThisRound: widget.state.tricksPlayedThisRound,
-                    compact: true,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 3),
-            StatusBadge(
-              phase: widget.state.phase,
-              player: widget.player,
-              state: widget.state,
-              isCurrentTurn: widget.isCurrentTurn,
-              compact: true,
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  // ── Shared name row ───────────────────────────────────────────────────────
+  Widget _buildCompactNameRow(bool isDealer) {
+    final displayName = widget.isMe ? 'أنا' : widget.player.name;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            displayName,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.cream,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (isDealer)
+          const Padding(
+            padding: EdgeInsets.only(left: 2),
+            child: Tooltip(
+              message: 'الموزع',
+              child: AppIcon(AppIcons.style, color: AppTheme.steelBlue, size: 10),
+            ),
+          ),
+        if (widget.isBidder)
+          const Padding(
+            padding: EdgeInsets.only(left: 2),
+            child: Tooltip(
+              message: 'الكار الكبير',
+              child: AppIcon(
+                AppIcons.emojiEvents,
+                color: AppTheme.playerGold,
+                size: 10,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── Full name row: name · rank · dealer · bidder+trump ────────────────────
 
   Widget _buildNameRow(int rankIndex, bool isDealer, {required bool compact}) {
     final fontSize = compact ? 10.0 : 12.5;
@@ -370,7 +379,6 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Name text — capped for long strings
         Flexible(
           child: Text(
             displayName,
@@ -384,28 +392,118 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-
-        const SizedBox(width: 4),
-
-        // Dealer icon
+        if (rankIndex >= 0 && rankIndex <= 3) ...[
+          SizedBox(width: compact ? 4 : 6),
+          RankRibbon(rankIndex: rankIndex, compact: compact),
+        ],
         if (isDealer)
-          Tooltip(
-            message: 'الموزع',
-            child: Icon(Icons.style_rounded,
-                color: AppTheme.steelBlue, size: iconSize),
-          ),
-
-        // Bidder icon
-        if (widget.isBidder)
           Padding(
-            padding: const EdgeInsets.only(left: 2),
+            padding: EdgeInsets.only(left: compact ? 3 : 4),
             child: Tooltip(
-              message: 'الكار الكبير',
-              child: Icon(Icons.emoji_events_rounded,
-                  color: AppTheme.playerGold, size: iconSize),
+              message: 'الموزع',
+              child: AppIcon(
+                AppIcons.style,
+                color: AppTheme.steelBlue,
+                size: iconSize,
+              ),
             ),
           ),
+        if (widget.isBidder) ...[
+          SizedBox(width: compact ? 3 : 4),
+          Tooltip(
+            message: 'الكار الكبير',
+            child: AppIcon(
+              AppIcons.emojiEvents,
+              color: AppTheme.playerGold,
+              size: iconSize,
+            ),
+          ),
+          if (_showTrumpOnBidder) ...[
+            SizedBox(width: compact ? 3 : 4),
+            _BidderTrumpChip(trump: widget.state.trump!, compact: compact),
+          ],
+        ],
       ],
+    );
+  }
+}
+
+/// Compact trump indicator shown on the bid-winner card.
+class _BidderTrumpChip extends StatelessWidget {
+  final Trump trump;
+  final bool compact;
+
+  const _BidderTrumpChip({required this.trump, required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSans = trump == Trump.sans;
+    final Color accent;
+    final String symbol;
+    final String label;
+
+    if (isSans) {
+      accent = const Color(0xFFA78BFA);
+      symbol = '🚫';
+      label = 'سانز';
+    } else {
+      final isRed = trump.color == SuitColor.red;
+      accent = isRed ? AppTheme.suitRed : AppTheme.steelBlue;
+      symbol = trump.label;
+      label = trump.arabicName;
+    }
+
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: accent.withValues(alpha: 0.45)),
+        ),
+        child: Text(
+          symbol,
+          style: TextStyle(
+            fontSize: 11,
+            color: accent,
+            fontWeight: FontWeight.bold,
+            height: 1,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            symbol,
+            style: TextStyle(
+              fontSize: 12,
+              color: accent,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: GoogleFonts.cairo(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.cream,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

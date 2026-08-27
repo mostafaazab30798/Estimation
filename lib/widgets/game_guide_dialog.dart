@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import '../core/constants.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class GameGuideDialog extends StatefulWidget {
   const GameGuideDialog({super.key});
@@ -27,19 +28,19 @@ class _GameGuideDialogState extends State<GameGuideDialog>
   final List<_GuideCategory> _categories = const [
     _GuideCategory(
       title: 'الأساسيات',
-      icon: Icons.emoji_events_rounded,
+      icon: AppIcons.emojiEvents,
     ),
     _GuideCategory(
       title: 'المزاد والمراحل',
-      icon: Icons.style_rounded,
+      icon: AppIcons.style,
     ),
     _GuideCategory(
       title: 'قواعد اللعب',
-      icon: Icons.touch_app_rounded,
+      icon: AppIcons.touchApp,
     ),
     _GuideCategory(
       title: 'النقاط والبونص',
-      icon: Icons.calculate_rounded,
+      icon: AppIcons.calculate,
     ),
   ];
 
@@ -156,8 +157,8 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 color: AppTheme.accentBlue.withValues(alpha: 0.4),
               ),
             ),
-            child: const Icon(
-              Icons.menu_book_rounded,
+            child: const AppIcon(
+              AppIcons.menuBook,
               color: AppTheme.mintSoft,
               size: 22,
             ),
@@ -193,7 +194,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+            icon: const AppIcon(AppIcons.close, color: Colors.white70, size: 20),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white.withValues(alpha: 0.08),
@@ -235,7 +236,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(cat.icon, size: 16),
+                    AppIcon(cat.icon, size: 16),
                     const SizedBox(width: 6),
                     Text(cat.title),
                   ],
@@ -750,7 +751,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
 
 class _GuideCategory {
   final String title;
-  final IconData icon;
+  final AppIconData icon;
 
   const _GuideCategory({required this.title, required this.icon});
 }

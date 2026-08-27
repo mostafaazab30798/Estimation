@@ -6,6 +6,8 @@ import 'package:estimation/theme/app_theme.dart';
 import 'package:estimation/widgets/performance_blur.dart';
 import 'package:estimation/modes/ninety_nine/presentation/dialogs/ninety_nine_game_guide_dialog.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import 'package:estimation/core/icons/app_icons.dart';
+import 'package:estimation/core/widgets/app_buttons.dart';
 
 class NinetyNineTopHud extends StatelessWidget {
   final NinetyNineGameProvider game;
@@ -132,21 +134,13 @@ class _ExitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: const Icon(Icons.arrow_back_rounded, color: AppTheme.cream, size: 18),
-        ),
-      ),
+    return AppIconButton(
+      icon: AppIcons.arrowBack,
+      onTap: onTap,
+      color: AppTheme.cream,
+      backgroundColor: Colors.white.withValues(alpha: 0.06),
+      borderColor: Colors.white.withValues(alpha: 0.12),
+      size: AppIconButtonSize.sm,
     );
   }
 }
@@ -156,26 +150,16 @@ class _GuideButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          showDialog(
-            context: context,
-            builder: (_) => const NinetyNineGameGuideDialog(),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: AppTheme.mintSoft.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.mintSoft.withValues(alpha: 0.3)),
-          ),
-          child: const Icon(Icons.help_outline_rounded, color: AppTheme.mintSoft, size: 18),
-        ),
-      ),
+    return AppIconButton(
+      icon: AppIcons.helpOutline,
+      color: AppTheme.mintSoft,
+      size: AppIconButtonSize.sm,
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) => const NinetyNineGameGuideDialog(),
+        );
+      },
     );
   }
 }
@@ -250,8 +234,8 @@ class _DirectionBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isClockwise ? Icons.autorenew_rounded : Icons.swap_horizontal_circle_outlined,
+          AppIcon(
+            isClockwise ? AppIcons.autorenew : AppIcons.swapHorizontalCircle,
             color: color,
             size: 15,
           ),

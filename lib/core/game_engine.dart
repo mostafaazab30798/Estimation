@@ -45,23 +45,52 @@ class GameEngine {
     return suits.length < Suit.values.length;
   }
 
+  /// First player (by seat order) whose hand is missing a suit, or null.
+  static Player? findVoidSuitPlayer(GameState state) {
+    final ordered = [...state.players]
+      ..sort((a, b) => a.seatIndex.compareTo(b.seatIndex));
+    for (final p in ordered) {
+      if (hasVoidSuit(p)) return p;
+    }
+    return null;
+  }
+
+  /// After deal: enter void-check vote if anyone is void, else bidding phases.
+  static void enterPostDealPhase(GameState state) {
+    state.voidCheckPassed.clear();
+    state.voidRedealRejections.clear();
+    final voidPlayer = findVoidSuitPlayer(state);
+    if (voidPlayer != null) {
+      state.phase = GamePhase.voidCheck;
+      state.voidDeclaringPlayerId = voidPlayer.id;
+      return;
+    }
+    state.voidDeclaringPlayerId = null;
+    proceedAfterVoidCheck(state);
+  }
+
+  /// Clear void vote and advance to dash call or fixed-trump declarations.
+  static void proceedAfterVoidCheck(GameState state) {
+    state.voidDeclaringPlayerId = null;
+    state.voidRedealRejections.clear();
+    state.voidCheckPassed.clear();
+    final firstSeat = (state.dealerSeatIndex + 1) % state.players.length;
+    if (state.fixedTrump != null) {
+      state.trump = state.fixedTrump;
+      state.phase = GamePhase.declarations;
+      state.currentPlayerSeatIndex = firstSeat;
+    } else {
+      state.dashCallPassed.clear();
+      state.phase = GamePhase.dashCall;
+      state.currentPlayerSeatIndex = firstSeat;
+    }
+  }
+
   /// Player confirms void check (or triggers redeal)
   static void passVoidCheck(GameState state, String playerId) {
     state.voidCheckPassed.add(playerId);
     if (state.voidCheckPassed.length == state.players.length) {
-      if (state.fixedTrump != null) {
-        // Last 5 rounds: trump is fixed, skip auction & dash call -> direct declarations
-        state.trump = state.fixedTrump;
-        state.phase = GamePhase.declarations;
-        state.currentPlayerSeatIndex =
-            (state.dealerSeatIndex + 1) % state.players.length;
-      } else {
-        // Void check complete -> Proceed to Pre-Auction Dash Call phase
-        state.dashCallPassed.clear();
-        state.phase = GamePhase.dashCall;
-        state.currentPlayerSeatIndex =
-            (state.dealerSeatIndex + 1) % state.players.length;
-      }
+      proceedAfterVoidCheck(state);
     }
   }
 
@@ -527,14 +556,16 @@ class GameEngine {
     }
 
     state.roundNumber++;
-    state.dealerSeatIndex = (state.dealerSeatIndex + 1) % state.players.length;
-    final firstBidder = (state.dealerSeatIndex + 1) % state.players.length;
-    state.auctionTurnSeatIndex = firstBidder;
+    final firstBidder = (state.roundNumber - 1) % state.players.length;
+    state.dealerSeatIndex =
+        (firstBidder - 1 + state.players.length) % state.players.length;
 
     for (final p in state.players) {
       p.resetForRound();
     }
     _resetRoundState(state);
+    state.auctionTurnSeatIndex = firstBidder;
+    state.currentPlayerSeatIndex = firstBidder;
     state.phase = GamePhase.dealing;
   }
 
@@ -561,13 +592,14 @@ class GameEngine {
   /// Prepare initial GameState for a new match.
   static GameState createInitialState(List<Player> players,
       {int totalRounds = kBoulaTotalRounds}) {
+    final dealer = players.isEmpty ? 0 : (players.length - 1);
     final state = GameState(
       players: players,
       phase: GamePhase.lobby,
       roundNumber: 1,
       totalRounds: totalRounds,
-      dealerSeatIndex: 0,
-      auctionTurnSeatIndex: 1,
+      dealerSeatIndex: dealer,
+      auctionTurnSeatIndex: 0,
     );
     return state;
   }

@@ -13,6 +13,7 @@ import '../services/share_card_service.dart';
 import '../theme/app_theme.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/utils/snackbar_helper.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 enum ShareCardType {
   identityProfile,
@@ -200,7 +201,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      icon: const AppIcon(AppIcons.close, color: Colors.white70),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -244,7 +245,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Icon(Icons.share_rounded, size: 18),
+                          : const AppIcon(AppIcons.share, size: 18),
                       label: Text(
                         _isSharing ? 'جاري التجهيز...' : 'مشاركة بالخارج',
                         style: GoogleFonts.cairo(
@@ -269,7 +270,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      icon: const Icon(Icons.copy_rounded, size: 16, color: AppTheme.goldLight),
+                      icon: const AppIcon(AppIcons.copy, size: 16, color: AppTheme.goldLight),
                       label: Text(
                         'نسخ',
                         style: GoogleFonts.cairo(
@@ -524,7 +525,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.emoji_events_rounded, color: AppTheme.gold, size: 24),
+                  const AppIcon(AppIcons.emojiEvents, color: AppTheme.gold, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     'انتصار ساحق • ESTIMATION VICTORY',

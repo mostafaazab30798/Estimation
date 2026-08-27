@@ -3,6 +3,7 @@
 // Post-auction declaration dialog for non-Bidder & Bidder players.
 
 import 'package:flutter/material.dart';
+import '../core/constants.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
 import '../core/widgets/player_avatar.dart';
@@ -130,6 +131,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                       ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
                 ),
               ),
+              if (state != null) _buildCompactBidderBanner(state, me),
               if (state?.isDoubleRound == true) ...[
                 const SizedBox(height: 6),
                 Container(
@@ -474,13 +476,17 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
             // Name + Bidder icon
             Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isBidder) const Text('🔥', style: TextStyle(fontSize: 10)),
+                if (isBidder) ...[
+                  const Text('👑', style: TextStyle(fontSize: 10)),
+                  const SizedBox(width: 2),
+                ],
                 Flexible(
                   child: Text(
                     player.name,
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                    style: TextStyle(
+                      color: isBidder ? AppTheme.gold : AppTheme.textPrimary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -491,6 +497,63 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                 ),
               ],
             ),
+            // Bidder tricks count & trump beside/under name
+            if (isBidder && (state.trump != null || state.currentHighBid != null)) ...[
+              const SizedBox(height: 2),
+              Builder(
+                builder: (context) {
+                  final trump = state.trump ?? state.currentHighBid?.trump;
+                  final trickCount = state.currentHighBid?.trickCount;
+                  final trumpColor = _getTrumpColor(trump);
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.navyDark,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: trumpColor.withValues(alpha: 0.5),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (trickCount != null) ...[
+                          Text(
+                            '$trickCount',
+                            style: const TextStyle(
+                              color: AppTheme.gold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                        ],
+                        if (trump != null) ...[
+                          Text(
+                            trump.isSans ? 'NT' : trump.label,
+                            style: TextStyle(
+                              color: trumpColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            trump.arabicName,
+                            style: TextStyle(
+                              color: trumpColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: 6),
 
             // Declaration Box
@@ -525,6 +588,120 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
         ),
       ),
     );
+  }
+
+  Widget _buildCompactBidderBanner(GameState state, Player? me) {
+    final bidder = state.bidder;
+    final winningBid = state.currentHighBid;
+    final trump = state.trump ?? winningBid?.trump;
+    if (bidder == null && trump == null) return const SizedBox.shrink();
+
+    final isMeBidder = bidder != null && bidder.id == me?.id;
+    final bidderName = isMeBidder ? 'أنت' : (bidder?.name ?? 'غير محدد');
+    final trickCount = winningBid?.trickCount ?? bidder?.declared;
+    final trumpColor = _getTrumpColor(trump);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.navyMid.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.gold.withValues(alpha: 0.4),
+          width: 1.0,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('👑', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          const Text(
+            'صاحب المزاد: ',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              bidderName,
+              style: TextStyle(
+                color: isMeBidder ? AppTheme.playerGreen : AppTheme.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.navyDark,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: trumpColor.withValues(alpha: 0.5),
+                width: 1.0,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (trickCount != null) ...[
+                  Text(
+                    '$trickCount',
+                    style: const TextStyle(
+                      color: AppTheme.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                if (trump != null) ...[
+                  Text(
+                    trump.isSans ? 'NT' : trump.label,
+                    style: TextStyle(
+                      color: trumpColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    trump.arabicName,
+                    style: TextStyle(
+                      color: trumpColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getTrumpColor(Trump? trump) {
+    if (trump == null) return AppTheme.gold;
+    switch (trump) {
+      case Trump.heart:
+      case Trump.diamond:
+        return const Color(0xFFFF5252);
+      case Trump.spade:
+      case Trump.club:
+        return const Color(0xFFE2E8F0);
+      case Trump.sans:
+        return AppTheme.gold;
+    }
   }
 }
 

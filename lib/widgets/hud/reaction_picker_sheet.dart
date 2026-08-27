@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_reaction.dart';
 import '../../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class ReactionPickerSheet extends StatefulWidget {
   final void Function(String emoji, [String? text]) onSelectReaction;
@@ -112,8 +113,8 @@ class _ReactionPickerSheetState extends State<ReactionPickerSheet>
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                          Icons.chat_bubble_outline_rounded,
+                        const AppIcon(
+                          AppIcons.chatBubbleOutline,
                           color: AppTheme.gold,
                           size: 20,
                         ),
@@ -129,7 +130,7 @@ class _ReactionPickerSheetState extends State<ReactionPickerSheet>
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                      icon: const AppIcon(AppIcons.close, color: Colors.white70, size: 20),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () => Navigator.of(context).pop(),

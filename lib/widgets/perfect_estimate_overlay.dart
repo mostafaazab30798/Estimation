@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PerfectEstimateOverlay extends StatefulWidget {
   final int declared;
@@ -353,8 +354,8 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
-                              Icons.stars_rounded,
+                            const AppIcon(
+                              AppIcons.stars,
                               size: 18,
                               color: Colors.white,
                             ),

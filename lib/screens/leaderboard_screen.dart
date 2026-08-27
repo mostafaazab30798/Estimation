@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/ranking_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/rank_tier_badge.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class LeaderboardView extends StatefulWidget {
   final bool isStandalone;
@@ -124,17 +125,17 @@ class _LeaderboardViewState extends State<LeaderboardView> {
         children: [
           _buildFilterTab(
             title: 'الأعلى خبرة (XP)',
-            icon: Icons.auto_awesome_rounded,
+            icon: AppIcons.autoAwesome,
             sort: LeaderboardSort.xp,
           ),
           _buildFilterTab(
             title: 'الأكثر فوزاً 🏆',
-            icon: Icons.emoji_events_rounded,
+            icon: AppIcons.emojiEvents,
             sort: LeaderboardSort.wins,
           ),
           _buildFilterTab(
             title: 'المستوى ⭐',
-            icon: Icons.military_tech_rounded,
+            icon: AppIcons.militaryTech,
             sort: LeaderboardSort.level,
           ),
         ],
@@ -144,7 +145,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
 
   Widget _buildFilterTab({
     required String title,
-    required IconData icon,
+    required AppIconData icon,
     required LeaderboardSort sort,
   }) {
     final isSelected = _currentSort == sort;
@@ -166,7 +167,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              AppIcon(
                 icon,
                 size: 14,
                 color: isSelected ? AppTheme.gold : Colors.white60,
@@ -488,7 +489,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, color: AppTheme.gold, size: 18),
+                const AppIcon(AppIcons.infoOutline, color: AppTheme.gold, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -588,7 +589,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.leaderboard_rounded, size: 54, color: Colors.white24),
+          const AppIcon(AppIcons.leaderboard, size: 54, color: Colors.white24),
           const SizedBox(height: 12),
           Text(
             'لا يوجد لاعبون مسجلون في لوحة المتصدرين بعد',
@@ -597,7 +598,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _loadLeaderboard,
-            icon: const Icon(Icons.refresh_rounded, color: AppTheme.gold, size: 18),
+            icon: const AppIcon(AppIcons.refresh, color: AppTheme.gold, size: 18),
             label: Text('تحديث', style: GoogleFonts.cairo(color: AppTheme.gold)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.gold),

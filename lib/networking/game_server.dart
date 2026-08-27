@@ -24,6 +24,7 @@ class GameServer {
 
   final StateUpdateCallback onStateUpdate;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
+  final void Function(Map<String, dynamic> earthquakeData)? onEarthquake;
   
   String? hostPlayerId;
   String? hostName;
@@ -47,12 +48,19 @@ class GameServer {
   final Set<String> _botPlayerIds = {};
   bool _botProcessing = false;
 
-  GameServer({required this.onStateUpdate, this.onReaction});
+  GameServer({required this.onStateUpdate, this.onReaction, this.onEarthquake});
 
 
   // ── Lifecycle ────────────────────────────────────────────────
 
-  Future<void> start(String hostName, String hostPlayerId, String roomId, String hostPhoto, {int maxPlayers = 4}) async {
+  Future<void> start(
+    String hostName,
+    String hostPlayerId,
+    String roomId,
+    String hostPhoto, {
+    int maxPlayers = 4,
+    int totalRounds = kBoulaTotalRounds,
+  }) async {
     _isStopped = false;
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
@@ -67,7 +75,7 @@ class GameServer {
       seatIndex: 0,
       photo: hostPhoto,
     );
-    _state = GameEngine.createInitialState([hostPlayer]);
+    _state = GameEngine.createInitialState([hostPlayer], totalRounds: totalRounds);
 
     // Initialize Supabase Broadcast Channel
     _channel = Supabase.instance.client.channel('room_$roomId');
@@ -283,6 +291,21 @@ class GameServer {
         );
         onReaction?.call(reactionData);
 
+      case ActionType.triggerEarthquake:
+        final earthquakeData = {
+          'id': payload['earthquakeId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'playerId': playerId,
+          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'] ?? 'Player',
+          'card': payload['card'],
+          'roundNumber': payload['roundNumber'] ?? _state.roundNumber,
+          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+        };
+        _channel?.sendBroadcastMessage(
+          event: 'earthquake',
+          payload: earthquakeData,
+        );
+        onEarthquake?.call(earthquakeData);
+
       case ActionType.changeTheme:
         if (playerId == hostPlayerId && _state.phase == GamePhase.lobby) {
           final newTheme = payload['theme'] as String;
@@ -291,6 +314,7 @@ class GameServer {
         }
 
       case ActionType.approveRedeal:
+        // Any single approve while a void suit was detected → redeal immediately.
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _triggerRedeal();
         }
@@ -299,9 +323,8 @@ class GameServer {
         if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
           _state.voidRedealRejections.add(playerId);
           if (_state.voidRedealRejections.length >= maxPlayers) {
-            // Everyone rejected the redeal. Resume voidCheck.
-            _state.voidDeclaringPlayerId = null;
-            _state.voidRedealRejections.clear();
+            // Everyone chose continue — proceed to dash call / declarations.
+            GameEngine.proceedAfterVoidCheck(_state);
           }
           _broadcastState();
         }
@@ -442,31 +465,20 @@ class GameServer {
 
   void _doDeal() {
     if (_isStopped) return;
-    // Determine dealer for this round
-    _state.dealerSeatIndex = (_state.roundNumber - 1) % maxPlayers;
-
-    // The player to the right of the dealer acts first in the auction
-    _state.auctionTurnSeatIndex =
-        (_state.dealerSeatIndex + 1) % maxPlayers;
+    // Determine dealer and first bidder for this round
+    final firstBidder = (_state.roundNumber - 1) % maxPlayers;
+    _state.dealerSeatIndex = (firstBidder - 1 + maxPlayers) % maxPlayers;
+    _state.auctionTurnSeatIndex = firstBidder;
     _state.trump = _state.fixedTrump;
 
-    _state.voidCheckPassed.clear();
-    _state.voidDeclaringPlayerId = null;
-    _state.voidRedealRejections.clear();
     GameEngine.dealCards(_state);
 
     // Persist each real player's private hand for reconnection recovery.
     _saveHandCards();
 
-    // Automatically declare void if any player has an empty suit
-    final playerWithVoid = _state.players
-        .where((p) => p.hand.map((c) => c.suit).toSet().length < 4)
-        .firstOrNull;
-    if (playerWithVoid != null) {
-      _state.voidDeclaringPlayerId = playerWithVoid.id;
-    }
+    // If anyone has an empty suit, pause for a redistribute/continue vote.
+    GameEngine.enterPostDealPhase(_state);
 
-    _state.phase = GamePhase.voidCheck;
     _broadcastState();
   }
 
@@ -824,15 +836,14 @@ class GameServer {
             if (!_state.voidRedealRejections.contains(id)) {
               final bot = _state.players.where((p) => p.id == id).firstOrNull;
               if (bot == null) continue;
-              if (id == _state.voidDeclaringPlayerId) {
-                _handlePlayerAction({'action': ActionType.approveRedeal, 'playerId': id});
-              } else {
-                final approve = EstimationBotAi.shouldApproveRedeal(bot, _state);
-                _handlePlayerAction({
-                  'action': approve ? ActionType.approveRedeal : ActionType.rejectRedeal,
-                  'playerId': id,
-                });
-              }
+              // Void holders lean toward redeal; others use hand-strength heuristic.
+              final approve = id == _state.voidDeclaringPlayerId ||
+                  GameEngine.hasVoidSuit(bot) ||
+                  EstimationBotAi.shouldApproveRedeal(bot, _state);
+              _handlePlayerAction({
+                'action': approve ? ActionType.approveRedeal : ActionType.rejectRedeal,
+                'playerId': id,
+              });
               return;
             }
           }

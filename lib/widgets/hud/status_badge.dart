@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 import '../../core/models/game_state.dart';
 import '../../core/models/player.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 enum _PlayerStatus {
   waiting,
@@ -68,21 +69,21 @@ _PlayerStatus _resolveStatus({
 
 class _BadgeConfig {
   final Color color;
-  final IconData icon;
+  final AppIconData icon;
   final String label;
   const _BadgeConfig(this.color, this.icon, this.label);
 }
 
 const _kConfigs = <_PlayerStatus, _BadgeConfig>{
-  _PlayerStatus.waiting:     _BadgeConfig(AppTheme.steelBlue,      Icons.hourglass_empty_rounded, 'ينتظر...'),
-  _PlayerStatus.currentTurn: _BadgeConfig(AppTheme.playerGold,     Icons.play_circle_rounded,     'دوره'),
-  _PlayerStatus.passed:      _BadgeConfig(AppTheme.playerRed,       Icons.block_rounded,           'باس'),
-  _PlayerStatus.declaring:   _BadgeConfig(AppTheme.playerBlue,      Icons.touch_app_rounded,       'يصرّح'),
-  _PlayerStatus.auctionTurn: _BadgeConfig(AppTheme.phaseAuction,   Icons.gavel_rounded,           'يزايد'),
-  _PlayerStatus.highBidder:  _BadgeConfig(AppTheme.playerGold,     Icons.emoji_events_rounded,    'أعلى عطاء'),
-  _PlayerStatus.ready:       _BadgeConfig(AppTheme.playerGreen,    Icons.check_circle_rounded,    'جاهز'),
-  _PlayerStatus.declared:    _BadgeConfig(AppTheme.playerBlue,     Icons.assignment_turned_in_rounded, 'صرّح'),
-  _PlayerStatus.none:        _BadgeConfig(AppTheme.steelBlue,      Icons.remove_rounded,          ''),
+  _PlayerStatus.waiting:     _BadgeConfig(AppTheme.steelBlue,      AppIcons.hourglassEmpty, 'ينتظر...'),
+  _PlayerStatus.currentTurn: _BadgeConfig(AppTheme.playerGold,     AppIcons.playCircle,     'دوره'),
+  _PlayerStatus.passed:      _BadgeConfig(AppTheme.playerRed,       AppIcons.block,           'باس'),
+  _PlayerStatus.declaring:   _BadgeConfig(AppTheme.playerBlue,      AppIcons.touchApp,       'يصرّح'),
+  _PlayerStatus.auctionTurn: _BadgeConfig(AppTheme.phaseAuction,   AppIcons.gavel,           'يزايد'),
+  _PlayerStatus.highBidder:  _BadgeConfig(AppTheme.playerGold,     AppIcons.emojiEvents,    'أعلى عطاء'),
+  _PlayerStatus.ready:       _BadgeConfig(AppTheme.playerGreen,    AppIcons.checkCircle,    'جاهز'),
+  _PlayerStatus.declared:    _BadgeConfig(AppTheme.playerBlue,     AppIcons.assignmentTurnedIn, 'صرّح'),
+  _PlayerStatus.none:        _BadgeConfig(AppTheme.steelBlue,      AppIcons.remove,          ''),
 };
 
 /// A floating colored badge that replaces plain text status hints.
@@ -140,27 +141,14 @@ class StatusBadge extends StatelessWidget {
         key: ValueKey(status),
         padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              cfg.color.withValues(alpha: 0.22),
-              cfg.color.withValues(alpha: 0.10),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: cfg.color.withValues(alpha: 0.45), width: 0.8),
-          boxShadow: [
-            BoxShadow(
-              color: cfg.color.withValues(alpha: 0.12),
-              blurRadius: 6,
-            ),
-          ],
+          color: cfg.color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: cfg.color.withValues(alpha: 0.40), width: 0.9),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(cfg.icon, color: cfg.color, size: iconSize),
+            AppIcon(cfg.icon, color: cfg.color, size: iconSize),
             if (label.isNotEmpty) ...[
               const SizedBox(width: 3),
               Text(

@@ -16,7 +16,10 @@ import '../services/ranking_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/level_up_dialog.dart';
 import '../widgets/rank_tier_badge.dart';
+import '../widgets/hud/match_rank_badge.dart';
 import '../widgets/share_my_estimation_dialog.dart';
+import '../models/match_rank.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class MatchEndScreen extends StatefulWidget {
   final GameState state;
@@ -198,14 +201,13 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                     ...sortedPlayers.asMap().entries.map((e) {
                       final rankIndex = e.key.clamp(0, 3);
                       final player = e.value;
-                      final ranks = ['كينج 👑', 'صب كينج 🥈', 'صب كوز 🥉', 'كوز 🤡'];
-                      final rankName = ranks[rankIndex];
-                      final rankColor = AppTheme.rankColors[rankIndex];
+                      final matchRank = MatchRank.fromIndex(rankIndex)!;
+                      final rankColor = matchRank.accentColor;
                       final isMe = player.id == widget.provider.myPlayerId;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           color: rankColor.withValues(alpha: isMe ? 0.25 : 0.15),
                           borderRadius: BorderRadius.circular(14),
@@ -217,13 +219,21 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                         ),
                         child: Row(
                           children: [
+                            MatchRankBadge(
+                              rankIndex: rankIndex,
+                              size: rankIndex == 0
+                                  ? MatchRankBadgeSize.large
+                                  : MatchRankBadgeSize.medium,
+                              glow: rankIndex == 0,
+                            ),
+                            const SizedBox(width: 10),
                             SizedBox(
-                              width: 95,
+                              width: 72,
                               child: Text(
-                                rankName,
+                                matchRank.titleAr,
                                 style: GoogleFonts.cairo(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w900,
                                   color: rankColor,
                                 ),
                               ),
@@ -336,7 +346,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.share_rounded, color: Colors.white, size: 20),
+                                  const AppIcon(AppIcons.share, color: Colors.white, size: 20),
                                   const SizedBox(width: 8),
                                   Text(
                                     'مشاركة نتيجة الانتصار 🏆',
@@ -423,7 +433,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: AppTheme.gold, size: 20),
+                  const AppIcon(AppIcons.autoAwesome, color: AppTheme.gold, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     '+${breakdown.totalXp} XP مكافأة الجولة',

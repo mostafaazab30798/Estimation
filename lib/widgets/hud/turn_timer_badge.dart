@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_state.dart';
 import '../../theme/app_theme.dart';
 import '../../services/settings_service.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class TurnTimerBadge extends StatefulWidget {
   final GameState? state;
@@ -187,14 +188,14 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
           scale: scale,
           child: Container(
             height: badgeHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  (isWarning ? const Color(0xFF3F1015) : AppTheme.deepNavy)
-                      .withValues(alpha: 0.92),
-                  (isWarning ? const Color(0xFF280B0F) : AppTheme.navyDark)
-                      .withValues(alpha: 0.96),
+                  (isWarning ? const Color(0xFF3F1015) : const Color(0xFF1E3348))
+                      .withValues(alpha: 0.94),
+                  (isWarning ? const Color(0xFF280B0F) : AppTheme.deepNavy)
+                      .withValues(alpha: 0.97),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -203,17 +204,17 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
               border: Border.all(
                 color: isWarning
                     ? primaryColor.withValues(alpha: 0.75 + 0.25 * _pulseAnim.value)
-                    : primaryColor.withValues(alpha: 0.45),
-                width: isWarning ? 1.6 : 1.2,
+                    : primaryColor.withValues(alpha: 0.40),
+                width: isWarning ? 1.5 : 1.1,
               ),
               boxShadow: [
                 BoxShadow(
                   color: glowColor.withValues(alpha: glowAlpha),
-                  blurRadius: isWarning ? 16 + 8 * _pulseAnim.value : 10,
-                  spreadRadius: isWarning ? 1.5 : 0.5,
+                  blurRadius: isWarning ? 16 + 8 * _pulseAnim.value : 12,
+                  spreadRadius: isWarning ? 1.5 : 0,
                 ),
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
+                  color: Colors.black.withValues(alpha: 0.38),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -237,8 +238,8 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
                         valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       ),
                       if (isWarning)
-                        const Icon(
-                          Icons.priority_high_rounded,
+                        const AppIcon(
+                          AppIcons.priorityHigh,
                           size: 11,
                           color: Color(0xFFFFD700),
                         ),

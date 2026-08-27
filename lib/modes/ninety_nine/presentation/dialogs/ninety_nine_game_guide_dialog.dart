@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class NinetyNineGameGuideDialog extends StatefulWidget {
   const NinetyNineGameGuideDialog({super.key});
@@ -24,9 +25,9 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
   late TabController _tabController;
 
   final List<_GuideTab> _tabs = const [
-    _GuideTab(title: 'الأساسيات 🎯', icon: Icons.sports_esports_rounded),
-    _GuideTab(title: 'الأوراق والخصائص 🎴', icon: Icons.style_rounded),
-    _GuideTab(title: 'الاستبعاد والفوز 🏆', icon: Icons.emoji_events_rounded),
+    _GuideTab(title: 'الأساسيات 🎯', icon: AppIcons.sportsEsports),
+    _GuideTab(title: 'الأوراق والخصائص 🎴', icon: AppIcons.style),
+    _GuideTab(title: 'الاستبعاد والفوز 🏆', icon: AppIcons.emojiEvents),
   ];
 
   @override
@@ -106,8 +107,8 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                           color: const Color(0xFFEF4444).withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.local_fire_department_rounded,
+                        child: const AppIcon(
+                          AppIcons.localFireDepartment,
                           color: Color(0xFFEF4444),
                           size: 22,
                         ),
@@ -137,7 +138,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        icon: const AppIcon(AppIcons.close, color: Colors.white70),
                         tooltip: 'إغلاق',
                       ),
                     ],
@@ -159,7 +160,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                     ),
                     tabs: _tabs
                         .map((t) => Tab(
-                              icon: Icon(t.icon, size: 18),
+                              icon: AppIcon(t.icon, size: 18),
                               text: t.title,
                             ))
                         .toList(),
@@ -416,7 +417,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
 
 class _GuideTab {
   final String title;
-  final IconData icon;
+  final AppIconData icon;
 
   const _GuideTab({required this.title, required this.icon});
 }

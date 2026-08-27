@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,9 @@ class AudioService {
   Future<void> initialize() async {
     if (_initialized) return;
     try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
       await SettingsService.instance.initialize();
 
       _cardPlayer = AudioPlayer();
@@ -60,46 +64,54 @@ class AudioService {
   void _triggerHaptic(VoidCallback hapticAction) {
     if (!SettingsService.instance.hapticsEnabled) return;
     try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
+    } catch (_) {}
+    try {
       hapticAction();
     } catch (_) {}
   }
 
-  /// Triggers subtle selection haptic and card play sound at ~60% volume.
+  Future<void> _safePlay(AudioPlayer? player, Source source, double volume, {PlayerMode mode = PlayerMode.mediaPlayer}) async {
+    if (player == null) return;
+    try {
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
+    } catch (_) {}
+    try {
+      await player.stop().timeout(const Duration(milliseconds: 80), onTimeout: () {});
+      await player.play(source, volume: volume, mode: mode).timeout(const Duration(milliseconds: 80), onTimeout: () {});
+    } catch (e) {
+      debugPrint('AudioService safePlay error: $e');
+    }
+  }
+
+  /// Plays card swipe sound effect with low latency.
   Future<void> playCard() async {
     _triggerHaptic(HapticFeedback.selectionClick);
 
     if (!SettingsService.instance.sfxEnabled) return;
-    try {
-      if (_cardPlayer != null) {
-        await _cardPlayer!.stop();
-        await _cardPlayer!.play(
-          AssetSource('audio/card_play.mp3'),
-          volume: 0.6 * SettingsService.instance.sfxVolume,
-          mode: PlayerMode.lowLatency,
-        );
-      }
-    } catch (e) {
-      debugPrint('AudioService playCard error: $e');
-    }
+    await _safePlay(
+      _cardPlayer,
+      AssetSource('audio/card_play.mp3'),
+      0.7 * SettingsService.instance.sfxVolume,
+      mode: PlayerMode.lowLatency,
+    );
   }
 
-  /// Triggers light impact haptic and trick collection sound at ~80% volume.
+  /// Plays trick collection sound.
   Future<void> playCollection() async {
     _triggerHaptic(HapticFeedback.lightImpact);
 
     if (!SettingsService.instance.sfxEnabled) return;
-    try {
-      if (_collectPlayer != null) {
-        await _collectPlayer!.stop();
-        await _collectPlayer!.play(
-          AssetSource('audio/collect_cards.mp3'),
-          volume: 0.8 * SettingsService.instance.sfxVolume,
-          mode: PlayerMode.lowLatency,
-        );
-      }
-    } catch (e) {
-      debugPrint('AudioService playCollection error: $e');
-    }
+    await _safePlay(
+      _collectPlayer,
+      AssetSource('audio/collect_cards.mp3'),
+      0.8 * SettingsService.instance.sfxVolume,
+      mode: PlayerMode.lowLatency,
+    );
   }
 
   /// Triggers celebratory haptic and victory fanfare.
@@ -107,17 +119,11 @@ class AudioService {
     _triggerHaptic(HapticFeedback.heavyImpact);
 
     if (!SettingsService.instance.sfxEnabled) return;
-    try {
-      if (_winPlayer != null) {
-        await _winPlayer!.stop();
-        await _winPlayer!.play(
-          AssetSource('audio/win.mp3'),
-          volume: 0.9 * SettingsService.instance.sfxVolume,
-        );
-      }
-    } catch (e) {
-      debugPrint('AudioService playWin error: $e');
-    }
+    await _safePlay(
+      _winPlayer,
+      AssetSource('audio/win.mp3'),
+      0.9 * SettingsService.instance.sfxVolume,
+    );
   }
 
   /// Triggers defeat audio cue.
@@ -125,17 +131,11 @@ class AudioService {
     _triggerHaptic(HapticFeedback.vibrate);
 
     if (!SettingsService.instance.sfxEnabled) return;
-    try {
-      if (_defeatPlayer != null) {
-        await _defeatPlayer!.stop();
-        await _defeatPlayer!.play(
-          AssetSource('audio/defeat.mp3'),
-          volume: 0.8 * SettingsService.instance.sfxVolume,
-        );
-      }
-    } catch (e) {
-      debugPrint('AudioService playDefeat error: $e');
-    }
+    await _safePlay(
+      _defeatPlayer,
+      AssetSource('audio/defeat.mp3'),
+      0.8 * SettingsService.instance.sfxVolume,
+    );
   }
 
   /// Triggers high-stake Risk/Dash success fanfare.
@@ -143,17 +143,39 @@ class AudioService {
     _triggerHaptic(HapticFeedback.heavyImpact);
 
     if (!SettingsService.instance.sfxEnabled) return;
+    await _safePlay(
+      _riskPlayer,
+      AssetSource('audio/risk-win.mp3'),
+      0.9 * SettingsService.instance.sfxVolume,
+    );
+  }
+
+  /// Triggers earthquake rumble haptics and card slide audio.
+  Future<void> playEarthquakeSlam() async {
     try {
-      if (_riskPlayer != null) {
-        await _riskPlayer!.stop();
-        await _riskPlayer!.play(
-          AssetSource('audio/risk-win.mp3'),
-          volume: 0.9 * SettingsService.instance.sfxVolume,
-        );
+      if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
       }
-    } catch (e) {
-      debugPrint('AudioService playRiskWin error: $e');
-    }
+    } catch (_) {}
+
+    _triggerHaptic(HapticFeedback.heavyImpact);
+    _triggerHaptic(HapticFeedback.vibrate);
+
+    // Secondary rumble pulses for real shockwave feel
+    Future.delayed(const Duration(milliseconds: 140), () {
+      _triggerHaptic(HapticFeedback.heavyImpact);
+    });
+    Future.delayed(const Duration(milliseconds: 320), () {
+      _triggerHaptic(HapticFeedback.vibrate);
+    });
+
+    if (!SettingsService.instance.sfxEnabled) return;
+    await _safePlay(
+      _cardPlayer,
+      AssetSource('audio/card_play.mp3'),
+      0.8 * SettingsService.instance.sfxVolume,
+      mode: PlayerMode.lowLatency,
+    );
   }
 
   StreamSubscription? _eventSub;
@@ -170,6 +192,9 @@ class AudioService {
   void playEventAudio(EstimationGameEvent event, {String? currentUserId}) {
     if (event is TrickWon) {
       playCollection();
+    } else if (event is EarthquakeStrikeUsed) {
+      // Slam SFX/haptics fire from EarthquakeEffectOverlay at impact time,
+      // so the rumble lands with the card strike — not at flight start.
     } else if (event is RiskDeclaration || event is DashCallSucceeded) {
       playRiskWin();
     } else if (event is PerfectEstimate) {

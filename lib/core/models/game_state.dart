@@ -22,8 +22,8 @@ class GameState {
   GamePhase phase;
 
   // ── Round meta ─────────────────────────────────────────────
-  int roundNumber;     // 1-based (1 to 18)
-  int totalRounds;     // Default 18 for official Boula
+  int roundNumber;     // 1-based
+  int totalRounds;     // 18 classic Boula, or 10 mini
   int dealerSeatIndex; // rotates each round
   bool isDoubleRound;  // true if previous round was all-passed (2x points)
 
@@ -107,6 +107,9 @@ class GameState {
 
   Trump? get fixedTrump => fixedTrumpForRound(roundNumber, totalRounds);
 
+  /// True during the championship fixed-trump stretch (last 5 rounds).
+  bool get isFixedTrumpRound => fixedTrump != null;
+
   Player? get bidder =>
       bidderPlayerId == null
           ? null
@@ -135,10 +138,12 @@ class GameState {
   bool get hasBots => players.any((p) => p.id.startsWith('bot_'));
 
   bool get isMatchOver {
-    final reachedRoundLimit = roundNumber >= totalRounds && 
+    final reachedRoundLimit = roundNumber >= totalRounds &&
         (phase == GamePhase.scoring || phase == GamePhase.matchEnd);
     final reachedScore = players.any((p) => p.totalScore >= kMatchEndScore);
-    return reachedRoundLimit || (totalRounds != kBoulaTotalRounds && reachedScore);
+    // Score-target ending applies only outside classic/mini Boula formats.
+    return reachedRoundLimit ||
+        (!isRoundBasedBoula(totalRounds) && reachedScore);
   }
 
   Player? get matchWinner {

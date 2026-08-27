@@ -1,6 +1,5 @@
-// lib/modes/ninety_nine/presentation/widgets/ninety_nine_player_hand.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/constants.dart';
 import 'package:estimation/core/models/card.dart';
@@ -8,6 +7,7 @@ import 'package:estimation/theme/app_theme.dart';
 import 'package:estimation/widgets/playing_card_widget.dart';
 import 'package:estimation/modes/ninety_nine/domain/ninety_nine_card_rules.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class NinetyNinePlayerHand extends StatefulWidget {
   final List<PlayingCard> hand;
@@ -35,6 +35,13 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
+  // ── Drag & Swipe-to-Play State ──
+  PlayingCard? _pointerDownCard;
+  Offset? _pointerDownPos;
+  DateTime? _pointerDownTime;
+  PlayingCard? _draggedCard;
+  final ValueNotifier<Offset> _dragOffsetNotifier = ValueNotifier<Offset>(Offset.zero);
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +59,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
   void dispose() {
     _pulseController.dispose();
     _selected.dispose();
+    _dragOffsetNotifier.dispose();
     super.dispose();
   }
 
@@ -76,6 +84,65 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
     } else {
       _selected.value = card;
     }
+  }
+
+  void _onPointerDown(PointerDownEvent event, PlayingCard card) {
+    if (!widget.isMyTurn || widget.phase != NinetyNinePhase.playing || !_isPlayable(card)) {
+      return;
+    }
+    _pointerDownCard = card;
+    _pointerDownPos = event.position;
+    _pointerDownTime = DateTime.now();
+    _draggedCard = card;
+    _dragOffsetNotifier.value = Offset.zero;
+  }
+
+  void _onPointerMove(PointerMoveEvent event, PlayingCard card) {
+    if (_pointerDownCard != card || _pointerDownPos == null) return;
+    final dx = event.position.dx - _pointerDownPos!.dx;
+    final dy = event.position.dy - _pointerDownPos!.dy;
+    final clampedDy = dy.clamp(-230.0, 10.0);
+    final clampedDx = (dx * 0.45).clamp(-80.0, 80.0);
+    _dragOffsetNotifier.value = Offset(clampedDx, clampedDy);
+  }
+
+  void _onPointerUp(PointerUpEvent event, PlayingCard card) {
+    final downCard = _pointerDownCard;
+    _pointerDownCard = null;
+    final downTime = _pointerDownTime;
+    _pointerDownTime = null;
+    _pointerDownPos = null;
+
+    final currentDrag = _dragOffsetNotifier.value;
+    final upwardDist = -currentDrag.dy;
+    final elapsedMs = downTime != null
+        ? DateTime.now().difference(downTime).inMilliseconds
+        : 500;
+
+    _dragOffsetNotifier.value = Offset.zero;
+    _draggedCard = null;
+
+    final bool isSwipeThrow =
+        (upwardDist >= 35.0) || (upwardDist >= 18.0 && elapsedMs <= 350);
+
+    if (isSwipeThrow && downCard == card && _isPlayable(card)) {
+      HapticFeedback.mediumImpact();
+      widget.onPlayCard(card);
+      _selected.value = null;
+      return;
+    }
+
+    if (downCard == card) {
+      _handleTap(card);
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event, PlayingCard card) {
+    _pointerDownCard = null;
+    _pointerDownPos = null;
+    _pointerDownTime = null;
+    _draggedCard = null;
+    _dragOffsetNotifier.value = Offset.zero;
   }
 
   void _confirmPlaySelected() {
@@ -160,26 +227,40 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                       curve: Curves.easeOutCubic,
                       left: i * actualOverlap,
                       bottom: isCardSelected ? 24.0 : arcOffsetY,
-                      child: Transform.rotate(
-                        angle: isCardSelected ? 0 : rotationAngle,
-                        alignment: Alignment.bottomCenter,
-                        child: AnimatedScale(
-                          scale: isCardSelected ? 1.08 : 1.0,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOutBack,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            alignment: Alignment.topCenter,
-                            children: [
-                              // ── Card Base ──
-                              PlayingCardWidget(
-                                card: card,
-                                selected: isCardSelected,
-                                playable: isCardPlayable,
-                                dimmed: isTrickTurn && !isCardPlayable,
-                                width: cardWidth,
-                                onTap: () => _handleTap(card),
-                              ),
+                      child: AnimatedBuilder(
+                        animation: _dragOffsetNotifier,
+                        builder: (context, _) {
+                          final isDragged = _draggedCard == card;
+                          final dragOffset = isDragged ? _dragOffsetNotifier.value : Offset.zero;
+                          final dragAngle = (dragOffset.dx / 240.0).clamp(-0.2, 0.2);
+
+                          return Transform.translate(
+                            offset: dragOffset,
+                            child: Transform.rotate(
+                              angle: isCardSelected ? 0 : (rotationAngle + dragAngle),
+                              alignment: Alignment.bottomCenter,
+                              child: AnimatedScale(
+                                scale: isCardSelected ? 1.08 : (isDragged && dragOffset.dy < -10 ? 1.05 : 1.0),
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOutBack,
+                                child: Listener(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPointerDown: (e) => _onPointerDown(e, card),
+                                  onPointerMove: (e) => _onPointerMove(e, card),
+                                  onPointerUp: (e) => _onPointerUp(e, card),
+                                  onPointerCancel: (e) => _onPointerCancel(e, card),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    alignment: Alignment.topCenter,
+                                    children: [
+                                      // ── Card Base ──
+                                      PlayingCardWidget(
+                                        card: card,
+                                        selected: isCardSelected,
+                                        playable: isCardPlayable,
+                                        dimmed: isTrickTurn && !isCardPlayable,
+                                        width: cardWidth,
+                                      ),
 
                               // ── 99 Special Effect Badge ──
                               Positioned(
@@ -232,8 +313,8 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                                         color: Colors.black.withValues(alpha: 0.55),
                                       ),
                                       child: const Center(
-                                        child: Icon(
-                                          Icons.lock_rounded,
+                                        child: AppIcon(
+                                          AppIcons.lock,
                                           color: Colors.white60,
                                           size: 20,
                                         ),
@@ -241,9 +322,13 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
-                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
@@ -428,7 +513,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                    const AppIcon(AppIcons.playArrow, color: Colors.white, size: 18),
                     const SizedBox(width: 4),
                     Text(
                       'إلعب الورقة',
@@ -506,7 +591,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.touch_app_rounded, color: AppTheme.goldLight, size: 15),
+          const AppIcon(AppIcons.touchApp, color: AppTheme.goldLight, size: 15),
           const SizedBox(width: 6),
           Text(
             'دورك للعب! انقر على الورقة لرميها 🎴',

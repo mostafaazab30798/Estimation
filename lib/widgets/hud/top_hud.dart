@@ -8,10 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_state.dart';
 import '../../core/constants.dart';
+import '../../core/widgets/app_buttons.dart';
 import '../../theme/app_theme.dart';
 import '../performance_blur.dart';
 import '../game_guide_dialog.dart';
 import '../settings_dialog.dart';
+import '../round_scores_dialog.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class TopHud extends StatelessWidget {
   final GameState state;
@@ -24,6 +27,9 @@ class TopHud extends StatelessWidget {
   String _phaseArabic() {
     switch (state.phase) {
       case GamePhase.voidCheck:
+        if (state.voidDeclaringPlayerId != null) {
+          return 'سويتة فاضية ${state.voidRedealRejections.length}/${state.players.length}';
+        }
         return 'جاهزون ${state.voidCheckPassed.length}/${state.players.length}';
       case GamePhase.dashCall:
         return 'داش كول';
@@ -74,7 +80,7 @@ class TopHud extends StatelessWidget {
         statusText: 'أندر ${13 - total}',
         funnyText: 'هتلبسو بعض 💀',
         color: Colors.lightBlueAccent,
-        icon: Icons.keyboard_double_arrow_down_rounded,
+        icon: AppIcons.keyboardDoubleArrowDown,
       );
     }
     if (total > 13) {
@@ -82,14 +88,14 @@ class TopHud extends StatelessWidget {
         statusText: 'أوفر ${total - 13}',
         funnyText: 'هتتخانقو ⚔️',
         color: AppTheme.playerRed,
-        icon: Icons.keyboard_double_arrow_up_rounded,
+        icon: AppIcons.keyboardDoubleArrowUp,
       );
     }
     return _UnderOverData(
       statusText: 'مقفولة 🎯',
       funnyText: null,
       color: AppTheme.cream,
-      icon: Icons.check_circle_outline_rounded,
+      icon: AppIcons.checkCircleOutline,
     );
   }
 
@@ -105,34 +111,42 @@ class TopHud extends StatelessWidget {
         : null;
 
     return PerformanceBlur(
-      borderRadius: BorderRadius.circular(22),
-      sigmaX: 14,
-      sigmaY: 14,
+      borderRadius: BorderRadius.circular(24),
+      sigmaX: 16,
+      sigmaY: 16,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: isPortrait ? 12 : 14,
+          vertical: isPortrait ? 9 : 10,
+        ),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xCC2A4560), Color(0xCC1D3348)],
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xD22F4A64),
+              const Color(0xD21A3044),
+              phaseColor.withValues(alpha: 0.08),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            stops: const [0.0, 0.65, 1.0],
           ),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.steelBlue.withValues(alpha: 0.15),
+            color: AppTheme.cream.withValues(alpha: 0.10),
             width: 1.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.38),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
             BoxShadow(
-              color: phaseColor.withValues(alpha: 0.06),
-              blurRadius: 24,
-              spreadRadius: 2,
+              color: phaseColor.withValues(alpha: 0.10),
+              blurRadius: 28,
+              spreadRadius: 1,
             ),
           ],
         ),
@@ -149,7 +163,7 @@ class TopHud extends StatelessWidget {
     String? bidderName,
     BuildContext context,
   ) {
-    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
+    final isFixedRound = state.isFixedTrumpRound;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -157,10 +171,12 @@ class TopHud extends StatelessWidget {
           children: [
             _ExitButton(onTap: onExitTap),
             const SizedBox(width: 4),
+            _ScoresButton(state: state),
+            const SizedBox(width: 4),
             const _GuideButton(),
             const SizedBox(width: 4),
             const _SettingsButton(),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -173,17 +189,34 @@ class TopHud extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-            if (state.trump != null)
-              _TrumpBadge(state: state, isFixedRound: isFixedRound)
-            else
-              const SizedBox(width: 24),
+            if (state.trump != null) ...[
+              const SizedBox(width: 6),
+              Flexible(
+                flex: 0,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: _TrumpBadge(state: state, isFixedRound: isFixedRound),
+                ),
+              ),
+            ],
           ],
         ),
         if (bidderName != null || underOver != null) ...[
-          const SizedBox(height: 6),
-          Container(height: 1, color: AppTheme.steelBlue.withValues(alpha: 0.12)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
+          Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  AppTheme.cream.withValues(alpha: 0.12),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 7),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.center,
@@ -191,7 +224,7 @@ class TopHud extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (bidderName != null) _BidderBadge(name: bidderName),
-                if (bidderName != null && underOver != null) const SizedBox(width: 12),
+                if (bidderName != null && underOver != null) const SizedBox(width: 10),
                 if (underOver != null) _UnderOverBadge(data: underOver),
               ],
             ),
@@ -207,10 +240,12 @@ class TopHud extends StatelessWidget {
     String? bidderName,
     BuildContext context,
   ) {
-    final isFixedRound = state.roundNumber >= 14 && state.roundNumber <= 18;
+    final isFixedRound = state.isFixedTrumpRound;
     return Row(
       children: [
         _ExitButton(onTap: onExitTap),
+        const SizedBox(width: 6),
+        _ScoresButton(state: state),
         const SizedBox(width: 6),
         const _GuideButton(),
         const SizedBox(width: 6),
@@ -256,27 +291,52 @@ class TopHud extends StatelessWidget {
 
 // ── Supporting Badges ──────────────────────────────────────────────────────
 
+class _HudIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final AppIconData icon;
+  final Color accent;
+
+  const _HudIconButton({
+    required this.onTap,
+    required this.icon,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppIconButton(
+      icon: icon,
+      onTap: onTap,
+      color: accent,
+      size: AppIconButtonSize.sm,
+    );
+  }
+}
+
+class _ScoresButton extends StatelessWidget {
+  final GameState state;
+  const _ScoresButton({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudIconButton(
+      onTap: () => RoundScoresDialog.show(context, state),
+      icon: AppIcons.leaderboard,
+      accent: AppTheme.accentLight,
+    );
+  }
+}
+
 class _ExitButton extends StatelessWidget {
   final VoidCallback onTap;
   const _ExitButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: const Icon(Icons.arrow_back_rounded, color: AppTheme.cream, size: 18),
-        ),
-      ),
+    return _HudIconButton(
+      onTap: onTap,
+      icon: AppIcons.arrowBack,
+      accent: AppTheme.cream,
     );
   }
 }
@@ -286,21 +346,10 @@ class _GuideButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => GameGuideDialog.show(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: AppTheme.mintSoft.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.mintSoft.withValues(alpha: 0.3)),
-          ),
-          child: const Icon(Icons.help_outline_rounded, color: AppTheme.mintSoft, size: 18),
-        ),
-      ),
+    return _HudIconButton(
+      onTap: () => GameGuideDialog.show(context),
+      icon: AppIcons.helpOutline,
+      accent: AppTheme.mintSoft,
     );
   }
 }
@@ -310,21 +359,10 @@ class _SettingsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => SettingsDialog.show(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: AppTheme.gold.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
-          ),
-          child: const Icon(Icons.settings_outlined, color: AppTheme.gold, size: 18),
-        ),
-      ),
+    return _HudIconButton(
+      onTap: () => SettingsDialog.show(context),
+      icon: AppIcons.settingsOutlined,
+      accent: AppTheme.gold,
     );
   }
 }
@@ -350,22 +388,23 @@ class _RoundPhaseCenter extends StatelessWidget {
         Text(
           'الجولة ${state.roundNumber}',
           style: GoogleFonts.cairo(
-            color: AppTheme.gold,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+            color: AppTheme.goldLight,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
           ),
         ),
         if (state.isDoubleRound) ...[
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           const _DoubleRoundBadge(),
         ],
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: phaseColor.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+            color: phaseColor.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: phaseColor.withValues(alpha: 0.38)),
           ),
           child: Text(
             phaseText,
@@ -467,11 +506,11 @@ class _BidderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.gold.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+        color: AppTheme.gold.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.gold.withValues(alpha: 0.32)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -481,7 +520,7 @@ class _BidderBadge extends StatelessWidget {
           Text(
             name,
             style: GoogleFonts.cairo(
-              color: AppTheme.gold,
+              color: AppTheme.goldLight,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -496,7 +535,7 @@ class _UnderOverData {
   final String statusText;
   final String? funnyText;
   final Color color;
-  final IconData icon;
+  final AppIconData icon;
 
   const _UnderOverData({
     required this.statusText,
@@ -515,18 +554,17 @@ class _UnderOverBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Primary Under/Over Container
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(
             color: data.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(999),
             border: Border.all(color: data.color.withValues(alpha: 0.35)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(data.icon, color: data.color, size: 13),
+              AppIcon(data.icon, color: data.color, size: 13),
               const SizedBox(width: 4),
               Text(
                 data.statusText,
@@ -539,22 +577,21 @@ class _UnderOverBadge extends StatelessWidget {
             ],
           ),
         ),
-        // Separate Funny Text Container
         if (data.funnyText != null) ...[
           const SizedBox(width: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: data.color.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: data.color.withValues(alpha: 0.5), width: 1),
+              color: data.color.withValues(alpha: 0.20),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: data.color.withValues(alpha: 0.45)),
             ),
             child: Text(
               data.funnyText!,
               style: GoogleFonts.cairo(
                 color: Colors.white,
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

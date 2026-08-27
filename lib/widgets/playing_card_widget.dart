@@ -101,10 +101,17 @@ class PlayingCardWidget extends StatelessWidget {
   }
 
   Widget _buildCardContent(BuildContext context) {
-    final isNinetyNine = context.select((GameProvider p) => p.isNinetyNine);
-    final theme = isNinetyNine
-        ? context.select((NinetyNineGameProvider p) => p.cardTheme)
-        : context.select((GameProvider p) => p.state?.cardTheme ?? 'theme_1');
+    String theme = 'theme_1';
+    try {
+      final isNinetyNine = Provider.of<GameProvider?>(context, listen: false)?.isNinetyNine ?? false;
+      if (isNinetyNine) {
+        theme = Provider.of<NinetyNineGameProvider?>(context, listen: false)?.cardTheme ?? 'theme_1';
+      } else {
+        theme = Provider.of<GameProvider?>(context, listen: false)?.state?.cardTheme ?? 'theme_1';
+      }
+    } catch (_) {
+      theme = 'theme_1';
+    }
     final showBack = faceDown || card == null;
     final imagePath =
         showBack ? 'assets/back.png' : getCardAssetPath(card, theme);

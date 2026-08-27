@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/playstyle_models.dart';
 import '../theme/app_theme.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 class PlaystyleRadarView extends StatelessWidget {
   final PlaystyleMetrics metrics;
@@ -21,70 +22,70 @@ class PlaystyleRadarView extends StatelessWidget {
       _DimensionItem(
         titleAr: 'الهجوم والمبادرة',
         value: metrics.aggression,
-        icon: Icons.local_fire_department_rounded,
+        icon: AppIcons.localFireDepartment,
         color: const Color(0xFFEF4444),
         description: 'الجرأة في انتزاع المزاد والمزايدة بأعداد لامات مرتفعة',
       ),
       _DimensionItem(
         titleAr: 'الحذر والتحفظ',
         value: metrics.conservatism,
-        icon: Icons.shield_rounded,
+        icon: AppIcons.shield,
         color: const Color(0xFF10B981),
         description: 'تفضيل العقود الآمنة وتفادي عقوبات السالب',
       ),
       _DimensionItem(
         titleAr: 'المجازفة والمخاطرة',
         value: metrics.riskTaking,
-        icon: Icons.casino_rounded,
+        icon: AppIcons.casino,
         color: const Color(0xFFF59E0B),
         description: 'الإقدام على كولات الداش والريسك والكولات الصعبة',
       ),
       _DimensionItem(
         titleAr: 'الدقة والانضباط',
         value: metrics.precision,
-        icon: Icons.track_changes_rounded,
+        icon: AppIcons.trackChanges,
         color: const Color(0xFF38BDF8),
         description: 'التقارب التام بين اللامات المعلنة والمكاسب الفعلية',
       ),
       _DimensionItem(
         titleAr: 'دقة إعلان الكول',
         value: metrics.declarationAccuracy,
-        icon: Icons.gps_fixed_rounded,
+        icon: AppIcons.gpsFixed,
         color: const Color(0xFF8B5CF6),
         description: 'نسبة مطابقة الكول التام (Perfect Estimates)',
       ),
       _DimensionItem(
         titleAr: 'المرونة والتكيف',
         value: metrics.adaptability,
-        icon: Icons.cached_rounded,
+        icon: AppIcons.cached,
         color: const Color(0xFF06B6D4),
         description: 'التأقلم مع توزيع الورق ومواقف اللعب غير المتوقعة',
       ),
       _DimensionItem(
         titleAr: 'الثقة في كول الترومب',
         value: metrics.trumpConfidence,
-        icon: Icons.star_rounded,
+        icon: AppIcons.star,
         color: const Color(0xFFEC4899),
         description: 'استغلال لون الصنعة وتحقيق أكبر استفادة منه',
       ),
       _DimensionItem(
         titleAr: 'الريمونتادا والعودة',
         value: metrics.comebackAbility,
-        icon: Icons.replay_circle_filled_rounded,
+        icon: AppIcons.replayCircleFilled,
         color: const Color(0xFFA855F7),
         description: 'القدرة على تعويض الفارق النقطي عند التأخر',
       ),
       _DimensionItem(
         titleAr: 'انضباط المزايدة',
         value: metrics.bidDiscipline,
-        icon: Icons.balance_rounded,
+        icon: AppIcons.balance,
         color: const Color(0xFF14B8A6),
         description: 'تجنب المزايدات المفرطة (Overbidding) والخاسرة',
       ),
       _DimensionItem(
         titleAr: 'الوعي بالسكور',
         value: metrics.scoreAwareness,
-        icon: Icons.insights_rounded,
+        icon: AppIcons.insights,
         color: AppTheme.gold,
         description: 'إدارة النقاط بكفاءة وحماية التقدم نحو الفوز',
       ),
@@ -122,7 +123,7 @@ class PlaystyleRadarView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.verified_rounded, color: badgeColor, size: 20),
+          AppIcon(AppIcons.verified, color: badgeColor, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -183,7 +184,7 @@ class PlaystyleRadarView extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(item.icon, size: 16, color: item.color),
+                AppIcon(item.icon, size: 16, color: item.color),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -257,7 +258,7 @@ class PlaystyleRadarView extends StatelessWidget {
 class _DimensionItem {
   final String titleAr;
   final double value;
-  final IconData icon;
+  final AppIconData icon;
   final Color color;
   final String description;
 
