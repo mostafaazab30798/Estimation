@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import '../../core/events/estimation_event_bus.dart';
 import '../../core/events/estimation_game_events.dart';
 import '../../core/models/card.dart';
+import '../../models/earthquake_effect.dart';
 import '../../services/audio_service.dart';
+import '../../services/settings_service.dart';
 import '../playing_card_widget.dart';
 import 'earthquake_crack_painter.dart';
 import 'earthquake_timing.dart';
@@ -50,6 +52,7 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
   Offset _impactOrigin = Offset.zero;
   bool _impactFired = false;
   bool _showFlight = false;
+  EarthquakeEffect _activeEffect = EarthquakeEffect.magma;
 
   @override
   void initState() {
@@ -131,6 +134,7 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
     }
 
     setState(() {
+      _activeEffect = SettingsService.instance.earthquakeEffect;
       _flyingCard = event.card;
       _flightStart = start;
       _flightTarget = target;
@@ -151,6 +155,7 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
   void triggerEarthquake({Offset? origin}) {
     if (!mounted) return;
     setState(() {
+      _activeEffect = SettingsService.instance.earthquakeEffect;
       _impactOrigin = origin ??
           Offset(
             MediaQuery.sizeOf(context).width / 2,
@@ -181,6 +186,26 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
   Offset _flightPosition(double t) {
     final start = _flightStart;
     final end = _flightTarget;
+
+    if (_activeEffect == EarthquakeEffect.frost) {
+      final eased = t < EarthquakeTiming.impactFraction
+          ? Curves.easeInQuart.transform(
+              (t / EarthquakeTiming.impactFraction).clamp(0.0, 1.0),
+            )
+          : 1.0;
+      return Offset.lerp(start, end, eased)!;
+    }
+
+    if (_activeEffect == EarthquakeEffect.voidRift) {
+      final eased = Curves.easeInCubic.transform(
+        (t / EarthquakeTiming.impactFraction).clamp(0.0, 1.0),
+      );
+      final base = Offset.lerp(start, end, eased)!;
+      final snap = math.sin(t * math.pi * 10.0).sign;
+      final lateral = 42.0 * (1.0 - eased) * snap;
+      return base + Offset(lateral, -lateral * 0.28);
+    }
+
     final apex = Offset(
       (start.dx + end.dx) * 0.5 + (end.dx - start.dx) * 0.08,
       math.min(start.dy, end.dy) - 160.0 - (start.dy - end.dy).abs() * 0.15,
@@ -232,6 +257,12 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
   }
 
   double _flightRotation(double t) {
+    if (_activeEffect == EarthquakeEffect.frost) {
+      return math.sin(t * math.pi) * 0.04;
+    }
+    if (_activeEffect == EarthquakeEffect.voidRift) {
+      return math.sin(t * math.pi * 10.0).sign * 0.18;
+    }
     if (t < EarthquakeTiming.impactFraction) {
       return math.sin(t * math.pi * 1.6) * 0.35 + t * 0.15;
     }
@@ -253,29 +284,68 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
         double dx = 0;
         double dy = 0;
         double angle = 0;
+        double sceneScale = 1.0;
 
         if (_shakeCtrl.isAnimating ||
             (_shakeCtrl.value > 0 && _shakeCtrl.value < 1)) {
           final decay = math.pow(1.0 - shakeProgress, 1.65).toDouble();
           final time = shakeProgress * 42.0;
 
-          dx = (math.sin(time * 3.4) * 18.0 +
-                  math.cos(time * 5.6) * 10.0 +
-                  math.sin(time * 7.1) * 4.0) *
-              decay;
-          dy = (math.cos(time * 3.0) * 16.0 +
-                  math.sin(time * 4.8) * 9.0 +
-                  math.cos(time * 6.3) * 3.5) *
-              decay;
-          angle = math.sin(time * 2.4) * 0.022 * decay;
+          switch (_activeEffect) {
+            case EarthquakeEffect.magma:
+              dx = (math.sin(time * 3.4) * 18.0 +
+                      math.cos(time * 5.6) * 10.0 +
+                      math.sin(time * 7.1) * 4.0) *
+                  decay;
+              dy = (math.cos(time * 3.0) * 16.0 +
+                      math.sin(time * 4.8) * 9.0 +
+                      math.cos(time * 6.3) * 3.5) *
+                  decay;
+              angle = math.sin(time * 2.4) * 0.022 * decay;
+              break;
+            case EarthquakeEffect.frost:
+              dx = (math.sin(time * 7.5) * 10.0 +
+                      math.cos(time * 11.0) * 5.0) *
+                  decay;
+              dy = (math.cos(time * 8.5) * 8.0 +
+                      math.sin(time * 13.0) * 4.0) *
+                  decay;
+              angle = math.sin(time * 6.0) * 0.012 * decay;
+              break;
+            case EarthquakeEffect.voidRift:
+              final split = math.sin(shakeProgress * math.pi * 6.0).sign;
+              dx = split * 16.0 * decay;
+              dy = math.sin(time * 5.0) * 4.0 * decay;
+              angle = split * 0.018 * decay;
+              sceneScale = 1.0 + math.sin(shakeProgress * math.pi) * 0.018;
+              break;
+          }
         }
+
+        final vignetteColors = switch (_activeEffect) {
+          EarthquakeEffect.magma => const [
+              Color(0xFFFFF59D),
+              Color(0xFFFF6F00),
+            ],
+          EarthquakeEffect.frost => const [
+              Color(0xFFE0F2FE),
+              Color(0xFF38BDF8),
+            ],
+          EarthquakeEffect.voidRift => const [
+              Color(0xFFF5D0FE),
+              Color(0xFF7E22CE),
+            ],
+        };
 
         return Stack(
           children: [
             // ── 1. Shaking Screen Layer ─────────────────────────────
             Transform(
               alignment: Alignment.center,
-              transform: Matrix4.translationValues(dx, dy, 0.0)..rotateZ(angle),
+              transform: Matrix4.identity()
+                ..translate(dx, dy)
+                ..rotateZ(angle)
+                ..scale(sceneScale),
               child: widget.child,
             ),
 
@@ -297,6 +367,7 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
                       painter: EarthquakeCrackPainter(
                         progress: crackProgress,
                         origin: _impactOrigin,
+                        effect: _activeEffect,
                       ),
                     ),
                   ),
@@ -321,11 +392,11 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
                               2,
                         ),
                         colors: [
-                          const Color(0xFFFFF59D).withValues(
+                          vignetteColors[0].withValues(
                             alpha: ((1.0 - shakeProgress) * 0.28)
                                 .clamp(0.0, 1.0),
                           ),
-                          const Color(0xFFFF6F00).withValues(
+                          vignetteColors[1].withValues(
                             alpha: ((1.0 - shakeProgress) * 0.16)
                                 .clamp(0.0, 1.0),
                           ),
@@ -438,14 +509,14 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
                           borderRadius: BorderRadius.circular(18),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFF6D00).withValues(
+                              color: _activeEffect.primaryColor.withValues(
                                 alpha: 0.35 + 0.35 * (1.0 - t),
                               ),
                               blurRadius: 28,
                               spreadRadius: 8,
                             ),
                             BoxShadow(
-                              color: const Color(0xFFFFD600).withValues(
+                              color: _activeEffect.secondaryColor.withValues(
                                 alpha: 0.25 + heightFactor * 0.3,
                               ),
                               blurRadius: 16,

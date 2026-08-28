@@ -64,19 +64,64 @@ class _HomeScreenState extends State<HomeScreen>
       _profilePhoto.value = savedPhoto;
     }
 
-    if (!mounted) return;
-    final reconnect = context.read<ReconnectionManager>();
-    final result = await reconnect.checkOnStartup();
+    if (mounted) await _showOngoingGameDisclaimer(context);
+  }
 
-    if (!mounted) return;
+  Future<bool> _showOngoingGameDisclaimer(BuildContext context) async {
+    final reconnect = context.read<ReconnectionManager>();
+    final pendingSession = await reconnect.getPendingSession();
+    if (!context.mounted || pendingSession == null) return false;
+    final shouldReturn = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppTheme.navyDark,
+            title: Text(
+              'العودة إلى المباراة؟',
+              style: GoogleFonts.cairo(
+                color: AppTheme.gold,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            content: Text(
+              'لديك مباراة ما زالت جارية. لا يمكنك بدء مباراة أو دخول طابور جديد حتى تنتهي. يمكنك العودة إلى مقعدك الآن، حتى إذا كان البوت يلعب مكانك مؤقتاً.',
+              style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text('لاحقاً', style: GoogleFonts.cairo()),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text('العودة الآن', style: GoogleFonts.cairo()),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldReturn) {
+      return true;
+    }
+
+    final result = await reconnect.recoverPendingSession();
+
+    if (!context.mounted) return true;
     if (result == ReconnectionState.reconnected) {
       final provider = context.read<GameProvider>();
       final is99Mode = provider.currentRoom?.gameType == 'ninety_nine';
+      final isBasraMode = provider.currentRoom?.gameType == 'basra';
       final route = (provider.currentRoom?.status.name == 'playing')
-          ? (is99Mode ? '/ninety_nine/game' : '/game')
+          ? (is99Mode
+              ? '/ninety_nine/game'
+              : isBasraMode
+                  ? '/basra/game'
+                  : '/game')
           : '/lobby';
       Navigator.pushReplacementNamed(context, route);
     }
+    return true;
   }
 
   @override
@@ -100,6 +145,8 @@ class _HomeScreenState extends State<HomeScreen>
       _estimationMode.value == 'mini' ? kMiniTotalRounds : kBoulaTotalRounds;
 
   Future<void> _host(BuildContext context, int expectedPlayers) async {
+    if (await _showOngoingGameDisclaimer(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -120,6 +167,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _hostLocal(BuildContext context, int expectedPlayers) async {
+    if (await _showOngoingGameDisclaimer(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -141,6 +190,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _joinWithCode(BuildContext context) async {
+    if (await _showOngoingGameDisclaimer(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -166,6 +217,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _testMode(BuildContext context) async {
+    if (await _showOngoingGameDisclaimer(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -184,6 +237,28 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _startOnlineMatchmaking(BuildContext context) async {
+    if (await _showOngoingGameDisclaimer(context)) return;
+    if (!context.mounted) return;
+    final err = _validateName();
+    if (err != null) {
+      _snack(context, err);
+      return;
+    }
+    final provider = context.read<GameProvider>();
+    await provider.startMatchmaking(
+      _playerName.value,
+      gameType: 'kotchina',
+      totalRounds: _selectedTotalRounds,
+    );
+    if (!context.mounted) return;
+    if (provider.status == ConnectionStatus.connected) {
+      Navigator.pushReplacementNamed(context, '/matchmaking');
+    } else if (provider.status == ConnectionStatus.error) {
+      _snack(context, provider.errorMessage);
+    }
+  }
+
   void _snack(BuildContext context, String msg) {
     SnackbarHelper.showError(context, msg, title: 'عذراً ⚠️');
   }
@@ -196,9 +271,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<GameProvider>();
-    final isLoading = provider.status == ConnectionStatus.connecting ||
-        provider.isSearching;
+    final status = context.select<GameProvider, ConnectionStatus>(
+      (provider) => provider.status,
+    );
+    final isSearching = context.select<GameProvider, bool>(
+      (provider) => provider.isSearching,
+    );
+    final isLoading = status == ConnectionStatus.connecting || isSearching;
     final size = MediaQuery.of(context).size;
     final isLandscape = size.width > size.height;
 
@@ -237,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen>
                   fallbackColor: AppTheme.navyDark.withValues(alpha: 0.85),
                   blurColor: AppTheme.navyDark.withValues(alpha: 0.75),
                   child: Center(
-                    child: _buildLoadingCard(context, provider),
+                    child: _buildLoadingCard(context, isSearching),
                   ),
                 ),
               ),
@@ -443,13 +522,25 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildPrimaryAction(BuildContext context) {
-    return ModeHomeActionButton(
-      label: 'لعب فردي سريع',
-      subtitle: 'ابدأ مباراة فورية ضد البوت',
-      icon: AppIcons.bolt,
-      gradient: const [Color(0xFFD4A853), Color(0xFFA07830)],
-      isLarge: true,
-      onTap: () => _tap(() => _testMode(context)),
+    return Column(
+      children: [
+        ModeHomeActionButton(
+          label: 'لعب أونلاين',
+          //subtitle: 'ابحث عن لاعبين تلقائياً',
+          icon: AppIcons.groups,
+          gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
+          isLarge: true,
+          onTap: () => _tap(() => _startOnlineMatchmaking(context)),
+        ),
+        const SizedBox(height: 10),
+        ModeHomeActionButton(
+          label: 'لعب فردي سريع',
+          icon: AppIcons.bolt,
+          gradient: const [Color(0xFFD4A853), Color(0xFFA07830)],
+          isLarge: true,
+          onTap: () => _tap(() => _testMode(context)),
+        ),
+      ],
     );
   }
 
@@ -464,7 +555,6 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: ModeHomeActionButton(
                 label: 'إنشاء غرفة',
-                subtitle: 'استضافة',
                 icon: AppIcons.addCircleOutline,
                 gradient: const [Color(0xFF3A7BD5), Color(0xFF2E5984)],
                 onTap: () => _tap(() => _showHostSheet(context)),
@@ -474,7 +564,6 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: ModeHomeActionButton(
                 label: 'انضمام',
-                subtitle: 'كود الغرفة',
                 icon: AppIcons.login,
                 gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
                 onTap: () => _tap(() => _showJoinSheet(context)),
@@ -484,7 +573,6 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: ModeHomeActionButton(
                 label: 'محلي',
-                subtitle: 'Wi-Fi LAN',
                 icon: AppIcons.wifiTethering,
                 gradient: const [Color(0xFFF59E0B), Color(0xFFD97706)],
                 onTap: () => _tap(() => _showLocalSheet(context)),
@@ -627,10 +715,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildLoadingCard(BuildContext context, GameProvider provider) {
-    final msg = provider.isSearching
-        ? 'نبحث عن غرفتك...'
-        : 'جاري الاتصال بالسيرفر...';
+  Widget _buildLoadingCard(BuildContext context, bool isSearching) {
+    final msg = isSearching ? 'نبحث عن غرفتك...' : 'جاري الاتصال بالسيرفر...';
     return Container(
       width: 280,
       padding: const EdgeInsets.all(24),

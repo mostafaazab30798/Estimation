@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 
 import '../core/utils/card_assets.dart';
 import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import '../modes/basra/presentation/providers/basra_game_provider.dart';
 
 // Fix #14: Shared const decorations ───────────────────────────────────────────
 
@@ -104,8 +105,11 @@ class PlayingCardWidget extends StatelessWidget {
     String theme = 'theme_1';
     try {
       final isNinetyNine = Provider.of<GameProvider?>(context, listen: false)?.isNinetyNine ?? false;
+      final isBasra = Provider.of<GameProvider?>(context, listen: false)?.isBasra ?? false;
       if (isNinetyNine) {
         theme = Provider.of<NinetyNineGameProvider?>(context, listen: false)?.cardTheme ?? 'theme_1';
+      } else if (isBasra) {
+        theme = Provider.of<BasraGameProvider?>(context, listen: false)?.cardTheme ?? 'theme_1';
       } else {
         theme = Provider.of<GameProvider?>(context, listen: false)?.state?.cardTheme ?? 'theme_1';
       }

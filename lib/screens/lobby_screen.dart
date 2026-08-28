@@ -12,6 +12,7 @@ import '../core/widgets/player_avatar.dart';
 import '../core/widgets/app_buttons.dart';
 import '../widgets/performance_blur.dart';
 import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import '../modes/basra/presentation/providers/basra_game_provider.dart';
 import '../features/lobby/domain/models/game_room.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 class LobbyScreen extends StatefulWidget {
@@ -51,10 +52,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final state = provider.state;
     final isTestMode = provider.isTestMode;
     final isNinetyNineMode = provider.isNinetyNine;
+    final isBasraMode = provider.isBasra;
+    final isAlternateMode = isNinetyNineMode || isBasraMode;
     final nnProvider = context.watch<NinetyNineGameProvider>();
+    final basraProvider = context.watch<BasraGameProvider>();
     
     // Use the appropriate state for live presence
-    final List<dynamic> players = isNinetyNineMode ? nnProvider.players : (state?.players ?? []);
+    final List<dynamic> players = isNinetyNineMode
+        ? nnProvider.players
+        : isBasraMode
+            ? basraProvider.players
+            : (state?.players ?? []);
 
     // Track player joins and leaves
     if (!isTestMode) {
@@ -80,12 +88,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     // Navigate to game
-    final isKotchinaStarted = !isNinetyNineMode && state != null && state.phase != GamePhase.lobby;
+    final isKotchinaStarted = !isAlternateMode && state != null && state.phase != GamePhase.lobby;
     final isNinetyNineStarted = isNinetyNineMode &&
         ((provider.currentRoom?.status == GameRoomStatus.playing) ||
          (nnProvider.phase != NinetyNinePhase.waiting));
+    final isBasraStarted = isBasraMode &&
+        ((provider.currentRoom?.status == GameRoomStatus.playing) ||
+         (basraProvider.phase != BasraPhase.waiting));
     
-    if ((isKotchinaStarted || isNinetyNineStarted) && !_hasNavigatedToGame) {
+    if ((isKotchinaStarted || isNinetyNineStarted || isBasraStarted) && !_hasNavigatedToGame) {
       _hasNavigatedToGame = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
@@ -98,6 +109,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
                };
              }
              Navigator.pushReplacementNamed(context, '/ninety_nine/game');
+          } else if (isBasraStarted) {
+             final basraProvider = context.read<BasraGameProvider>();
+             basraProvider.setClient(provider.basraClient);
+             if (provider.basraClient != null) {
+               provider.basraClient?.onStateUpdate = (state) {
+                 basraProvider.syncState(state);
+               };
+             }
+             Navigator.pushReplacementNamed(context, '/basra/game');
           } else {
              Navigator.pushReplacementNamed(context, '/game');
           }
@@ -151,7 +171,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           runSpacing: 16,
           alignment: WrapAlignment.center,
           children: List.generate(
-            isNinetyNineMode ? provider.expectedPlayers : 4,
+            isAlternateMode ? provider.expectedPlayers : 4,
             (i) => _buildPlayerAvatar(context, provider, players, i, isTestMode),
           ),
         ),
@@ -552,9 +572,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerCount(List<dynamic> players, GameProvider provider) {
-    final isNinetyNine = provider.isNinetyNine;
-    final totalSeats = isNinetyNine ? provider.expectedPlayers : 4;
-    final botSlots = (isNinetyNine || provider.isTestMode) ? 0 : (totalSeats - provider.expectedPlayers).clamp(0, 4);
+    final isAlternate = provider.isNinetyNine || provider.isBasra;
+    final totalSeats = isAlternate ? provider.expectedPlayers : 4;
+    final botSlots = (isAlternate || provider.isTestMode) ? 0 : (totalSeats - provider.expectedPlayers).clamp(0, 4);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -573,7 +593,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           child: Text(
             botSlots > 0
                 ? '${players.length} / ${provider.expectedPlayers} (المجموع: 4 مع البوت)'
-                : '${players.length} / ${isNinetyNine ? provider.expectedPlayers : (provider.isTestMode ? 4 : provider.expectedPlayers)}',
+                : '${players.length} / ${isAlternate ? provider.expectedPlayers : (provider.isTestMode ? 4 : provider.expectedPlayers)}',
             style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
@@ -583,7 +603,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _buildPlayerAvatar(BuildContext context, GameProvider provider, List<dynamic> players, int i, bool isTestMode) {
     final isNinetyNineMode = provider.isNinetyNine;
-    final isBotReservedSlot = !isNinetyNineMode && !isTestMode && i >= provider.expectedPlayers;
+    final isBasraMode = provider.isBasra;
+    final isBotReservedSlot = !isNinetyNineMode && !isBasraMode && !isTestMode && i >= provider.expectedPlayers;
     final occupied = i < players.length;
     final player = occupied ? players[i] : null;
     final isMe = occupied && player.id == provider.myPlayerId;
@@ -783,8 +804,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _buildThemeSelector(GameProvider provider) {
     final isNinetyNine = provider.isNinetyNine;
+    final isBasra = provider.isBasra;
     final nnProvider = context.watch<NinetyNineGameProvider>();
-    final currentTheme = isNinetyNine ? nnProvider.cardTheme : provider.state?.cardTheme ?? 'theme_1';
+    final basraProvider = context.watch<BasraGameProvider>();
+    final currentTheme = isNinetyNine
+        ? nnProvider.cardTheme
+        : isBasra
+            ? basraProvider.cardTheme
+            : provider.state?.cardTheme ?? 'theme_1';
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

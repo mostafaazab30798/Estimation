@@ -17,7 +17,6 @@ import 'package:estimation/core/icons/app_icons.dart';
 class _MainGameMode {
   final String title;
   final String subtitle;
-  final String meta;
   final Color accent;
   final String artAsset;
   final String route;
@@ -27,7 +26,6 @@ class _MainGameMode {
   const _MainGameMode({
     required this.title,
     required this.subtitle,
-    required this.meta,
     required this.accent,
     required this.artAsset,
     required this.route,
@@ -56,16 +54,22 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     _MainGameMode(
       title: 'إستميشن',
       subtitle: 'البولة الكلاسيكية والميني جيم',
-      meta: 'كلاسيك ١٨ · ميني ١٠',
       accent: Color(0xFFC8F542),
       artAsset: 'assets/estimation.png',
       route: '/kotchina/home',
       artOverflows: true,
     ),
     _MainGameMode(
+      title: 'باصرة',
+      subtitle: 'اقتناص الأرض حتى 121 نقطة',
+      accent: Color(0xFFE8B923),
+      artAsset: 'assets/basra.png',
+      route: '/basra/home',
+      artOverflows: true,
+    ),
+    _MainGameMode(
       title: 'مود الـ 99',
       subtitle: 'تحدي السرعة والموت المفاجئ',
-      meta: 'سرعة · ضغط · خروج',
       accent: Color(0xFFFF2D95),
       artAsset: 'assets/99.png',
       route: '/ninety_nine/home',
@@ -309,7 +313,7 @@ class _ModeCardState extends State<_ModeCard> {
         curve: Curves.easeOut,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          height: widget.tall ? 248 : 128,
+          height: widget.tall ? 232 : 120,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: AppTheme.navyDark.withValues(alpha: 0.78),
@@ -366,7 +370,7 @@ class _ModeCardState extends State<_ModeCard> {
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: widget.tall ? 20 : 16,
-                  vertical: widget.tall ? 20 : 14,
+                  vertical: widget.tall ? 18 : 14,
                 ),
                 child: widget.tall
                     ? _buildTall(mode)
@@ -415,15 +419,6 @@ class _ModeCardState extends State<_ModeCard> {
                   height: 1.25,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                mode.meta,
-                style: GoogleFonts.cairo(
-                  fontSize: 11.5,
-                  color: mode.accent.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             ],
           ),
         ),
@@ -463,16 +458,6 @@ class _ModeCardState extends State<_ModeCard> {
             fontSize: 12.5,
             color: Colors.white.withValues(alpha: 0.62),
             fontWeight: FontWeight.w600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          mode.meta,
-          style: GoogleFonts.cairo(
-            fontSize: 11.5,
-            color: mode.accent.withValues(alpha: 0.9),
-            fontWeight: FontWeight.w700,
           ),
           textAlign: TextAlign.center,
         ),

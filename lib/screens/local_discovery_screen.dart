@@ -172,9 +172,11 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
 
   List<DiscoveredRoom> get _filteredRooms {
     if (_selectedFilter == 1) {
-      return _discoveredRooms.where((r) => r.gameType != 'ninety_nine').toList();
+      return _discoveredRooms.where((r) => r.gameType == 'kotchina').toList();
     } else if (_selectedFilter == 2) {
       return _discoveredRooms.where((r) => r.gameType == 'ninety_nine').toList();
+    } else if (_selectedFilter == 3) {
+      return _discoveredRooms.where((r) => r.gameType == 'basra').toList();
     }
     return _discoveredRooms;
   }
@@ -472,6 +474,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
       {'label': 'الكل', 'icon': AppIcons.gridView, 'color': AppTheme.gold},
       {'label': 'إستميشن ♠', 'icon': AppIcons.style, 'color': AppTheme.goldLight},
       {'label': 'مود الـ 99 🔥', 'icon': AppIcons.localFireDepartment, 'color': const Color(0xFFEF4444)},
+      {'label': 'باصرة ♦', 'icon': AppIcons.style, 'color': const Color(0xFFE8B923)},
     ];
 
     return Row(
@@ -690,7 +693,12 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
 
   Widget _buildRoomCard(DiscoveredRoom room) {
     final is99 = room.gameType == 'ninety_nine';
-    final accentColor = is99 ? const Color(0xFFEF4444) : AppTheme.gold;
+    final isBasra = room.gameType == 'basra';
+    final accentColor = is99
+        ? const Color(0xFFEF4444)
+        : isBasra
+            ? const Color(0xFFE8B923)
+            : AppTheme.gold;
     final isConnectingThis = _connectingRoomIp == room.ip;
 
     return PerformanceBlur(
@@ -725,7 +733,9 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                       gradient: LinearGradient(
                         colors: is99
                             ? [const Color(0xFFEF4444), const Color(0xFF991B1B)]
-                            : [AppTheme.gold, AppTheme.goldDark],
+                            : isBasra
+                                ? [const Color(0xFFE8B923), const Color(0xFFB45309)]
+                                : [AppTheme.gold, AppTheme.goldDark],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -739,7 +749,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      is99 ? '99' : '♠',
+                      is99 ? '99' : isBasra ? '♦' : '♠',
                       style: TextStyle(
                         fontSize: is99 ? 20 : 26,
                         fontWeight: FontWeight.bold,
@@ -776,7 +786,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                                 border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                               ),
                               child: Text(
-                                is99 ? 'مود الـ 99' : 'إستميشن',
+                                is99 ? 'مود الـ 99' : isBasra ? 'باصرة' : 'إستميشن',
                                 style: GoogleFonts.cairo(
                                   color: accentColor,
                                   fontSize: 10,

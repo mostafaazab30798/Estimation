@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/earthquake_effect.dart';
 
 /// Manages sound effects, haptic feedback, and audio volume settings across the app.
 class SettingsService extends ChangeNotifier {
@@ -11,15 +12,18 @@ class SettingsService extends ChangeNotifier {
   static const String _kKeySfxEnabled = 'settings_sfx_enabled';
   static const String _kKeyHapticsEnabled = 'settings_haptics_enabled';
   static const String _kKeySfxVolume = 'settings_sfx_volume';
+  static const String _kKeyEarthquakeEffect = 'settings_earthquake_effect';
 
   bool _sfxEnabled = true;
   bool _hapticsEnabled = true;
   double _sfxVolume = 0.8;
+  EarthquakeEffect _earthquakeEffect = EarthquakeEffect.magma;
   bool _initialized = false;
 
   bool get sfxEnabled => _sfxEnabled;
   bool get hapticsEnabled => _hapticsEnabled;
   double get sfxVolume => _sfxVolume;
+  EarthquakeEffect get earthquakeEffect => _earthquakeEffect;
   bool get isInitialized => _initialized;
 
   /// Loads saved preferences from SharedPreferences.
@@ -30,6 +34,9 @@ class SettingsService extends ChangeNotifier {
       _sfxEnabled = prefs.getBool(_kKeySfxEnabled) ?? true;
       _hapticsEnabled = prefs.getBool(_kKeyHapticsEnabled) ?? true;
       _sfxVolume = prefs.getDouble(_kKeySfxVolume) ?? 0.8;
+      _earthquakeEffect = EarthquakeEffect.fromStorage(
+        prefs.getString(_kKeyEarthquakeEffect),
+      );
       _initialized = true;
       notifyListeners();
     } catch (e) {
@@ -74,6 +81,18 @@ class SettingsService extends ChangeNotifier {
       await prefs.setDouble(_kKeySfxVolume, clamped);
     } catch (e) {
       debugPrint('[SettingsService] Failed to save sfxVolume: $e');
+    }
+  }
+
+  Future<void> setEarthquakeEffect(EarthquakeEffect effect) async {
+    if (_earthquakeEffect == effect) return;
+    _earthquakeEffect = effect;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kKeyEarthquakeEffect, effect.name);
+    } catch (e) {
+      debugPrint('[SettingsService] Failed to save earthquakeEffect: $e');
     }
   }
 }

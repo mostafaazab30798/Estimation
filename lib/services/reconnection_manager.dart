@@ -26,16 +26,15 @@ import 'session_storage_service.dart';
 // ── State enum ────────────────────────────────────────────────────────────────
 
 enum ReconnectionState {
-  idle,         // No in-progress recovery; nominal operation.
+  idle, // No in-progress recovery; nominal operation.
   reconnecting, // Attempting to recover a session.
-  reconnected,  // Recovery succeeded; UI may navigate accordingly.
-  failed,       // Recovery failed; user must retry or go home.
+  reconnected, // Recovery succeeded; UI may navigate accordingly.
+  failed, // Recovery failed; user must retry or go home.
 }
 
 // ── Manager ───────────────────────────────────────────────────────────────────
 
-class ReconnectionManager extends ChangeNotifier
-    with WidgetsBindingObserver {
+class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
   final GameProvider _gameProvider;
   final LobbyRepository _lobbyRepo = LobbyRepository();
 
@@ -44,7 +43,7 @@ class ReconnectionManager extends ChangeNotifier
   ReconnectionState _state = ReconnectionState.idle;
   Timer? _heartbeatTimer;
 
-  static const _heartbeatInterval  = Duration(seconds: 15);
+  static const _heartbeatInterval = Duration(seconds: 15);
 
   ReconnectionManager(this._gameProvider);
 
@@ -53,7 +52,7 @@ class ReconnectionManager extends ChangeNotifier
   ReconnectionState get reconnectionState => _state;
 
   bool get isReconnecting => _state == ReconnectionState.reconnecting;
-  bool get hasFailed      => _state == ReconnectionState.failed;
+  bool get hasFailed => _state == ReconnectionState.failed;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -85,13 +84,21 @@ class ReconnectionManager extends ChangeNotifier
   }
 
   Future<void> _ping() async {
+    if (_gameProvider.isTemporarilyAway) {
+      return;
+    }
     final roomId = _gameProvider.currentRoom?.id;
-    if (roomId == null || roomId.startsWith('local_') || _gameProvider.isLocal) return;
+    if (roomId == null ||
+        roomId.startsWith('local_') ||
+        _gameProvider.isLocal) {
+      return;
+    }
     try {
       await _lobbyRepo.pingHeartbeat(roomId);
     } catch (e) {
       final errorStr = e.toString();
-      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+      if (!errorStr.contains('SocketException') &&
+          !errorStr.contains('AuthRetryableFetchException')) {
         debugPrint('[Reconnection] Heartbeat failed: $e');
       }
     }
@@ -120,12 +127,17 @@ class ReconnectionManager extends ChangeNotifier
   Future<void> _onAppPaused() async {
     _stopHeartbeat();
     if (_gameProvider.isTestMode) {
-      debugPrint('[Reconnection] Test mode game detected on pause — stopping game server & resetting');
+      debugPrint(
+          '[Reconnection] Test mode game detected on pause — stopping game server & resetting');
       await _gameProvider.reset();
       return;
     }
     final roomId = _gameProvider.currentRoom?.id;
-    if (roomId == null || roomId.startsWith('local_') || _gameProvider.isLocal) return;
+    if (roomId == null ||
+        roomId.startsWith('local_') ||
+        _gameProvider.isLocal) {
+      return;
+    }
     try {
       await _lobbyRepo.markOffline(roomId);
       debugPrint('[Reconnection] Marked offline — room $roomId');
@@ -160,29 +172,58 @@ class ReconnectionManager extends ChangeNotifier
     return _attemptRecovery();
   }
 
+  Future<ActiveRoomSession?> getPendingSession() async {
+    final session = await _sessionService.getActiveRoomSession();
+    if (session == null) return null;
+    try {
+      final room = await _lobbyRepo.getRoom(session.roomId);
+      if (room.status == GameRoomStatus.cancelled ||
+          room.status == GameRoomStatus.finished) {
+        await _sessionService.clearSession();
+        return null;
+      }
+      return session;
+    } catch (error) {
+      debugPrint('[Reconnection] Pending-session check failed: $error');
+      return session;
+    }
+  }
+
+  Future<ReconnectionState> recoverPendingSession() => _attemptRecovery();
+
   // ── Recovery flow ─────────────────────────────────────────────────────────
 
   Future<ReconnectionState> _attemptRecovery() async {
     final session = await _sessionService.getActiveRoomSession();
     if (session == null) return ReconnectionState.idle;
 
-    if (session.roomId.startsWith('test_') || session.roomId.startsWith('local_')) {
-      debugPrint('[Reconnection] Local or test mode session detected (${session.roomId}); clearing session');
+    if (session.roomId.startsWith('test_') ||
+        session.roomId.startsWith('local_')) {
+      debugPrint(
+          '[Reconnection] Local or test mode session detected (${session.roomId}); clearing session');
       await _sessionService.clearSession();
       _setState(ReconnectionState.idle);
       return ReconnectionState.idle;
     }
 
     _setState(ReconnectionState.reconnecting);
-    debugPrint('[Reconnection] Attempting recovery for room ${session.roomId}…');
+    debugPrint(
+        '[Reconnection] Attempting recovery for room ${session.roomId}…');
 
     try {
+      if (_gameProvider.canResumeTemporarilyLeftGame) {
+        final success = await _gameProvider.resumeTemporarilyLeftGame(session);
+        _setState(
+            success ? ReconnectionState.reconnected : ReconnectionState.failed);
+        return _state;
+      }
       // ── 1. Verify room is still active ──────────────────────────────────
       final room = await _lobbyRepo.getRoom(session.roomId);
 
       if (room.status == GameRoomStatus.cancelled ||
           room.status == GameRoomStatus.finished) {
-        debugPrint('[Reconnection] Room is dead (${room.status.name}); clearing session');
+        debugPrint(
+            '[Reconnection] Room is dead (${room.status.name}); clearing session');
         await _sessionService.clearSession();
         _setState(ReconnectionState.idle);
         return ReconnectionState.idle;
@@ -206,12 +247,11 @@ class ReconnectionManager extends ChangeNotifier
       } else {
         // ── 3. Reconnect as client ─────────────────────────────────────────
         _gameProvider.restoreIdentity(
-          playerId:   session.playerId,
+          playerId: session.playerId,
           playerName: session.playerName,
         );
 
-        final success =
-            await _gameProvider.rehydrateGameState(session.roomId);
+        final success = await _gameProvider.rehydrateGameState(session.roomId);
         if (!success) {
           await _sessionService.clearSession();
           _setState(ReconnectionState.failed);
@@ -242,7 +282,7 @@ class ReconnectionManager extends ChangeNotifier
   /// The caller is responsible for navigating to the home screen.
   Future<void> dismissAndGoHome() async {
     _stopHeartbeat();
-    await _sessionService.clearSession();
+    await _gameProvider.reset();
     _setState(ReconnectionState.idle);
   }
 

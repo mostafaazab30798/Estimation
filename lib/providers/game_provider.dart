@@ -28,9 +28,15 @@ import '../networking/messages.dart';
 import '../modes/ninety_nine/networking/ninety_nine_game_server.dart';
 import '../modes/ninety_nine/networking/ninety_nine_game_client.dart';
 import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import '../modes/basra/networking/basra_game_server.dart';
+import '../modes/basra/networking/basra_game_client.dart';
+import '../modes/basra/presentation/providers/basra_game_provider.dart';
 import '../features/lobby/data/lobby_repository.dart';
 import '../features/lobby/domain/models/game_room.dart';
 import '../features/lobby/domain/models/room_player.dart';
+import '../features/matchmaking/data/matchmaking_repository.dart';
+import '../features/matchmaking/domain/models/bot_fill_vote_result.dart';
+import '../features/matchmaking/domain/models/matchmaking_status.dart';
 import '../services/session_storage_service.dart';
 import '../services/profile_service.dart';
 
@@ -38,6 +44,8 @@ import '../networking/local/local_game_server.dart';
 import '../networking/local/local_game_client.dart';
 import '../modes/ninety_nine/networking/local_ninety_nine_game_server.dart';
 import '../modes/ninety_nine/networking/local_ninety_nine_game_client.dart';
+import '../modes/basra/networking/local_basra_game_server.dart';
+import '../modes/basra/networking/local_basra_game_client.dart';
 import '../networking/local/local_discovery_service.dart';
 
 enum ConnectionRole { none, host, client }
@@ -47,8 +55,11 @@ enum ConnectionStatus { idle, connecting, connected, error }
 enum ConnectionTransport { online, local }
 
 class GameProvider extends ChangeNotifier {
+  static const matchmakingBotOfferDelay = Duration(seconds: 8);
+
   final _uuid = const Uuid();
   final _lobbyRepo = LobbyRepository();
+  final _matchmakingRepo = MatchmakingRepository();
   final _sessionService = SessionStorageService();
 
   GameProvider() {
@@ -77,10 +88,26 @@ class GameProvider extends ChangeNotifier {
     };
   }
 
+  BasraGameServer? _basraServer;
+  BasraGameClient? _basraClient;
+  BasraGameProvider? _basraProvider;
+  BasraGameProvider? get basraProvider => _basraProvider;
+  set basraProvider(BasraGameProvider? provider) {
+    _basraProvider = provider;
+    _bindBasraProvider();
+  }
+
+  void _bindBasraProvider() {
+    _basraProvider?.onSendAction = (action, [data]) {
+      _sendAction(action, data ?? {});
+    };
+  }
+
   String? _myPlayerId; // Supabase auth uid
   String _myName = '';
   bool _isSearching = false;
   bool _isTestMode = false;
+  bool _isTemporarilyAway = false;
   int _expectedPlayers = 4;
 
   ConnectionTransport _transport = ConnectionTransport.online;
@@ -88,6 +115,8 @@ class GameProvider extends ChangeNotifier {
   LocalGameClient? _localClient;
   LocalNinetyNineGameServer? _localNnServer;
   LocalNinetyNineGameClient? _localNnClient;
+  LocalBasraGameServer? _localBasraServer;
+  LocalBasraGameClient? _localBasraClient;
   final LocalDiscoveryService _discoveryService = LocalDiscoveryService();
   String? _localHostIp;
   int _localPort = 7890;
@@ -98,12 +127,21 @@ class GameProvider extends ChangeNotifier {
   StreamSubscription? _roomSub;
   StreamSubscription? _playersSub;
 
+  MatchmakingStatus _matchmakingStatus = MatchmakingStatus.idle;
+  Timer? _matchmakingBotOfferTimer;
+  int? _lastPresentedBotOfferVersion;
+  bool _isLeavingMatchmaking = false;
+  bool _matchmakingStartInProgress = false;
+  bool _matchmakingHostPromotionInProgress = false;
+  bool _matchmakingSessionSaved = false;
+
   Timer? _autoPlayCardTimer;
 
   void _updateState(GameState newState) {
     final oldState = _state;
     _state = newState;
-    EstimationEventDispatcher.instance.dispatchStateTransition(oldState, newState);
+    EstimationEventDispatcher.instance
+        .dispatchStateTransition(oldState, newState);
     _checkAutoPlayCard();
     notifyListeners();
   }
@@ -152,7 +190,49 @@ class GameProvider extends ChangeNotifier {
   bool get isHost => _role == ConnectionRole.host;
   bool get isSearching => _isSearching;
   bool get isTestMode => _isTestMode;
+  bool get isTemporarilyAway => _isTemporarilyAway;
+  bool get canResumeTemporarilyLeftGame =>
+      _isTemporarilyAway && _currentRoom != null && _state != null;
   int get expectedPlayers => _expectedPlayers;
+  MatchmakingStatus get matchmakingStatus => _matchmakingStatus;
+  bool get isMatchmaking => _currentRoom?.isMatchmaking == true;
+  bool get isMatchmakingSearching =>
+      isMatchmaking &&
+      (_matchmakingStatus == MatchmakingStatus.searching ||
+          _matchmakingStatus == MatchmakingStatus.votingForBots);
+  int get matchmakingHumanCount => _roomPlayers.length;
+  int get matchmakingBotsToFill => _currentRoom?.botsToFill ?? 0;
+  int? get lastPresentedBotOfferVersion => _lastPresentedBotOfferVersion;
+
+  bool claimBotOfferPresentation(int version) {
+    if (_lastPresentedBotOfferVersion == version) return false;
+    _lastPresentedBotOfferVersion = version;
+    return true;
+  }
+
+  Future<bool> hasUnfinishedOnlineGame() async {
+    final session = await _sessionService.getActiveRoomSession();
+    if (session == null) return false;
+    try {
+      final room = await _lobbyRepo.getRoom(session.roomId);
+      final active = room.status == GameRoomStatus.waiting ||
+          room.status == GameRoomStatus.playing;
+      if (!active) await _sessionService.clearSession();
+      return active;
+    } catch (error) {
+      debugPrint('[Reconnection] Could not verify active session: $error');
+      return true;
+    }
+  }
+
+  Future<bool> _rejectNewGameWhileSessionActive() async {
+    if (!await hasUnfinishedOnlineGame()) return false;
+    _errorMessage =
+        'لديك مباراة ما زالت جارية. يجب العودة إليها أو انتظار انتهائها قبل بدء مباراة جديدة.';
+    _status = ConnectionStatus.error;
+    notifyListeners();
+    return true;
+  }
 
   bool get isNinetyNine =>
       _currentRoom?.gameType == 'ninety_nine' ||
@@ -161,6 +241,13 @@ class GameProvider extends ChangeNotifier {
       _localNnServer != null ||
       _localNnClient != null;
 
+  bool get isBasra =>
+      _currentRoom?.gameType == 'basra' ||
+      _basraServer != null ||
+      _basraClient != null ||
+      _localBasraServer != null ||
+      _localBasraClient != null;
+
   /// The room code to share with other players (host only).
   String? get gameCode => _currentRoom?.roomCode;
 
@@ -168,13 +255,15 @@ class GameProvider extends ChangeNotifier {
   List<RoomPlayer> get roomPlayers => _roomPlayers;
 
   NinetyNineGameClient? get nnClient => _nnClient;
+  BasraGameClient? get basraClient => _basraClient;
 
   List<String> _availableThemes = ['theme_1', 'theme_2', 'theme_3', 'theme_4'];
   List<String> get availableThemes => _availableThemes;
 
   // ── Reactions State ───────────────────────────────────────────
   final Map<String, GameReaction> _activeReactions = {};
-  Map<String, GameReaction> get activeReactions => Map.unmodifiable(_activeReactions);
+  Map<String, GameReaction> get activeReactions =>
+      Map.unmodifiable(_activeReactions);
   final Map<String, Timer> _reactionTimers = {};
 
   Future<void> _loadAvailableThemes() async {
@@ -184,7 +273,7 @@ class GameProvider extends ChangeNotifier {
       }
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
       final assets = manifest.listAssets();
-      
+
       final themes = <String>{};
       for (final path in assets) {
         if (path.startsWith('assets/theme_')) {
@@ -194,7 +283,7 @@ class GameProvider extends ChangeNotifier {
           }
         }
       }
-      
+
       if (themes.isNotEmpty) {
         _availableThemes = themes.toList()..sort();
         notifyListeners();
@@ -220,7 +309,8 @@ class GameProvider extends ChangeNotifier {
       case GamePhase.trickTaking:
         return _state!.currentPlayerSeatIndex == me!.seatIndex;
       case GamePhase.declarations:
-        return _state!.currentPlayerSeatIndex == me!.seatIndex && me!.declared == null;
+        return _state!.currentPlayerSeatIndex == me!.seatIndex &&
+            me!.declared == null;
       case GamePhase.voidCheck:
         if (_state!.voidDeclaringPlayerId != null) {
           return !_state!.voidRedealRejections.contains(myPlayerId);
@@ -247,6 +337,7 @@ class GameProvider extends ChangeNotifier {
     _roomSub?.cancel();
     _roomSub = _lobbyRepo.watchRoom(roomId).listen(
       (room) {
+        final previousHost = _currentRoom?.hostId;
         _currentRoom = room;
         _expectedPlayers = room.maxPlayers;
         // Automatically sync state if status changed to playing
@@ -255,7 +346,15 @@ class GameProvider extends ChangeNotifier {
             requestStateSync();
           }
         } else if (room.status == GameRoomStatus.cancelled) {
-          _setError('تم إلغاء الغرفة من قبل المضيف');
+          if (room.isMatchmaking) {
+            _matchmakingStatus = MatchmakingStatus.error;
+            _setError('انتهت جلسة البحث. سنعيدك للصفحة الرئيسية.');
+          } else {
+            _setError('تم إلغاء الغرفة من قبل المضيف');
+          }
+        }
+        if (room.isMatchmaking) {
+          _handleMatchmakingRoomUpdate(room, previousHost: previousHost);
         }
         notifyListeners();
       },
@@ -264,7 +363,8 @@ class GameProvider extends ChangeNotifier {
         // are transient and must NOT terminate an in-progress game session.
         // Only treat them as fatal during the lobby phase.
         if (_isGameInProgress) {
-          debugPrint('[GameProvider] Room stream error (non-fatal mid-game): $err');
+          debugPrint(
+              '[GameProvider] Room stream error (non-fatal mid-game): $err');
         } else {
           _setError('حدث خطأ في الغرفة: $err');
         }
@@ -275,17 +375,305 @@ class GameProvider extends ChangeNotifier {
     _playersSub = _lobbyRepo.watchRoomPlayers(roomId).listen(
       (players) {
         _roomPlayers = players;
+        if (isMatchmaking) _handleMatchmakingPopulationChanged();
         notifyListeners();
       },
       onError: (err) {
         // Same: player-list stream errors mid-game are non-fatal.
         if (_isGameInProgress) {
-          debugPrint('[GameProvider] Players stream error (non-fatal mid-game): $err');
+          debugPrint(
+              '[GameProvider] Players stream error (non-fatal mid-game): $err');
         } else {
           _setError('حدث خطأ في اللاعبين: $err');
         }
       },
     );
+  }
+
+  void _handleMatchmakingRoomUpdate(GameRoom room, {String? previousHost}) {
+    if (room.isBotVoteOpen) {
+      _matchmakingStatus = MatchmakingStatus.votingForBots;
+      _cancelMatchmakingBotOfferTimer();
+    } else if (room.isMatchmakingStarting ||
+        room.status == GameRoomStatus.playing) {
+      _matchmakingStatus = room.status == GameRoomStatus.playing
+          ? MatchmakingStatus.playing
+          : MatchmakingStatus.starting;
+      _cancelMatchmakingBotOfferTimer();
+      unawaited(_saveMatchmakingSessionIfNeeded(room));
+      if (room.hostId == myPlayerId) {
+        unawaited(_startApprovedMatchmakingGame());
+      } else if (room.status == GameRoomStatus.playing && _state == null) {
+        requestStateSync();
+      }
+    } else if (room.matchmakingState == 'waiting') {
+      _matchmakingStatus = MatchmakingStatus.searching;
+      _scheduleBotFillOfferIfNeeded();
+    }
+
+    if (room.hostId == myPlayerId && !isHost && previousHost != room.hostId) {
+      unawaited(_becomeMatchmakingHost(room));
+    }
+  }
+
+  Future<void> _saveMatchmakingSessionIfNeeded(GameRoom room) async {
+    if (_matchmakingSessionSaved || myPlayerId.isEmpty) return;
+    _matchmakingSessionSaved = true;
+    await _sessionService.saveActiveRoomSession(
+      roomId: room.id,
+      roomCode: room.roomCode,
+      playerId: myPlayerId,
+      playerName: _myName,
+      isHost: room.hostId == myPlayerId,
+    );
+  }
+
+  void _handleMatchmakingPopulationChanged() {
+    debugPrint('[Matchmaking] Population changed: ${_roomPlayers.length}/4');
+    _cancelMatchmakingBotOfferTimer();
+    final room = _currentRoom;
+    if (room == null || !room.isMatchmaking) return;
+    if (room.isMatchmakingStarting && isHost) {
+      unawaited(_startApprovedMatchmakingGame());
+      return;
+    }
+    if (_roomPlayers.length < 4 && room.matchmakingState == 'waiting') {
+      _matchmakingStatus = MatchmakingStatus.searching;
+      _scheduleBotFillOfferIfNeeded();
+    }
+  }
+
+  void _scheduleBotFillOfferIfNeeded() {
+    final room = _currentRoom;
+    if (!isHost ||
+        room == null ||
+        !room.isMatchmaking ||
+        room.status != GameRoomStatus.waiting ||
+        room.matchmakingState != 'waiting' ||
+        !(_roomPlayers.length == 2 || _roomPlayers.length == 3) ||
+        _matchmakingBotOfferTimer != null) {
+      return;
+    }
+    final notBefore = room.botOfferAfter;
+    final delay = notBefore != null && notBefore.isAfter(DateTime.now())
+        ? notBefore.difference(DateTime.now())
+        : matchmakingBotOfferDelay;
+    _matchmakingBotOfferTimer = Timer(delay, () async {
+      _matchmakingBotOfferTimer = null;
+      final latest = _currentRoom;
+      if (!isHost ||
+          latest == null ||
+          latest.matchmakingState != 'waiting' ||
+          !(_roomPlayers.length == 2 || _roomPlayers.length == 3)) {
+        return;
+      }
+      try {
+        final offer = await _matchmakingRepo.openBotFillOffer(latest.id);
+        if (offer != null) {
+          debugPrint(
+              '[Matchmaking] Bot offer opened: version=${offer.offerVersion} humans=${offer.humanCount}');
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _cancelMatchmakingBotOfferTimer() {
+    _matchmakingBotOfferTimer?.cancel();
+    _matchmakingBotOfferTimer = null;
+  }
+
+  Future<void> startMatchmaking(
+    String name, {
+    String gameType = 'kotchina',
+    required int totalRounds,
+  }) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
+    await reset();
+    _myName = name.trim();
+    _transport = ConnectionTransport.online;
+    _expectedPlayers = 4;
+    _status = ConnectionStatus.connecting;
+    _matchmakingStatus = MatchmakingStatus.joiningQueue;
+    _isSearching = true;
+    notifyListeners();
+    try {
+      debugPrint(
+          '[Matchmaking] Entering queue: game=$gameType rounds=$totalRounds');
+      final result = await _matchmakingRepo
+          .enterMatchmaking(
+            playerName: _myName,
+            gameType: gameType,
+            totalRounds: totalRounds,
+          )
+          .timeout(const Duration(seconds: 25));
+      _myPlayerId = Supabase.instance.client.auth.currentUser?.id;
+      if (_myPlayerId == null || _status != ConnectionStatus.connecting) {
+        unawaited(_matchmakingRepo.leaveMatchmaking(result.roomId));
+        return;
+      }
+      final room = await _matchmakingRepo.getRoom(result.roomId);
+      _currentRoom = room;
+      _role = result.isHost ? ConnectionRole.host : ConnectionRole.client;
+      if (result.isHost) {
+        await _initializeMatchmakingHost(room);
+      } else {
+        await _initializeMatchmakingClient(room);
+      }
+      _listenToRoom(room.id);
+      _status = ConnectionStatus.connected;
+      _isSearching = false;
+      _matchmakingStatus = room.isMatchmakingStarting
+          ? MatchmakingStatus.starting
+          : MatchmakingStatus.searching;
+      debugPrint('[Matchmaking] Joined room ${room.id}, host=${result.isHost}');
+      notifyListeners();
+      if (room.isMatchmakingStarting && isHost) {
+        unawaited(_startApprovedMatchmakingGame());
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[Matchmaking] Join failed: $error\n$stackTrace');
+      if (_status == ConnectionStatus.connecting) {
+        _matchmakingStatus = MatchmakingStatus.error;
+        _isSearching = false;
+        _setError(_matchmakingRepo.translateError(error));
+      }
+    }
+  }
+
+  Future<void> _initializeMatchmakingHost(GameRoom room) async {
+    final photo = await ProfileService.getProfilePhoto();
+    _server = GameServer(
+      onStateUpdate: _updateState,
+      onReaction: handleIncomingReaction,
+      onEarthquake: handleIncomingEarthquake,
+    );
+    await _server!.start(_myName, myPlayerId, room.id, photo,
+        maxPlayers: 4, totalRounds: room.totalRounds ?? kBoulaTotalRounds);
+  }
+
+  Future<void> _initializeMatchmakingClient(GameRoom room) async {
+    final photo = await ProfileService.getProfilePhoto();
+    _client = GameClient(
+      onStateUpdate: _updateState,
+      onError: (error) => debugPrint('[Matchmaking] Client: $error'),
+      onReaction: handleIncomingReaction,
+      onEarthquake: handleIncomingEarthquake,
+    );
+    await _client!.connect(room.id, myPlayerId, _myName, photo);
+  }
+
+  Future<void> _becomeMatchmakingHost(GameRoom room) async {
+    if (_matchmakingHostPromotionInProgress || isHost) return;
+    _matchmakingHostPromotionInProgress = true;
+    try {
+      _client?.disconnect(myPlayerId);
+      _client = null;
+      _role = ConnectionRole.host;
+      await _initializeMatchmakingHost(room);
+      _server!.syncPlayersFromRoom(_roomPlayers
+          .map((p) => (id: p.playerId, name: p.playerName))
+          .toList());
+      await _sessionService.updateIsHost(isHost: true);
+      debugPrint('[Matchmaking] Host changed to ${room.hostId}');
+      _scheduleBotFillOfferIfNeeded();
+      if (room.isMatchmakingStarting) {
+        unawaited(_startApprovedMatchmakingGame());
+      }
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[Matchmaking] Host promotion failed: $error');
+    } finally {
+      _matchmakingHostPromotionInProgress = false;
+    }
+  }
+
+  Future<BotFillVoteResult?> voteForBotFill({
+    required int offerVersion,
+    required bool accepted,
+  }) async {
+    final room = _currentRoom;
+    if (room == null || !room.isMatchmaking) return null;
+    try {
+      return await _matchmakingRepo.castBotFillVote(
+          roomId: room.id, offerVersion: offerVersion, accepted: accepted);
+    } catch (error) {
+      _errorMessage = _matchmakingRepo.translateError(error);
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> _startApprovedMatchmakingGame() async {
+    if (_matchmakingStartInProgress) return;
+    final room = _currentRoom;
+    if (room == null ||
+        !room.isMatchmaking ||
+        !isHost ||
+        room.status != GameRoomStatus.waiting ||
+        !room.isMatchmakingStarting ||
+        _server == null) {
+      return;
+    }
+    final humans = _roomPlayers.length;
+    final bots = room.botsToFill;
+    final valid = (humans == 4 && bots == 0) ||
+        (humans == 3 && bots == 1) ||
+        (humans == 2 && bots == 2);
+    if (!valid) {
+      debugPrint(
+          '[Matchmaking] Refusing invalid start: humans=$humans bots=$bots');
+      return;
+    }
+    _matchmakingStartInProgress = true;
+    _matchmakingStatus = MatchmakingStatus.starting;
+    notifyListeners();
+    try {
+      await _matchmakingRepo.startApprovedMatch(room.id);
+      _server!.syncPlayersFromRoom(_roomPlayers
+          .map((p) => (id: p.playerId, name: p.playerName))
+          .toList());
+      if (_server!.playerCount != humans) {
+        throw StateError('Human sync mismatch');
+      }
+      _server!.addBotPlayers(count: bots);
+      if (_server!.playerCount != 4) {
+        throw StateError('Invalid final seat count');
+      }
+      await _sessionService.saveActiveRoomSession(
+          roomId: room.id,
+          roomCode: room.roomCode,
+          playerId: myPlayerId,
+          playerName: _myName,
+          isHost: true);
+      debugPrint('[Matchmaking] Start approved with $bots bots');
+      _sendAction(ActionType.startGame);
+    } catch (error, stackTrace) {
+      debugPrint('[Matchmaking] Approved start failed: $error\n$stackTrace');
+      _matchmakingStartInProgress = false;
+      _errorMessage = _matchmakingRepo.translateError(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> cancelMatchmaking() async {
+    if (_isLeavingMatchmaking) return;
+    _isLeavingMatchmaking = true;
+    _matchmakingStatus = MatchmakingStatus.cancelling;
+    _cancelMatchmakingBotOfferTimer();
+    notifyListeners();
+    final room = _currentRoom;
+    try {
+      if (room?.isMatchmaking == true &&
+          room!.status == GameRoomStatus.waiting) {
+        await _matchmakingRepo.leaveMatchmaking(room.id);
+      }
+    } catch (error) {
+      debugPrint('[Matchmaking] Leave failed: $error');
+    } finally {
+      _currentRoom = null;
+      await reset();
+      _isLeavingMatchmaking = false;
+    }
   }
 
   // ── Local (LAN / Hotspot) Hosting & Joining ──────────────────────────────
@@ -297,10 +685,12 @@ class GameProvider extends ChangeNotifier {
     int port = 7890,
     int totalRounds = kBoulaTotalRounds,
   }) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _transport = ConnectionTransport.local;
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.host;
     _isTestMode = false;
@@ -344,6 +734,22 @@ class GameProvider extends ChangeNotifier {
           port: port,
         );
         _localPort = _localNnServer!.boundPort;
+      } else if (gameType == 'basra') {
+        _localBasraServer = LocalBasraGameServer(
+          onStateUpdate: (state) {
+            _basraProvider?.syncState(state);
+          },
+          onReaction: handleIncomingReaction,
+        );
+        await _localBasraServer!.start(
+          name,
+          _myPlayerId!,
+          _currentRoom!.id,
+          myPhoto,
+          maxPlayers: expectedPlayers,
+          port: port,
+        );
+        _localPort = _localBasraServer!.boundPort;
       } else {
         _localServer = LocalGameServer(
           onStateUpdate: (state) {
@@ -386,10 +792,12 @@ class GameProvider extends ChangeNotifier {
     int port, {
     String? expectedGameType,
   }) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _transport = ConnectionTransport.local;
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.client;
     _isTestMode = false;
@@ -420,6 +828,16 @@ class GameProvider extends ChangeNotifier {
           onReaction: handleIncomingReaction,
         );
         await _localNnClient!.connect(hostIp, port, myPlayerId, name, myPhoto);
+      } else if (expectedGameType == 'basra') {
+        _localBasraClient = LocalBasraGameClient(
+          onError: (err) => _setError(err),
+          onStateUpdate: (state) {
+            _basraProvider?.syncState(state);
+          },
+          onReaction: handleIncomingReaction,
+        );
+        await _localBasraClient!
+            .connect(hostIp, port, myPlayerId, name, myPhoto);
       } else {
         _localClient = LocalGameClient(
           onStateUpdate: (state) {
@@ -447,9 +865,11 @@ class GameProvider extends ChangeNotifier {
     String gameType = 'kotchina',
     int totalRounds = kBoulaTotalRounds,
   }) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.host;
     _isTestMode = false;
@@ -466,30 +886,39 @@ class GameProvider extends ChangeNotifier {
         roomCode = _generateRoomCode();
         debugPrint('Attempting to create room with code: $roomCode');
         try {
-          createdRoom = await _lobbyRepo.createRoom(
-            playerName: name,
-            roomCode: roomCode,
-            hostIp: '127.0.0.1',
-            wsPort: 0,
-            gameType: gameType,
-            expectedPlayers: expectedPlayers,
-          ).timeout(const Duration(seconds: 25));
-          _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
+          createdRoom = await _lobbyRepo
+              .createRoom(
+                playerName: name,
+                roomCode: roomCode,
+                hostIp: '127.0.0.1',
+                wsPort: 0,
+                gameType: gameType,
+                expectedPlayers: expectedPlayers,
+              )
+              .timeout(const Duration(seconds: 25));
+          _myPlayerId =
+              Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
           nnProvider?.setPlayerId(_myPlayerId!);
-          debugPrint('Successfully created room: ${createdRoom.id} for player: $_myPlayerId');
+          _basraProvider?.setPlayerId(_myPlayerId!);
+          debugPrint(
+              'Successfully created room: ${createdRoom.id} for player: $_myPlayerId');
           break;
-          } catch (e) {
-            debugPrint('Failed to create room (retries left: ${retries - 1}): $e');
-            if (e is TimeoutException || e.toString().contains('TimeoutException') || e.toString().contains('SocketException')) {
-              throw Exception('انتهى وقت الاتصال. يرجى التحقق من اتصالك بالإنترنت.');
-            }
-            if (e.toString().contains('ROOM_CODE_COLLISION')) {
-              retries--;
-            } else {
-              rethrow;
-            }
+        } catch (e) {
+          debugPrint(
+              'Failed to create room (retries left: ${retries - 1}): $e');
+          if (e is TimeoutException ||
+              e.toString().contains('TimeoutException') ||
+              e.toString().contains('SocketException')) {
+            throw Exception(
+                'انتهى وقت الاتصال. يرجى التحقق من اتصالك بالإنترنت.');
+          }
+          if (e.toString().contains('ROOM_CODE_COLLISION')) {
+            retries--;
+          } else {
+            rethrow;
           }
         }
+      }
 
       if (_status != ConnectionStatus.connecting) {
         // User cancelled
@@ -509,7 +938,18 @@ class GameProvider extends ChangeNotifier {
           onReaction: handleIncomingReaction,
         );
         final myPhoto = await ProfileService.getProfilePhoto();
-        await _nnServer!.start(name, myPlayerId, createdRoom.id, myPhoto, maxPlayers: expectedPlayers);
+        await _nnServer!.start(name, myPlayerId, createdRoom.id, myPhoto,
+            maxPlayers: expectedPlayers);
+      } else if (gameType == 'basra') {
+        _basraServer = BasraGameServer(
+          onStateUpdate: (state) {
+            _basraProvider?.syncState(state);
+          },
+          onReaction: handleIncomingReaction,
+        );
+        final myPhoto = await ProfileService.getProfilePhoto();
+        await _basraServer!.start(name, myPlayerId, createdRoom.id, myPhoto,
+            maxPlayers: expectedPlayers);
       } else {
         _server = GameServer(
           onStateUpdate: (state) {
@@ -532,11 +972,11 @@ class GameProvider extends ChangeNotifier {
       _currentRoom = createdRoom;
       _listenToRoom(createdRoom.id);
       await _sessionService.saveActiveRoomSession(
-        roomId:     createdRoom.id,
-        roomCode:   roomCode,
-        playerId:   myPlayerId,
+        roomId: createdRoom.id,
+        roomCode: roomCode,
+        playerId: myPlayerId,
         playerName: _myName,
-        isHost:     true,
+        isHost: true,
       );
 
       _status = ConnectionStatus.connected;
@@ -558,7 +998,9 @@ class GameProvider extends ChangeNotifier {
 
   // ── Test mode (3 bot players) ─────────────────────────────────
 
-  Future<void> startTestGame(String name, {int totalRounds = kBoulaTotalRounds}) async {
+  Future<void> startTestGame(String name,
+      {int totalRounds = kBoulaTotalRounds}) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     _myName = name;
@@ -578,7 +1020,8 @@ class GameProvider extends ChangeNotifier {
       );
       final dummyRoomId = 'test_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
-      await _server!.start(name, myPlayerId, dummyRoomId, myPhoto, totalRounds: totalRounds);
+      await _server!.start(name, myPlayerId, dummyRoomId, myPhoto,
+          totalRounds: totalRounds);
       // Add 3 bot players to fill the remaining seats
       _server!.addBotPlayers(count: 3);
       _status = ConnectionStatus.connected;
@@ -588,11 +1031,14 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> startNinetyNineTestGame(String name, {int totalPlayers = 4}) async {
+  Future<void> startNinetyNineTestGame(String name,
+      {int totalPlayers = 4}) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     _bindNnProvider();
     nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.host;
     _isTestMode = true;
@@ -609,7 +1055,8 @@ class GameProvider extends ChangeNotifier {
       );
       final dummyRoomId = 'test_99_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
-      await _nnServer!.start(name, myPlayerId, dummyRoomId, myPhoto, maxPlayers: totalPlayers);
+      await _nnServer!.start(name, myPlayerId, dummyRoomId, myPhoto,
+          maxPlayers: totalPlayers);
       if (totalPlayers > 1) {
         _nnServer!.addBotPlayers(count: totalPlayers - 1);
       }
@@ -620,12 +1067,50 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> startBasraTestGame(String name, {int totalPlayers = 4}) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
+    await reset();
+    _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
+    _bindBasraProvider();
+    nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
+    _myName = name;
+    _role = ConnectionRole.host;
+    _isTestMode = true;
+    _expectedPlayers = totalPlayers;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    try {
+      _basraServer = BasraGameServer(
+        onStateUpdate: (state) {
+          _basraProvider?.syncState(state);
+        },
+        onReaction: handleIncomingReaction,
+      );
+      final dummyRoomId = 'test_basra_${_uuid.v4()}';
+      final myPhoto = await ProfileService.getProfilePhoto();
+      await _basraServer!.start(name, myPlayerId, dummyRoomId, myPhoto,
+          maxPlayers: totalPlayers);
+      if (totalPlayers > 1) {
+        _basraServer!.addBotPlayers(count: totalPlayers - 1);
+      }
+      _status = ConnectionStatus.connected;
+      notifyListeners();
+    } catch (e) {
+      _setError('فشل تشغيل الخادم: $e');
+    }
+  }
+
   // ── Join a game ───────────────────────────────────────────────
 
-  Future<void> joinGameWithCode(String name, String code, {String? expectedGameType}) async {
+  Future<void> joinGameWithCode(String name, String code,
+      {String? expectedGameType}) async {
+    if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
     nnProvider?.setPlayerId(_myPlayerId!);
+    _basraProvider?.setPlayerId(_myPlayerId!);
     _myName = name;
     _role = ConnectionRole.client;
     _isTestMode = false;
@@ -633,39 +1118,23 @@ class GameProvider extends ChangeNotifier {
     _isSearching = true;
     notifyListeners();
 
-    if (expectedGameType == 'ninety_nine') {
-      _nnClient = NinetyNineGameClient(
-        onError: (err) => _setError(err),
-        onStateUpdate: (state) {
-          nnProvider?.syncState(state);
-        },
-        onReaction: handleIncomingReaction,
-      );
-    } else {
-      _client = GameClient(
-        onStateUpdate: (state) {
-          _updateState(state);
-        },
-        onError: (err) => _setError(err),
-        onReaction: handleIncomingReaction,
-        onEarthquake: handleIncomingEarthquake,
-      );
-    }
-
     try {
       // 1. Join Supabase room
       final normalizedCode = code.trim().toUpperCase();
       debugPrint('Attempting to join room with code: $normalizedCode');
-      final room = await _lobbyRepo.joinRoom(
-        roomCode: normalizedCode,
-        playerName: name,
-        expectedGameType: expectedGameType,
-      ).timeout(const Duration(seconds: 25));
-      _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
+      final room = await _lobbyRepo
+          .joinRoom(
+            roomCode: normalizedCode,
+            playerName: name,
+            expectedGameType: expectedGameType,
+          )
+          .timeout(const Duration(seconds: 25));
+      _myPlayerId =
+          Supabase.instance.client.auth.currentUser?.id ?? _myPlayerId;
       nnProvider?.setPlayerId(_myPlayerId!);
+      _basraProvider?.setPlayerId(_myPlayerId!);
 
       if (_status != ConnectionStatus.connecting) {
-        // User cancelled while we were joining, leave immediately
         _lobbyRepo.leaveRoom(room.id, myPlayerId).catchError((_) {});
         return;
       }
@@ -673,13 +1142,38 @@ class GameProvider extends ChangeNotifier {
       _currentRoom = room;
       debugPrint('Successfully joined room: ${room.id}');
 
-      // 2. Connect to Supabase Broadcast Channel
+      // 2. Connect to the mode-specific broadcast channel
       _isSearching = false;
       final myPhoto = await ProfileService.getProfilePhoto();
-      
-      if (expectedGameType == 'ninety_nine') {
+      final type = expectedGameType ?? room.gameType;
+
+      if (type == 'ninety_nine') {
+        _nnClient = NinetyNineGameClient(
+          onError: (err) => _setError(err),
+          onStateUpdate: (state) {
+            nnProvider?.syncState(state);
+          },
+          onReaction: handleIncomingReaction,
+        );
         await _nnClient!.connect(room.id, myPlayerId, name, myPhoto);
+      } else if (type == 'basra') {
+        _basraClient = BasraGameClient(
+          onError: (err) => _setError(err),
+          onStateUpdate: (state) {
+            _basraProvider?.syncState(state);
+          },
+          onReaction: handleIncomingReaction,
+        );
+        await _basraClient!.connect(room.id, myPlayerId, name, myPhoto);
       } else {
+        _client = GameClient(
+          onStateUpdate: (state) {
+            _updateState(state);
+          },
+          onError: (err) => _setError(err),
+          onReaction: handleIncomingReaction,
+          onEarthquake: handleIncomingEarthquake,
+        );
         await _client!.connect(room.id, myPlayerId, name, myPhoto);
       }
       debugPrint('Connected to Supabase Broadcast for room: ${room.id}');
@@ -687,11 +1181,11 @@ class GameProvider extends ChangeNotifier {
       // 3. Listen to Supabase room
       _listenToRoom(room.id);
       await _sessionService.saveActiveRoomSession(
-        roomId:     room.id,
-        roomCode:   normalizedCode,
-        playerId:   myPlayerId,
+        roomId: room.id,
+        roomCode: normalizedCode,
+        playerId: myPlayerId,
         playerName: _myName,
-        isHost:     false,
+        isHost: false,
       );
 
       _status = ConnectionStatus.connected;
@@ -711,27 +1205,36 @@ class GameProvider extends ChangeNotifier {
     // If a transient stream error flipped status to error while the game is
     // actively running, auto-heal the status so actions are not silently dropped.
     if (_status == ConnectionStatus.error && _isGameInProgress) {
-      debugPrint('[GameProvider] Auto-healing status from error→connected for mid-game action "$action"');
+      debugPrint(
+          '[GameProvider] Auto-healing status from error→connected for mid-game action "$action"');
       _status = ConnectionStatus.connected;
     }
 
     if (_status != ConnectionStatus.connected) {
-      debugPrint('Cannot send action "$action": Not connected (status: $_status)');
+      debugPrint(
+          'Cannot send action "$action": Not connected (status: $_status)');
       return;
     }
 
     if (_transport == ConnectionTransport.local) {
       if (_role == ConnectionRole.host) {
         if (_localServer != null) {
-          _localServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+          _localServer!
+              .sendHostAction(action, {'playerId': myPlayerId, ...extra});
         } else if (_localNnServer != null) {
-          _localNnServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+          _localNnServer!
+              .sendHostAction(action, {'playerId': myPlayerId, ...extra});
+        } else if (_localBasraServer != null) {
+          _localBasraServer!
+              .sendHostAction(action, {'playerId': myPlayerId, ...extra});
         }
       } else if (_role == ConnectionRole.client) {
         if (_localClient != null) {
           _localClient!.sendAction(action, myPlayerId, extra);
         } else if (_localNnClient != null) {
           _localNnClient!.sendAction(action, extra.isEmpty ? null : extra);
+        } else if (_localBasraClient != null) {
+          _localBasraClient!.sendAction(action, extra.isEmpty ? null : extra);
         }
       }
       return;
@@ -742,6 +1245,9 @@ class GameProvider extends ChangeNotifier {
         _server!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
       } else if (_nnServer != null) {
         _nnServer!.sendHostAction(action, {'playerId': myPlayerId, ...extra});
+      } else if (_basraServer != null) {
+        _basraServer!
+            .sendHostAction(action, {'playerId': myPlayerId, ...extra});
       } else {
         debugPrint('Cannot send action "$action": Host server is null');
       }
@@ -749,8 +1255,9 @@ class GameProvider extends ChangeNotifier {
       if (_client != null) {
         _client!.sendAction(action, myPlayerId, extra);
       } else if (_nnClient != null) {
-        // 99-mode client — route through the NN client
         _nnClient!.sendAction(action, extra.isEmpty ? null : extra);
+      } else if (_basraClient != null) {
+        _basraClient!.sendAction(action, extra.isEmpty ? null : extra);
       } else {
         debugPrint('Cannot send action "$action": Client is null');
       }
@@ -760,6 +1267,14 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> startGame() async {
+    if (isMatchmaking) {
+      if (_currentRoom?.matchmakingState != 'starting') {
+        debugPrint('[Matchmaking] Ignored unauthorized manual start');
+        return;
+      }
+      await _startApprovedMatchmakingGame();
+      return;
+    }
     if (_transport == ConnectionTransport.local) {
       if (isHost && _currentRoom != null) {
         _currentRoom = GameRoom(
@@ -775,10 +1290,18 @@ class GameProvider extends ChangeNotifier {
           startedAt: DateTime.now(),
         );
 
-        if (_localServer != null && _localServer!.playerCount < 4 && _currentRoom!.gameType == 'kotchina') {
+        if (_localServer != null &&
+            _localServer!.playerCount < 4 &&
+            _currentRoom!.gameType == 'kotchina') {
           _localServer!.addBotPlayers(count: 4 - _localServer!.playerCount);
-        } else if (_localNnServer != null && _localNnServer!.playerCount < _expectedPlayers) {
-          _localNnServer!.addBotPlayers(count: _expectedPlayers - _localNnServer!.playerCount);
+        } else if (_localNnServer != null &&
+            _localNnServer!.playerCount < _expectedPlayers) {
+          _localNnServer!.addBotPlayers(
+              count: _expectedPlayers - _localNnServer!.playerCount);
+        } else if (_localBasraServer != null &&
+            _localBasraServer!.playerCount < _expectedPlayers) {
+          _localBasraServer!.addBotPlayers(
+              count: _expectedPlayers - _localBasraServer!.playerCount);
         }
 
         _sendAction(ActionType.startGame);
@@ -793,7 +1316,9 @@ class GameProvider extends ChangeNotifier {
         // so dealCards has the correct player count, regardless of WebSocket timing.
         if (_server != null && _roomPlayers.isNotEmpty) {
           _server!.syncPlayersFromRoom(
-            _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
+            _roomPlayers
+                .map((p) => (id: p.playerId, name: p.playerName))
+                .toList(),
           );
           final is99 = _currentRoom?.gameType == 'ninety_nine';
           if (!is99 && _server!.playerCount < 4) {
@@ -802,11 +1327,26 @@ class GameProvider extends ChangeNotifier {
         } else if (_nnServer != null) {
           if (_roomPlayers.isNotEmpty) {
             _nnServer!.syncPlayersFromRoom(
-              _roomPlayers.map((p) => (id: p.playerId, name: p.playerName)).toList(),
+              _roomPlayers
+                  .map((p) => (id: p.playerId, name: p.playerName))
+                  .toList(),
             );
           }
           if (_nnServer!.playerCount < _expectedPlayers) {
-            _nnServer!.addBotPlayers(count: _expectedPlayers - _nnServer!.playerCount);
+            _nnServer!.addBotPlayers(
+                count: _expectedPlayers - _nnServer!.playerCount);
+          }
+        } else if (_basraServer != null) {
+          if (_roomPlayers.isNotEmpty) {
+            _basraServer!.syncPlayersFromRoom(
+              _roomPlayers
+                  .map((p) => (id: p.playerId, name: p.playerName))
+                  .toList(),
+            );
+          }
+          if (_basraServer!.playerCount < _expectedPlayers) {
+            _basraServer!.addBotPlayers(
+                count: _expectedPlayers - _basraServer!.playerCount);
           }
         }
         _sendAction(ActionType.startGame);
@@ -829,7 +1369,6 @@ class GameProvider extends ChangeNotifier {
 
   void unready() => _sendAction(ActionType.unready);
 
-
   void approveRedeal() {
     _sendAction(ActionType.approveRedeal);
   }
@@ -850,7 +1389,8 @@ class GameProvider extends ChangeNotifier {
     if (_state != null && me != null) {
       final forbidden = GameEngine.getForbiddenDeclaration(_state!, myPlayerId);
       if (forbidden != null && declared == forbidden) {
-        EstimationEventDispatcher.instance.notifyForbiddenDeclarationAttempt(me!, forbidden);
+        EstimationEventDispatcher.instance
+            .notifyForbiddenDeclarationAttempt(me!, forbidden);
       }
     }
     _sendAction(ActionType.submitDeclaration, {'declared': declared});
@@ -864,7 +1404,6 @@ class GameProvider extends ChangeNotifier {
 
   void requestStateSync() => _sendAction(ActionType.requestStateSync);
 
-
   void nextRound() => _sendAction(ActionType.nextRound);
 
   // ── Reactions & Earthquakes ───────────────────────────────────
@@ -873,7 +1412,8 @@ class GameProvider extends ChangeNotifier {
 
   void handleIncomingEarthquake(Map<String, dynamic> data) {
     try {
-      final id = data['earthquakeId']?.toString() ?? data['id']?.toString() ?? '';
+      final id =
+          data['earthquakeId']?.toString() ?? data['id']?.toString() ?? '';
       if (id.isNotEmpty) {
         if (_handledEarthquakeIds.contains(id)) return;
         _handledEarthquakeIds.add(id);
@@ -886,7 +1426,8 @@ class GameProvider extends ChangeNotifier {
       if (playerId == myPlayerId && id.isEmpty) return;
 
       final playerName = data['playerName'] as String? ?? 'Player';
-      final roundNumber = data['roundNumber'] as int? ?? _state?.roundNumber ?? 1;
+      final roundNumber =
+          data['roundNumber'] as int? ?? _state?.roundNumber ?? 1;
       PlayingCard? card;
       if (data['card'] != null) {
         if (data['card'] is Map<String, dynamic>) {
@@ -942,7 +1483,8 @@ class GameProvider extends ChangeNotifier {
       final reaction = GameReaction.fromJson(data);
       _activeReactions[reaction.playerId] = reaction;
       _reactionTimers[reaction.playerId]?.cancel();
-      _reactionTimers[reaction.playerId] = Timer(const Duration(milliseconds: 3200), () {
+      _reactionTimers[reaction.playerId] =
+          Timer(const Duration(milliseconds: 3200), () {
         _activeReactions.remove(reaction.playerId);
         notifyListeners();
       });
@@ -984,7 +1526,11 @@ class GameProvider extends ChangeNotifier {
       return 'الغرفة ممتلئة أو لم تعد في وضع الانتظار.';
     } else if (raw.contains('NOT_AUTHENTICATED')) {
       return 'يجب تسجيل الدخول أولاً.';
-    } else if (raw.contains('SocketException') || raw.contains('Connection refused') || raw.contains('TimeoutException')) {
+    } else if (raw.contains('ONGOING_GAME_REQUIRES_RETURN')) {
+      return 'لديك مباراة ما زالت جارية. عد إليها قبل الانضمام إلى غرفة أخرى.';
+    } else if (raw.contains('SocketException') ||
+        raw.contains('Connection refused') ||
+        raw.contains('TimeoutException')) {
       return 'استغرق الاتصال وقتًا أطول من المعتاد. يرجى التحقق من اتصالك بالإنترنت وإعادة المحاولة.';
     }
     return 'فشل الانضمام: $raw';
@@ -998,12 +1544,19 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> reset() async {
+    _cancelMatchmakingBotOfferTimer();
     await _sessionService.clearSession();
     _nnProvider?.reset();
+    _basraProvider?.reset();
     final myId = myPlayerId;
     if (_currentRoom != null && myId.isNotEmpty) {
       try {
-        await _lobbyRepo.leaveRoom(_currentRoom!.id, myId);
+        if (_currentRoom!.isMatchmaking &&
+            _currentRoom!.status == GameRoomStatus.waiting) {
+          await _matchmakingRepo.leaveMatchmaking(_currentRoom!.id);
+        } else {
+          await _lobbyRepo.leaveRoom(_currentRoom!.id, myId);
+        }
         await _sessionService.clearSession();
       } catch (e) {
         debugPrint('Error leaving room: $e');
@@ -1033,6 +1586,10 @@ class GameProvider extends ChangeNotifier {
       await _localNnServer!.stop();
       _localNnServer = null;
     }
+    if (_localBasraServer != null) {
+      await _localBasraServer!.stop();
+      _localBasraServer = null;
+    }
     if (_localClient != null) {
       _localClient!.disconnect(myId);
       _localClient = null;
@@ -1040,6 +1597,10 @@ class GameProvider extends ChangeNotifier {
     if (_localNnClient != null) {
       await _localNnClient!.disconnect();
       _localNnClient = null;
+    }
+    if (_localBasraClient != null) {
+      await _localBasraClient!.disconnect();
+      _localBasraClient = null;
     }
 
     if (_server != null) {
@@ -1050,6 +1611,10 @@ class GameProvider extends ChangeNotifier {
       await _nnServer!.stop();
       _nnServer = null;
     }
+    if (_basraServer != null) {
+      await _basraServer!.stop();
+      _basraServer = null;
+    }
     if (_client != null) {
       _client!.disconnect(myId);
       _client = null;
@@ -1058,7 +1623,11 @@ class GameProvider extends ChangeNotifier {
       await _nnClient!.disconnect();
       _nnClient = null;
     }
-    
+    if (_basraClient != null) {
+      await _basraClient!.disconnect();
+      _basraClient = null;
+    }
+
     _state = null;
     _currentRoom = null;
     _roomPlayers = [];
@@ -1068,7 +1637,13 @@ class GameProvider extends ChangeNotifier {
     _errorMessage = '';
     _isSearching = false;
     _isTestMode = false;
+    _isTemporarilyAway = false;
     _expectedPlayers = 4;
+    _matchmakingStatus = MatchmakingStatus.idle;
+    _lastPresentedBotOfferVersion = null;
+    _matchmakingStartInProgress = false;
+    _matchmakingHostPromotionInProgress = false;
+    _matchmakingSessionSaved = false;
     EstimationEventBus.instance.clearHistory();
     notifyListeners();
   }
@@ -1105,7 +1680,7 @@ class GameProvider extends ChangeNotifier {
       // Ensure myPlayerId and myName are restored from the session before
       // joinGameWithCode sets them again.
       _myPlayerId = session.playerId;
-      _myName     = session.playerName;
+      _myName = session.playerName;
 
       await joinGameWithCode(session.playerName, session.roomCode);
       return _status == ConnectionStatus.connected;
@@ -1121,6 +1696,46 @@ class GameProvider extends ChangeNotifier {
   /// isHost flag after a host-promotion event.
   SessionStorageService get sessionService => _sessionService;
 
+  /// Leave the game screen without forfeiting the active online seat.
+  /// The session and room membership remain available for recovery.
+  Future<void> temporarilyLeaveOngoingGame() async {
+    final room = _currentRoom;
+    if (room == null || room.status != GameRoomStatus.playing || isLocal) {
+      await reset();
+      return;
+    }
+    _isTemporarilyAway = true;
+    try {
+      await _lobbyRepo.markOffline(room.id);
+    } catch (error) {
+      debugPrint('[Reconnection] Could not mark temporary departure: $error');
+    }
+    if (isHost) {
+      _server?.markHostTemporarilyAway();
+    } else {
+      _client?.disconnect(myPlayerId);
+      _client = null;
+    }
+    _status = ConnectionStatus.idle;
+    notifyListeners();
+  }
+
+  Future<bool> resumeTemporarilyLeftGame(ActiveRoomSession session) async {
+    if (!canResumeTemporarilyLeftGame) return false;
+    if (isHost && _server != null) {
+      _server!.reclaimHostSeat();
+      await _lobbyRepo.pingHeartbeat(session.roomId);
+      _status = ConnectionStatus.connected;
+      _isTemporarilyAway = false;
+      notifyListeners();
+      return true;
+    }
+    restoreIdentity(playerId: session.playerId, playerName: session.playerName);
+    final success = await rehydrateGameState(session.roomId);
+    if (success) _isTemporarilyAway = false;
+    return success;
+  }
+
   // ── Identity restoration (no network call) ────────────────────────────────
 
   /// Set player identity from a persisted session before making network calls.
@@ -1130,8 +1745,9 @@ class GameProvider extends ChangeNotifier {
     required String playerName,
   }) {
     _myPlayerId = playerId;
-    _myName     = playerName;
+    _myName = playerName;
     nnProvider?.setPlayerId(playerId);
+    _basraProvider?.setPlayerId(playerId);
   }
 
   // ── State re-hydration (client reconnect) ─────────────────────────────────
@@ -1185,11 +1801,12 @@ class GameProvider extends ChangeNotifier {
       _listenToRoom(roomId);
       _currentRoom = await _lobbyRepo.getRoom(roomId);
 
-      _role   = ConnectionRole.client;
+      _role = ConnectionRole.client;
       _status = ConnectionStatus.connected;
       notifyListeners();
 
-      debugPrint('[Provider] Rehydration complete — phase: ${_state!.phase.name}');
+      debugPrint(
+          '[Provider] Rehydration complete — phase: ${_state!.phase.name}');
       return true;
     } catch (e) {
       debugPrint('[Provider] rehydrateGameState failed: $e');
@@ -1228,17 +1845,18 @@ class GameProvider extends ChangeNotifier {
         },
       );
       await _server!.restoreFromState(
-        state:        restoredState,
+        state: restoredState,
         hostPlayerId: session.playerId,
-        hostName:     session.playerName,
-        roomId:       session.roomId,
+        hostName: session.playerName,
+        roomId: session.roomId,
       );
 
       // 4. Restore local identity & room reference.
-      _myPlayerId  = session.playerId;
+      _myPlayerId = session.playerId;
       nnProvider?.setPlayerId(_myPlayerId!);
-      _myName      = session.playerName;
-      _role        = ConnectionRole.host;
+      _basraProvider?.setPlayerId(_myPlayerId!);
+      _myName = session.playerName;
+      _role = ConnectionRole.host;
       _currentRoom = await _lobbyRepo.getRoom(session.roomId);
       _listenToRoom(session.roomId);
 
@@ -1263,11 +1881,14 @@ class GameProvider extends ChangeNotifier {
     _localServer?.stop();
     _nnServer?.stop();
     _localNnServer?.stop();
+    _basraServer?.stop();
+    _localBasraServer?.stop();
     _client?.disconnect(myPlayerId);
     _localClient?.disconnect(myPlayerId);
     _nnClient?.disconnect();
     _localNnClient?.disconnect();
+    _basraClient?.disconnect();
+    _localBasraClient?.disconnect();
     super.dispose();
   }
 }
-

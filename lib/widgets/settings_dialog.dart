@@ -3,6 +3,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/earthquake_effect.dart';
 import '../services/settings_service.dart';
 import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
@@ -47,6 +48,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
         color: Colors.transparent,
         child: Container(
           width: 380,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+          ),
           margin: const EdgeInsets.symmetric(horizontal: 24),
           decoration: BoxDecoration(
             color: AppTheme.deepNavy.withValues(alpha: 0.92),
@@ -78,9 +82,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 child: AnimatedBuilder(
                   animation: _settings,
                   builder: (context, _) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                         // Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -207,6 +213,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           ),
                         ),
 
+                        const SizedBox(height: 14),
+                        _buildEarthquakeEffectPicker(),
+
                         const SizedBox(height: 22),
 
                         // Done button
@@ -234,7 +243,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
                             ),
                           ),
                         ),
-                      ],
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -302,6 +312,98 @@ class _SettingsDialogState extends State<SettingsDialog> {
             child: AppIcon(icon, color: AppTheme.gold, size: 18),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEarthquakeEffectPicker() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface2.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.steelBlue.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'مؤثر ضربة الزلزال',
+            textAlign: TextAlign.right,
+            style: GoogleFonts.cairo(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.cream,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (final effect in EarthquakeEffect.values) ...[
+                Expanded(child: _buildEffectChoice(effect)),
+                if (effect != EarthquakeEffect.values.last)
+                  const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEffectChoice(EarthquakeEffect effect) {
+    final selected = _settings.earthquakeEffect == effect;
+    final icon = switch (effect) {
+      EarthquakeEffect.magma => AppIcons.localFireDepartment,
+      EarthquakeEffect.frost => AppIcons.autoAwesome,
+      EarthquakeEffect.voidRift => AppIcons.circle,
+    };
+
+    return Tooltip(
+      message: effect.arabicDescription,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _settings.setEarthquakeEffect(effect),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 72,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: effect.primaryColor.withValues(
+                alpha: selected ? 0.22 : 0.07,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected
+                    ? effect.primaryColor
+                    : AppTheme.steelBlue.withValues(alpha: 0.14),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppIcon(icon, color: effect.primaryColor, size: 22),
+                const SizedBox(height: 5),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    effect.arabicLabel,
+                    style: GoogleFonts.cairo(
+                      color: selected ? AppTheme.cream : AppTheme.steelBlue,
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

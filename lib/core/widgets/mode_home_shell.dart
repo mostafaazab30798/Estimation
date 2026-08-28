@@ -536,7 +536,7 @@ class ModeHomeArtEmblem extends StatelessWidget {
 
 class ModeHomeActionButton extends StatefulWidget {
   final String label;
-  final String subtitle;
+  final String? subtitle;
   final AppIconData icon;
   final List<Color> gradient;
   final VoidCallback onTap;
@@ -545,7 +545,7 @@ class ModeHomeActionButton extends StatefulWidget {
   const ModeHomeActionButton({
     super.key,
     required this.label,
-    required this.subtitle,
+    this.subtitle,
     required this.icon,
     required this.gradient,
     required this.onTap,
@@ -614,6 +614,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   widget.label,
@@ -624,16 +625,18 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
                     height: 1.15,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.subtitle,
-                  style: GoogleFonts.cairo(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
+                if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.subtitle!,
+                    style: GoogleFonts.cairo(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -685,22 +688,25 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
             widget.label,
             style: GoogleFonts.cairo(
               color: AppTheme.white,
-              fontSize: 12,
+              fontSize: 12.5,
               fontWeight: FontWeight.bold,
               height: 1.15,
             ),
             textAlign: TextAlign.center,
           ),
-          Text(
-            widget.subtitle,
-            style: GoogleFonts.cairo(
-              color: AppTheme.steelBlue,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
+          if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              widget.subtitle!,
+              style: GoogleFonts.cairo(
+                color: AppTheme.steelBlue,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
-          ),
+          ],
         ],
       ),
     );

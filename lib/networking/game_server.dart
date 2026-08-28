@@ -21,17 +21,18 @@ typedef StateUpdateCallback = void Function(GameState state);
 
 class GameServer {
   static final Random _rng = Random();
+  static const disconnectedPlayerGracePeriod = Duration(seconds: 60);
 
   final StateUpdateCallback onStateUpdate;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
   final void Function(Map<String, dynamic> earthquakeData)? onEarthquake;
-  
+
   String? hostPlayerId;
   String? hostName;
   late String roomId;
   int maxHumanPlayers = 4;
   int maxPlayers = 4;
-  
+
   late GameState _state;
   RealtimeChannel? _channel;
 
@@ -46,10 +47,11 @@ class GameServer {
 
   // ── Bot support ──────────────────────────────────────────────
   final Set<String> _botPlayerIds = {};
+  final Set<String> _temporaryBotPlayerIds = {};
+  final Map<String, Timer> _disconnectedPlayerTimers = {};
   bool _botProcessing = false;
 
   GameServer({required this.onStateUpdate, this.onReaction, this.onEarthquake});
-
 
   // ── Lifecycle ────────────────────────────────────────────────
 
@@ -75,16 +77,18 @@ class GameServer {
       seatIndex: 0,
       photo: hostPhoto,
     );
-    _state = GameEngine.createInitialState([hostPlayer], totalRounds: totalRounds);
+    _state =
+        GameEngine.createInitialState([hostPlayer], totalRounds: totalRounds);
 
     // Initialize Supabase Broadcast Channel
     _channel = Supabase.instance.client.channel('room_$roomId');
-    
+
     // Listen for actions from clients
     _channel!.onBroadcast(
       event: 'action',
       callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+        final data = (payload.containsKey('payload') &&
+                payload['payload'] is Map<String, dynamic>)
             ? payload['payload'] as Map<String, dynamic>
             : payload;
         _handlePlayerAction(data);
@@ -95,7 +99,8 @@ class GameServer {
     _channel!.onBroadcast(
       event: 'joinRequest',
       callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+        final data = (payload.containsKey('payload') &&
+                payload['payload'] is Map<String, dynamic>)
             ? payload['payload'] as Map<String, dynamic>
             : payload;
         _handleJoinRequest(data);
@@ -106,7 +111,8 @@ class GameServer {
     _channel!.onBroadcast(
       event: 'leaveRequest',
       callback: (payload) {
-        final data = (payload.containsKey('payload') && payload['payload'] is Map<String, dynamic>)
+        final data = (payload.containsKey('payload') &&
+                payload['payload'] is Map<String, dynamic>)
             ? payload['payload'] as Map<String, dynamic>
             : payload;
         _handleLeaveRequest(data);
@@ -114,28 +120,7 @@ class GameServer {
     );
 
     // Listen for presence leave to automatically remove disconnected players
-    _channel!.onPresenceLeave((payload) {
-      if (_state.phase == GamePhase.lobby) {
-        bool changed = false;
-        for (final presence in payload.leftPresences) {
-          final pId = presence.payload['playerId'] as String?;
-          if (pId != null && pId != hostPlayerId) {
-            final idx = _state.players.indexWhere((p) => p.id == pId);
-            if (idx != -1) {
-              _state.players.removeAt(idx);
-              changed = true;
-            }
-          }
-        }
-        if (changed) {
-          // Reassign seat indexes
-          for (int i = 0; i < _state.players.length; i++) {
-            _state.players[i] = _state.players[i].copyWith(seatIndex: i);
-          }
-          _broadcastState();
-        }
-      }
-    });
+    _channel!.onPresenceLeave(_handlePresenceLeave);
 
     _channel!.subscribe((status, [error]) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
@@ -158,6 +143,11 @@ class GameServer {
     _botTimer = null;
     _trickTimer?.cancel();
     _trickTimer = null;
+    for (final timer in _disconnectedPlayerTimers.values) {
+      timer.cancel();
+    }
+    _disconnectedPlayerTimers.clear();
+    _temporaryBotPlayerIds.clear();
     await _channel?.unsubscribe();
     _channel = null;
   }
@@ -169,13 +159,17 @@ class GameServer {
   /// Add [count] bot players filling remaining seats up to 4.
   void addBotPlayers({int count = 3}) {
     final toAdd = count.clamp(0, 4 - _state.players.length);
-    for (int i = 1; i <= toAdd; i++) {
-      final botId = 'bot_$i';
+    for (int i = 0; i < toAdd; i++) {
+      var next = 1;
+      while (_state.players.any((player) => player.id == 'bot_$next')) {
+        next++;
+      }
+      final botId = 'bot_$next';
       final seatIndex = _state.players.length;
       _botPlayerIds.add(botId);
       _state.players.add(Player(
         id: botId,
-        name: 'لاعب $i 🤖',
+        name: 'لاعب $next 🤖',
         seatIndex: seatIndex,
       ));
     }
@@ -210,10 +204,10 @@ class GameServer {
     final playerId = payload['playerId'] as String;
     final playerName = payload['name'] as String;
     final playerPhoto = payload['photo'] as String?;
-    
+
     // Check if player is already in the state
     final existingIndex = _state.players.indexWhere((p) => p.id == playerId);
-    
+
     if (existingIndex == -1) {
       // New player joining
       if (_state.phase != GamePhase.lobby) {
@@ -226,11 +220,16 @@ class GameServer {
         return;
       }
       final seat = _state.players.length;
-      _state.players.add(Player(id: playerId, name: playerName, seatIndex: seat, photo: playerPhoto));
-    } else if (playerPhoto != null && _state.players[existingIndex].photo != playerPhoto) {
+      _state.players.add(Player(
+          id: playerId, name: playerName, seatIndex: seat, photo: playerPhoto));
+    } else if (playerPhoto != null &&
+        _state.players[existingIndex].photo != playerPhoto) {
       // Update photo if changed during reconnection
-      _state.players[existingIndex] = _state.players[existingIndex].copyWith(photo: playerPhoto);
+      _state.players[existingIndex] =
+          _state.players[existingIndex].copyWith(photo: playerPhoto);
     }
+
+    _reclaimHumanSeat(playerId);
 
     // Always broadcast to give the newly connected client the current state
     _broadcastState();
@@ -251,6 +250,74 @@ class GameServer {
       for (int i = 0; i < _state.players.length; i++) {
         _state.players[i] = _state.players[i].copyWith(seatIndex: i);
       }
+      _broadcastState();
+    } else {
+      _scheduleDisconnectedPlayerTakeover(playerId);
+    }
+  }
+
+  void _handlePresenceLeave(dynamic payload) {
+    for (final presence in payload.leftPresences) {
+      final playerId = presence.payload['playerId'] as String?;
+      if (playerId == null || playerId == hostPlayerId) continue;
+      if (_state.phase == GamePhase.lobby) {
+        _state.players.removeWhere((player) => player.id == playerId);
+        for (var index = 0; index < _state.players.length; index++) {
+          _state.players[index] =
+              _state.players[index].copyWith(seatIndex: index);
+        }
+        _broadcastState();
+      } else {
+        _scheduleDisconnectedPlayerTakeover(playerId);
+      }
+    }
+  }
+
+  void _scheduleDisconnectedPlayerTakeover(String playerId) {
+    if (_isStopped ||
+        playerId.startsWith('bot_') ||
+        !_state.players.any((player) => player.id == playerId) ||
+        _temporaryBotPlayerIds.contains(playerId) ||
+        _disconnectedPlayerTimers.containsKey(playerId)) {
+      return;
+    }
+    debugPrint('[Reconnection] Reserving seat for $playerId for 60 seconds');
+    _disconnectedPlayerTimers[playerId] = Timer(
+      disconnectedPlayerGracePeriod,
+      () {
+        _disconnectedPlayerTimers.remove(playerId);
+        if (_isStopped ||
+            !_state.players.any((player) => player.id == playerId)) {
+          return;
+        }
+        _temporaryBotPlayerIds.add(playerId);
+        _botPlayerIds.add(playerId);
+        debugPrint('[Reconnection] Bot took temporary control of $playerId');
+        _broadcastState();
+      },
+    );
+  }
+
+  void markHostTemporarilyAway() {
+    final id = hostPlayerId;
+    if (id != null && _state.phase != GamePhase.lobby) {
+      _scheduleDisconnectedPlayerTakeover(id);
+    }
+  }
+
+  void reclaimHostSeat() {
+    final id = hostPlayerId;
+    if (id != null) _reclaimHumanSeat(id);
+  }
+
+  void _reclaimHumanSeat(String playerId) {
+    _disconnectedPlayerTimers.remove(playerId)?.cancel();
+    if (_temporaryBotPlayerIds.remove(playerId)) {
+      _botPlayerIds.remove(playerId);
+      _botTimer?.cancel();
+      _botTimer = null;
+      _botProcessing = false;
+      debugPrint('[Reconnection] Human reclaimed seat $playerId');
       _broadcastState();
     }
   }
@@ -278,12 +345,17 @@ class GameServer {
 
       case ActionType.sendReaction:
         final reactionData = {
-          'id': payload['reactionId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'id': payload['reactionId'] ??
+              payload['id'] ??
+              DateTime.now().microsecondsSinceEpoch.toString(),
           'playerId': playerId,
-          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'],
+          'playerName':
+              _state.players.where((p) => p.id == playerId).firstOrNull?.name ??
+                  payload['playerName'],
           'emoji': payload['emoji'] ?? '🔥',
           'text': payload['text'],
-          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+          'timestamp':
+              payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
         };
         _channel?.sendBroadcastMessage(
           event: 'reaction',
@@ -293,12 +365,18 @@ class GameServer {
 
       case ActionType.triggerEarthquake:
         final earthquakeData = {
-          'id': payload['earthquakeId'] ?? payload['id'] ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          'id': payload['earthquakeId'] ??
+              payload['id'] ??
+              DateTime.now().microsecondsSinceEpoch.toString(),
           'playerId': playerId,
-          'playerName': _state.players.where((p) => p.id == playerId).firstOrNull?.name ?? payload['playerName'] ?? 'Player',
+          'playerName':
+              _state.players.where((p) => p.id == playerId).firstOrNull?.name ??
+                  payload['playerName'] ??
+                  'Player',
           'card': payload['card'],
           'roundNumber': payload['roundNumber'] ?? _state.roundNumber,
-          'timestamp': payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+          'timestamp':
+              payload['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
         };
         _channel?.sendBroadcastMessage(
           event: 'earthquake',
@@ -315,12 +393,14 @@ class GameServer {
 
       case ActionType.approveRedeal:
         // Any single approve while a void suit was detected → redeal immediately.
-        if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
+        if (_state.phase == GamePhase.voidCheck &&
+            _state.voidDeclaringPlayerId != null) {
           _triggerRedeal();
         }
 
       case ActionType.rejectRedeal:
-        if (_state.phase == GamePhase.voidCheck && _state.voidDeclaringPlayerId != null) {
+        if (_state.phase == GamePhase.voidCheck &&
+            _state.voidDeclaringPlayerId != null) {
           _state.voidRedealRejections.add(playerId);
           if (_state.voidRedealRejections.length >= maxPlayers) {
             // Everyone chose continue — proceed to dash call / declarations.
@@ -389,9 +469,12 @@ class GameServer {
             _broadcastState(); // Out of turn — resync caller
             return;
           }
-          
+
           final declared = payload['declared'] as int;
-          final decls = _state.players.map((p) => p.declared).where((d) => d != null).toList();
+          final decls = _state.players
+              .map((p) => p.declared)
+              .where((d) => d != null)
+              .toList();
           if (decls.length == 3) {
             final sum = decls.fold<int>(0, (a, b) => a + b!);
             if (sum + declared == 13) {
@@ -417,21 +500,21 @@ class GameServer {
           if (GameEngine.canPlayCard(_state, player, card)) {
             final finished = GameEngine.playCard(_state, playerId, card);
             if (finished) {
-               _broadcastState(); // Broadcast immediately to show the 4th card
-               _persistSnapshotAndHands();
-               _trickTimer?.cancel();
-               _trickTimer = Timer(const Duration(seconds: 2), () {
-                 if (_isStopped) return;
-                 GameEngine.resolveTrick(_state);
-                 if (_state.phase == GamePhase.scoring) {
-                    GameEngine.computeAndApplyScores(_state);
-                 }
-                 _broadcastState();
-                 _persistSnapshotAndHands();
-               });
+              _broadcastState(); // Broadcast immediately to show the 4th card
+              _persistSnapshotAndHands();
+              _trickTimer?.cancel();
+              _trickTimer = Timer(const Duration(seconds: 2), () {
+                if (_isStopped) return;
+                GameEngine.resolveTrick(_state);
+                if (_state.phase == GamePhase.scoring) {
+                  GameEngine.computeAndApplyScores(_state);
+                }
+                _broadcastState();
+                _persistSnapshotAndHands();
+              });
             } else {
-               _broadcastState();
-               _persistSnapshotAndHands();
+              _broadcastState();
+              _persistSnapshotAndHands();
             }
           } else {
             // Action rejected (illegal card or stale turn) — resync caller
@@ -555,7 +638,8 @@ class GameServer {
 
     if (timeout != null) {
       _state.turnDurationSeconds = timeout.inSeconds;
-      _state.turnDeadlineEpochMs = DateTime.now().millisecondsSinceEpoch + timeout.inMilliseconds;
+      _state.turnDeadlineEpochMs =
+          DateTime.now().millisecondsSinceEpoch + timeout.inMilliseconds;
     } else {
       _state.turnDeadlineEpochMs = null;
     }
@@ -578,7 +662,8 @@ class GameServer {
       }
     } else if (_state.phase == GamePhase.declarations) {
       final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-      if (activePlayer.declared == null && !_botPlayerIds.contains(activePlayer.id)) {
+      if (activePlayer.declared == null &&
+          !_botPlayerIds.contains(activePlayer.id)) {
         _turnTimer = Timer(kDeclarationTurnTimeout, _handleTurnTimeout);
       }
     } else if (_state.phase == GamePhase.trickTaking) {
@@ -593,11 +678,13 @@ class GameServer {
 
   void _handleTurnTimeout() {
     if (_isStopped) return;
-    debugPrint('[Server] Turn timeout triggered for phase: ${_state.phase.name}');
+    debugPrint(
+        '[Server] Turn timeout triggered for phase: ${_state.phase.name}');
     switch (_state.phase) {
       case GamePhase.dashCall:
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-        debugPrint('[Server] Timing out dash call turn for ${activePlayer.name}');
+        debugPrint(
+            '[Server] Timing out dash call turn for ${activePlayer.name}');
         _handlePlayerAction({
           'action': ActionType.submitDashCall,
           'playerId': activePlayer.id,
@@ -607,16 +694,22 @@ class GameServer {
       case GamePhase.auction:
         final activePlayer = _state.playerBySeat(_state.auctionTurnSeatIndex);
         debugPrint('[Server] Timing out auction turn for ${activePlayer.name}');
-        _handlePlayerAction({'action': ActionType.passBid, 'playerId': activePlayer.id});
+        _handlePlayerAction(
+            {'action': ActionType.passBid, 'playerId': activePlayer.id});
 
       case GamePhase.declarations:
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-        debugPrint('[Server] Timing out declaration turn for ${activePlayer.name}');
+        debugPrint(
+            '[Server] Timing out declaration turn for ${activePlayer.name}');
         int minDecl = 0;
-        if (activePlayer.id == _state.bidderPlayerId && _state.currentHighBid != null) {
+        if (activePlayer.id == _state.bidderPlayerId &&
+            _state.currentHighBid != null) {
           minDecl = _state.currentHighBid!.trickCount;
         }
-        final decls = _state.players.map((p) => p.declared).where((d) => d != null).toList();
+        final decls = _state.players
+            .map((p) => p.declared)
+            .where((d) => d != null)
+            .toList();
         int? forbidden;
         if (decls.length == 3) {
           final sum = decls.fold<int>(0, (a, b) => a + b!);
@@ -634,7 +727,8 @@ class GameServer {
 
       case GamePhase.trickTaking:
         final activePlayer = _state.playerBySeat(_state.currentPlayerSeatIndex);
-        debugPrint('[Server] Timing out trickTaking turn for ${activePlayer.name}');
+        debugPrint(
+            '[Server] Timing out trickTaking turn for ${activePlayer.name}');
         _autoPlayCardForPlayer(activePlayer);
 
       default:
@@ -656,14 +750,12 @@ class GameServer {
   /// Fire-and-forget: save the current GameState to Supabase on phase transitions.
   void _persistPhaseSnapshot() {
     if (roomId.startsWith('test_')) return;
-    Supabase.instance.client
-        .rpc('save_game_state', params: {
-          'p_room_id': roomId,
-          'p_state':   _state.toJson(),
-        })
-        .catchError(
-          (e) => debugPrint('[Server] Phase snapshot persist failed: $e'),
-        );
+    Supabase.instance.client.rpc('save_game_state', params: {
+      'p_room_id': roomId,
+      'p_state': _state.toJson(),
+    }).catchError(
+      (e) => debugPrint('[Server] Phase snapshot persist failed: $e'),
+    );
   }
 
   /// Fire-and-forget: save every real player's hand after a deal.
@@ -672,15 +764,13 @@ class GameServer {
     if (roomId.startsWith('test_')) return;
     for (final player in _state.players) {
       if (player.id.startsWith('bot_')) continue;
-      Supabase.instance.client
-          .rpc('save_player_hand', params: {
-            'p_room_id':    roomId,
-            'p_player_id':  player.id,
-            'p_hand_cards': player.hand.map((c) => c.toJson()).toList(),
-          })
-          .catchError(
-            (e) => debugPrint('[Server] Hand save failed for ${player.id}: $e'),
-          );
+      Supabase.instance.client.rpc('save_player_hand', params: {
+        'p_room_id': roomId,
+        'p_player_id': player.id,
+        'p_hand_cards': player.hand.map((c) => c.toJson()).toList(),
+      }).catchError(
+        (e) => debugPrint('[Server] Hand save failed for ${player.id}: $e'),
+      );
     }
   }
 
@@ -738,28 +828,7 @@ class GameServer {
       callback: _handleLeaveRequest,
     );
 
-    _channel!.onPresenceLeave((payload) {
-      // During lobby: remove players who disconnected and never came back.
-      if (_state.phase == GamePhase.lobby) {
-        bool changed = false;
-        for (final presence in payload.leftPresences) {
-          final pId = presence.payload['playerId'] as String?;
-          if (pId != null && pId != hostPlayerId) {
-            final idx = _state.players.indexWhere((p) => p.id == pId);
-            if (idx != -1) {
-              _state.players.removeAt(idx);
-              changed = true;
-            }
-          }
-        }
-        if (changed) {
-          for (int i = 0; i < _state.players.length; i++) {
-            _state.players[i] = _state.players[i].copyWith(seatIndex: i);
-          }
-          _broadcastState();
-        }
-      }
-    });
+    _channel!.onPresenceLeave(_handlePresenceLeave);
 
     _channel!.subscribe((status, [error]) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
@@ -770,7 +839,8 @@ class GameServer {
     });
 
     onStateUpdate(_state);
-    debugPrint('[Server] Restored from persisted state — phase: ${_state.phase.name}');
+    debugPrint(
+        '[Server] Restored from persisted state — phase: ${_state.phase.name}');
   }
 
   // ── Bot AI ───────────────────────────────────────────────────
@@ -794,21 +864,20 @@ class GameServer {
     switch (_state.phase) {
       case GamePhase.voidCheck:
         if (_state.voidDeclaringPlayerId != null) {
-          return _botPlayerIds.any((id) => !_state.voidRedealRejections.contains(id));
+          return _botPlayerIds
+              .any((id) => !_state.voidRedealRejections.contains(id));
         }
         return _botPlayerIds.any((id) => !_state.voidCheckPassed.contains(id));
 
       case GamePhase.dashCall:
         final seat = _state.currentPlayerSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty &&
-            _botPlayerIds.contains(players.first.id);
+        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.auction:
         final seat = _state.auctionTurnSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty &&
-            _botPlayerIds.contains(players.first.id);
+        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.declarations:
         final seat = _state.currentPlayerSeatIndex;
@@ -816,11 +885,11 @@ class GameServer {
         return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.trickTaking:
-        if (_state.currentTrick.length == 4) return false; // Waiting to clear trick
+        if (_state.currentTrick.length == 4)
+          return false; // Waiting to clear trick
         final seat = _state.currentPlayerSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty &&
-            _botPlayerIds.contains(players.first.id);
+        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       default:
         return false;
@@ -841,7 +910,9 @@ class GameServer {
                   GameEngine.hasVoidSuit(bot) ||
                   EstimationBotAi.shouldApproveRedeal(bot, _state);
               _handlePlayerAction({
-                'action': approve ? ActionType.approveRedeal : ActionType.rejectRedeal,
+                'action': approve
+                    ? ActionType.approveRedeal
+                    : ActionType.rejectRedeal,
                 'playerId': id,
               });
               return;
@@ -850,7 +921,8 @@ class GameServer {
         } else {
           for (final id in _botPlayerIds) {
             if (!_state.voidCheckPassed.contains(id)) {
-              _handlePlayerAction({'action': ActionType.confirmNoVoid, 'playerId': id});
+              _handlePlayerAction(
+                  {'action': ActionType.confirmNoVoid, 'playerId': id});
               return;
             }
           }
@@ -887,12 +959,14 @@ class GameServer {
             'bid': bid.toJson(),
           });
         } else {
-          _handlePlayerAction({'action': ActionType.passBid, 'playerId': bot.id});
+          _handlePlayerAction(
+              {'action': ActionType.passBid, 'playerId': bot.id});
         }
 
       case GamePhase.declarations:
         final seat = _state.currentPlayerSeatIndex;
-        final playerList = _state.players.where((p) => p.seatIndex == seat).toList();
+        final playerList =
+            _state.players.where((p) => p.seatIndex == seat).toList();
         if (playerList.isEmpty) return;
         final bot = playerList.first;
         if (!_botPlayerIds.contains(bot.id)) return;

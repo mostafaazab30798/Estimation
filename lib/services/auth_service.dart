@@ -20,6 +20,7 @@ class AuthService extends ChangeNotifier {
 
   UserProfile? _currentProfile;
   bool _isLoading = false;
+  bool _isInitialized = false;
   StreamSubscription<AuthState>? _authSubscription;
 
   UserProfile? get currentProfile => _currentProfile;
@@ -30,6 +31,8 @@ class AuthService extends ChangeNotifier {
 
   /// Initializes auth listener and loads profile if already logged in
   Future<void> initialize() async {
+    if (_isInitialized) return;
+
     if (!kIsWeb) {
       try {
         await _googleSignIn.initialize(
@@ -53,6 +56,7 @@ class AuthService extends ChangeNotifier {
     if (isAuthenticated) {
       await refreshProfile();
     }
+    _isInitialized = true;
   }
 
   @override

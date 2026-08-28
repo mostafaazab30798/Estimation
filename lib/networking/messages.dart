@@ -54,6 +54,7 @@ class ActionType {
   static const String submitDeclaration = 'submitDeclaration';
   static const String playCard = 'playCard';
   static const String playCardNinetyNine = 'playCardNinetyNine';
+  static const String playCardBasra = 'playCardBasra';
   static const String startGame = 'startGame';          // host starts
   static const String nextRound = 'nextRound';
   static const String changeTheme = 'changeTheme';      // host changes card theme

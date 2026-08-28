@@ -102,6 +102,8 @@ class _PlayerHandState extends State<PlayerHand>
     _impactPlayTimer = null;
     _chargeCtrl.stop(canceled: false);
     _chargeCtrl.dispose();
+    _selected.dispose();
+    _dragOffsetNotifier.dispose();
     super.dispose();
   }
 

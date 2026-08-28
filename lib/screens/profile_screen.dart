@@ -15,6 +15,7 @@ import '../services/auth_service.dart';
 import '../models/rank_tier.dart';
 import '../models/estimation_statistics.dart';
 import '../models/playstyle_models.dart';
+import '../models/earthquake_effect.dart';
 import '../services/playstyle_service.dart';
 import '../widgets/rank_tier_badge.dart';
 import '../widgets/player_identity_card.dart';
@@ -135,7 +136,10 @@ class _ProfileViewModel extends ChangeNotifier {
     if (selectedModeFilter == 1) {
       return allHistory.where((m) => m.gameType == 'ninety_nine').toList();
     }
-    return allHistory.where((m) => m.gameType != 'ninety_nine').toList();
+    if (selectedModeFilter == 2) {
+      return allHistory.where((m) => m.gameType == 'basra').toList();
+    }
+    return allHistory.where((m) => m.gameType != 'ninety_nine' && m.gameType != 'basra').toList();
   }
 }
 
@@ -2675,6 +2679,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () => vm.setModeFilter(1),
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildFilterChip(
+                      label: '♦ باصرة',
+                      isSelected: vm.selectedModeFilter == 2,
+                      onTap: () => vm.setModeFilter(2),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2936,6 +2948,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 14),
+              _buildSettingsCard(
+                title: 'مؤثر ضربة الزلزال',
+                icon: AppIcons.bolt,
+                accentColor: _settings.earthquakeEffect.primaryColor,
+                children: [
+                  Text(
+                    _settings.earthquakeEffect.arabicDescription,
+                    style: GoogleFonts.cairo(
+                      color: AppTheme.steelBlue,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildEarthquakeEffectSelector(),
+                ],
+              ),
+              const SizedBox(height: 14),
               const UpdateCheckTile(),
               const SizedBox(height: 14),
               Container(
@@ -3089,6 +3118,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+
+  Widget _buildEarthquakeEffectSelector() {
+    return Row(
+      children: [
+        for (final effect in EarthquakeEffect.values) ...[
+          Expanded(
+            child: _buildEarthquakeEffectChoice(effect),
+          ),
+          if (effect != EarthquakeEffect.values.last)
+            const SizedBox(width: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEarthquakeEffectChoice(EarthquakeEffect effect) {
+    final selected = _settings.earthquakeEffect == effect;
+    final icon = switch (effect) {
+      EarthquakeEffect.magma => AppIcons.localFireDepartment,
+      EarthquakeEffect.frost => AppIcons.autoAwesome,
+      EarthquakeEffect.voidRift => AppIcons.circle,
+    };
+
+    return Tooltip(
+      message: effect.arabicDescription,
+      child: InkWell(
+        onTap: () => _settings.setEarthquakeEffect(effect),
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 84,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: effect.primaryColor.withValues(
+              alpha: selected ? 0.2 : 0.06,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? effect.primaryColor
+                  : Colors.white.withValues(alpha: 0.08),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AppIcon(icon, color: effect.primaryColor, size: 24),
+              const SizedBox(height: 7),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  effect.arabicLabel,
+                  style: GoogleFonts.cairo(
+                    color: selected ? AppTheme.cream : AppTheme.steelBlue,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -3366,7 +3461,9 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
           title: Text(
             item.gameType == 'ninety_nine'
                 ? 'مباراة 99 سريعة'
-                : 'مباراة إستميشن كلاسيك',
+                : item.gameType == 'basra'
+                    ? 'مباراة باصرة'
+                    : 'مباراة إستميشن كلاسيك',
             style: GoogleFonts.cairo(
               color: AppTheme.cream,
               fontWeight: FontWeight.w800,

@@ -14,9 +14,12 @@ class LobbyRepository {
     if (session != null) {
       final expiresAt = session.expiresAt;
       if (expiresAt != null) {
-        final expirationDate = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
-        if (DateTime.now().isAfter(expirationDate.subtract(const Duration(seconds: 30)))) {
-          debugPrint('[LobbyRepo] Session expired. Signing out to refresh anonymously.');
+        final expirationDate =
+            DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+        if (DateTime.now()
+            .isAfter(expirationDate.subtract(const Duration(seconds: 30)))) {
+          debugPrint(
+              '[LobbyRepo] Session expired. Signing out to refresh anonymously.');
           try {
             await _client.auth.signOut().timeout(const Duration(seconds: 2));
           } catch (_) {}
@@ -26,13 +29,16 @@ class LobbyRepository {
 
     if (_client.auth.currentUser == null) {
       try {
-        await _client.auth.signInAnonymously().timeout(const Duration(seconds: 8));
+        await _client.auth
+            .signInAnonymously()
+            .timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint('[LobbyRepo] signInAnonymously failed: $e');
       }
     }
     if (_client.auth.currentUser == null) {
-      throw Exception('تعذّر تسجيل الدخول. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.');
+      throw Exception(
+          'تعذّر تسجيل الدخول. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.');
     }
   }
 
@@ -56,7 +62,10 @@ class LobbyRepository {
     final roomId = response['room_id'] as String;
 
     if (expectedPlayers != 4) {
-      await _client.from('game_rooms').update({'max_players': expectedPlayers}).eq('id', roomId);
+      await _client.rpc('set_private_room_max_players', params: {
+        'p_room_id': roomId,
+        'p_max_players': expectedPlayers,
+      });
     }
 
     return getRoom(roomId);
@@ -78,7 +87,12 @@ class LobbyRepository {
 
     if (expectedGameType != null && room.gameType != expectedGameType) {
       // User entered code for wrong game mode
-      final targetModeLabel = room.gameType == 'kotchina' ? 'كوتشينة' : 'الـ99';
+      final targetModeLabel = switch (room.gameType) {
+        'kotchina' => 'كوتشينة',
+        'ninety_nine' => 'الـ99',
+        'basra' => 'باصرة',
+        _ => room.gameType,
+      };
       throw Exception('هذا الكود مخصص لروم $targetModeLabel');
     }
 
@@ -86,11 +100,8 @@ class LobbyRepository {
   }
 
   Future<GameRoom> getRoom(String roomId) async {
-    final response = await _client
-        .from('game_rooms')
-        .select()
-        .eq('id', roomId)
-        .single();
+    final response =
+        await _client.from('game_rooms').select().eq('id', roomId).single();
     return GameRoom.fromJson(response);
   }
 
@@ -137,10 +148,7 @@ class LobbyRepository {
 
   Future<void> cancelRoom(String roomId) async {
     if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
-    await _client
-        .from('game_rooms')
-        .update({'status': 'cancelled'})
-        .eq('id', roomId);
+    await _client.rpc('cancel_private_room', params: {'p_room_id': roomId});
   }
 
   // ── Reconnection & heartbeat ──────────────────────────────────────────
@@ -152,7 +160,8 @@ class LobbyRepository {
       await _client.rpc('player_heartbeat', params: {'p_room_id': roomId});
     } catch (e) {
       final errorStr = e.toString();
-      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+      if (!errorStr.contains('SocketException') &&
+          !errorStr.contains('AuthRetryableFetchException')) {
         debugPrint('[Lobby] pingHeartbeat failed: $e');
       }
     }
@@ -164,7 +173,8 @@ class LobbyRepository {
       await _client.rpc('player_go_offline', params: {'p_room_id': roomId});
     } catch (e) {
       final errorStr = e.toString();
-      if (!errorStr.contains('SocketException') && !errorStr.contains('AuthRetryableFetchException')) {
+      if (!errorStr.contains('SocketException') &&
+          !errorStr.contains('AuthRetryableFetchException')) {
         debugPrint('[Lobby] markOffline failed: $e');
       }
     }
@@ -196,7 +206,7 @@ class LobbyRepository {
     try {
       await _client.rpc('save_game_state', params: {
         'p_room_id': roomId,
-        'p_state':   state,
+        'p_state': state,
       });
     } catch (e) {
       debugPrint('[Lobby] saveGameStateSnapshot failed: $e');
@@ -237,8 +247,8 @@ class LobbyRepository {
   ) async {
     try {
       await _client.rpc('save_player_hand', params: {
-        'p_room_id':    roomId,
-        'p_player_id':  playerId,
+        'p_room_id': roomId,
+        'p_player_id': playerId,
         'p_hand_cards': hand.map((c) => c.toJson()).toList(),
       });
     } catch (e) {

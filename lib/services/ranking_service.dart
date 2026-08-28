@@ -239,6 +239,25 @@ class RankingService {
     );
   }
 
+  /// XP reward for a completed Basra match.
+  XpRewardBreakdown calculateBasraReward({
+    required bool won,
+    required int roundsPlayed,
+  }) {
+    final placementXp = won ? 90 : 35;
+    final winBonus = won ? 45 : 0;
+    final accuracyBonus = roundsPlayed * 4;
+
+    return XpRewardBreakdown(
+      placementXp: placementXp,
+      winBonus: winBonus,
+      accuracyBonus: accuracyBonus,
+      rankTitle: won ? 'الفائز 👑' : 'مشارك 🃏',
+      rankIndex: won ? 0 : 2,
+      won: won,
+    );
+  }
+
   /// Awards the XP and updates Supabase, returning Level-Up / Tier-Up details
   Future<MatchXpResult?> processMatchReward(XpRewardBreakdown breakdown) async {
     final auth = AuthService.instance;

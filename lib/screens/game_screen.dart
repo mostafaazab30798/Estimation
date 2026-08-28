@@ -53,11 +53,12 @@ class _GameScreenState extends State<GameScreen> {
   int? _lastAnnouncedDoubleRound;
   bool _showFixedTrumpOverlay = false;
   int? _lastAnnouncedFixedRound;
+  GameProvider? _observedProvider;
+  Timer? _scoringDelayTimer;
 
-  // Fix #1/#9: Track last-seen values so we only trigger dialog logic
-  // when the relevant state actually changes, not on every rebuild.
-  GamePhase? _lastPhase;
-  bool _lastIsMyTurn = false;
+  GamePhase? _lastObservedPhase;
+  GamePhase? _lastDialogPhase;
+  bool? _lastDialogIsMyTurn;
 
   @override
   void initState() {
@@ -66,7 +67,27 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.read<GameProvider>();
+    if (identical(provider, _observedProvider)) return;
+
+    _observedProvider?.removeListener(_handleProviderChange);
+    _observedProvider = provider;
+    _lastObservedPhase = provider.state?.phase;
+    provider.addListener(_handleProviderChange);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && identical(provider, _observedProvider)) {
+        _handleProviderChange();
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _scoringDelayTimer?.cancel();
+    _observedProvider?.removeListener(_handleProviderChange);
     super.dispose();
   }
 
@@ -84,25 +105,73 @@ class _GameScreenState extends State<GameScreen> {
     3: GlobalKey(),
   };
 
-  void _maybeShowDialogs(GameProvider provider, GameState state, bool isMyTurn) {
+  void _maybeShowDialogs(
+      GameProvider provider, GameState state, bool isMyTurn) {
     final phase = state.phase;
 
-    if (phase == _lastPhase && isMyTurn == _lastIsMyTurn) return;
-    _lastPhase = phase;
-    _lastIsMyTurn = isMyTurn;
+    if (phase == _lastDialogPhase && isMyTurn == _lastDialogIsMyTurn) return;
+    _lastDialogPhase = phase;
+    _lastDialogIsMyTurn = isMyTurn;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (provider.state == null || provider.status != ConnectionStatus.connected) return;
+      if (provider.state == null ||
+          provider.status != ConnectionStatus.connected) return;
       _maybeShowDashCallDialog(context, provider, state);
       _maybeShowBidDialog(context, provider, state);
       _maybeShowDeclarationDialog(context, provider, state);
     });
   }
 
+  void _handleProviderChange() {
+    final provider = _observedProvider;
+    final state = provider?.state;
+    if (!mounted || provider == null || state == null) return;
+
+    final previousPhase = _lastObservedPhase;
+    _lastObservedPhase = state.phase;
+
+    var needsRebuild = false;
+
+    if (state.phase == GamePhase.scoring &&
+        previousPhase == GamePhase.trickTaking &&
+        !_delayingScoring) {
+      _scoringDelayTimer?.cancel();
+      _delayingScoring = true;
+      needsRebuild = true;
+      _scoringDelayTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (!mounted) return;
+        setState(() => _delayingScoring = false);
+      });
+    }
+
+    if (state.isDoubleRound && _lastAnnouncedDoubleRound != state.roundNumber) {
+      _lastAnnouncedDoubleRound = state.roundNumber;
+      _showDoubleRoundOverlay = true;
+      needsRebuild = true;
+    }
+
+    if (state.fixedTrump != null &&
+        _lastAnnouncedFixedRound != state.roundNumber) {
+      _lastAnnouncedFixedRound = state.roundNumber;
+      _showFixedTrumpOverlay = true;
+      needsRebuild = true;
+    }
+
+    if (needsRebuild) setState(() {});
+    _maybeShowDialogs(provider, state, provider.isMyTurn);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<GameProvider>();
+    final provider = context.read<GameProvider>();
+    final frameState =
+        context.select<GameProvider, ({GamePhase? phase, String? trumpName})>(
+      (value) => (
+        phase: value.state?.phase,
+        trumpName: value.state?.trump?.name,
+      ),
+    );
     final state = provider.state;
 
     if (state == null) {
@@ -111,21 +180,7 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
 
-    final phase = state.phase;
-    final isMyTurn = provider.isMyTurn;
-
-    // If we just finished the trick-taking phase, delay the transition to the
-    // scoring screen so the 13th trick collection animation has time to play.
-    if (phase == GamePhase.scoring && _lastPhase == GamePhase.trickTaking && !_delayingScoring) {
-      _delayingScoring = true;
-      Future.delayed(const Duration(milliseconds: 1400), () {
-        if (mounted) {
-          setState(() {
-            _delayingScoring = false;
-          });
-        }
-      });
-    }
+    final phase = frameState.phase!;
 
     // Phase routing
     if (phase == GamePhase.scoring && !_delayingScoring) {
@@ -134,20 +189,6 @@ class _GameScreenState extends State<GameScreen> {
     if (phase == GamePhase.matchEnd) {
       return MatchEndScreen(state: state, provider: provider);
     }
-
-    // Trigger Double Round presentation when an all-pass doubles the round
-    if (state.isDoubleRound && _lastAnnouncedDoubleRound != state.roundNumber) {
-      _lastAnnouncedDoubleRound = state.roundNumber;
-      _showDoubleRoundOverlay = true;
-    }
-
-    // Trigger Fixed Trump Round presentation when entering a championship fixed trump round
-    if (state.fixedTrump != null && _lastAnnouncedFixedRound != state.roundNumber) {
-      _lastAnnouncedFixedRound = state.roundNumber;
-      _showFixedTrumpOverlay = true;
-    }
-
-    _maybeShowDialogs(provider, state, isMyTurn);
 
     final media = MediaQuery.of(context);
     final isPortrait = media.orientation == Orientation.portrait;
@@ -169,220 +210,195 @@ class _GameScreenState extends State<GameScreen> {
         body: EarthquakeEffectOverlay(
           child: Stack(
             children: [
-            // ── 1. Animated layered background ──────────────────────
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: GameBackground(phase: state.phase),
+              // ── 1. Animated layered background ──────────────────────
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: GameBackground(phase: state.phase),
+                ),
               ),
-            ),
 
-            // ── 2. Casino table ──────────────────────────────────────
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: CasinoTablePainter(
-                    glowColor: tableGlowColor,
-                    trump: state.trump,
+              // ── 2. Casino table ──────────────────────────────────────
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: CasinoTablePainter(
+                      glowColor: tableGlowColor,
+                      trump: state.trump,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // ── 3. SafeArea content ──────────────────────────────────
-            SafeArea(
-              child: Stack(
-                children: [
-                  // ── Top HUD ──────────────────────────────────────
-                  Positioned(
-                    top: isPortrait ? 6 : 10,
-                    left: 10,
-                    right: 10,
-                    child: Consumer<GameProvider>(
-                      builder: (ctx, prov, _) => TopHud(
-                        state: prov.state!,
-                        onExitTap: () =>
-                            _confirmExit(ctx, prov),
-                      ),
-                    ),
-                  ),
-
-
-
-                  // ── Center Trick Area ─────────────────────────────
-                  Align(
-                    alignment: Alignment(0, isPortrait ? -0.32 : -0.25),
-                    child: SizedBox(
-                      width: trickSize,
-                      height: trickSize,
+              // ── 3. SafeArea content ──────────────────────────────────
+              SafeArea(
+                child: Stack(
+                  children: [
+                    // ── Top HUD ──────────────────────────────────────
+                    Positioned(
+                      top: isPortrait ? 6 : 10,
+                      left: 10,
+                      right: 10,
                       child: Consumer<GameProvider>(
-                        builder: (ctx, prov, _) => TrickArea(
+                        builder: (ctx, prov, _) => TopHud(
                           state: prov.state!,
-                          myPlayerId: prov.myPlayerId,
-                          playerKeys: _playerKeys,
-                          areaKeys: _areaKeys,
+                          onExitTap: () => _confirmExit(ctx, prov),
                         ),
                       ),
                     ),
-                  ),
 
-                  // ── Opponent: Left ────────────────────────────────
-                  Positioned(
-                    left: isPortrait ? 4 : 14,
-                    top: 0,
-                    bottom: 0,
-                    child: Align(
-                      alignment: isPortrait
-                          ? const Alignment(-1.0, 0.15)
-                          : Alignment.centerLeft,
-                      child: Consumer<GameProvider>(
-                        builder: (ctx, prov, _) {
-                          final total = prov.state?.players.length ?? 4;
-                          final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = total == 4 ? (mySeat + 3) % 4 :
-                                          total == 3 ? (mySeat + 2) % 3 : -1;
-                          if (oppSeat == -1) return const SizedBox.shrink();
-                          return KeyedSubtree(
-                            key: _areaKeys[oppSeat],
-                            child: _buildSideOpponent(
-                                prov.state!, oppSeat, prov, isLeft: true),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // ── Opponent: Right ───────────────────────────────
-                  Positioned(
-                    right: isPortrait ? 4 : 14,
-                    top: 0,
-                    bottom: 0,
-                    child: Align(
-                      alignment: isPortrait
-                          ? const Alignment(1.0, 0.15)
-                          : Alignment.centerRight,
-                      child: Consumer<GameProvider>(
-                        builder: (ctx, prov, _) {
-                          final total = prov.state?.players.length ?? 4;
-                          final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = total == 4 ? (mySeat + 1) % 4 :
-                                          total == 3 ? (mySeat + 1) % 3 : -1;
-                          if (oppSeat == -1) return const SizedBox.shrink();
-                          return KeyedSubtree(
-                            key: _areaKeys[oppSeat],
-                            child: _buildSideOpponent(
-                                prov.state!, oppSeat, prov, isLeft: false),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // ── Opponent: Top ─────────────────────────────────
-                  Positioned(
-                    top: isPortrait ? 128 : 64,
-                    left: 0,
-                    right: 0,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Consumer<GameProvider>(
-                        builder: (ctx, prov, _) {
-                          final total = prov.state?.players.length ?? 4;
-                          final mySeat = prov.me?.seatIndex ?? 0;
-                          final oppSeat = total == 2 ? (mySeat + 1) % 2 :
-                                          total == 4 ? (mySeat + 2) % 4 : -1;
-                          if (oppSeat == -1) return const SizedBox.shrink();
-                          return KeyedSubtree(
-                            key: _areaKeys[oppSeat],
-                            child: _buildOpponentStrip(
-                                prov.state!, oppSeat, prov),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // ── Local Player ──────────────────────────────────
-                  Positioned(
-                    bottom: 4,
-                    left: 0,
-                    right: 0,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Consumer<GameProvider>(
-                        builder: (ctx, prov, _) {
-                          final me = prov.me;
-                          if (me == null) return const SizedBox();
-
-                          final handWidget = PlayerHand(
-                            hand: prov.myHand,
-                            isMyTurn: prov.isMyTurn,
+                    // ── Center Trick Area ─────────────────────────────
+                    Align(
+                      alignment: Alignment(0, isPortrait ? -0.32 : -0.25),
+                      child: SizedBox(
+                        width: trickSize,
+                        height: trickSize,
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) => TrickArea(
                             state: prov.state!,
-                            me: prov.me,
-                            onPlayCard: prov.playCard,
-                            onEarthquakeStrike: prov.triggerEarthquakeStrike,
-                          );
+                            myPlayerId: prov.myPlayerId,
+                            playerKeys: _playerKeys,
+                            areaKeys: _areaKeys,
+                          ),
+                        ),
+                      ),
+                    ),
 
-                          final playerInfoCard = KeyedSubtree(
-                            key: _areaKeys[me.seatIndex],
-                            child: InkWell(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (_) => TakenTricksDialog(
-                                      takenTricks: me.takenTricks),
-                                );
-                              },
-                              child: PlayerInfoWidget(
-                                key: _playerKeys[me.seatIndex],
-                                player: me,
-                                state: prov.state!,
-                                isCurrentTurn: prov.isMyTurn,
-                                isBidder: prov.amBidder,
-                                isMe: true,
-                                compact: !isPortrait,
-                              ),
-                            ),
-                          );
-
-                          final bool showTurnTimer =
-                              prov.state?.phase == GamePhase.trickTaking &&
-                                  prov.isMyTurn;
-
-                          if (isPortrait) {
-                            return Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                if (showTurnTimer) ...[
-                                  TurnTimerBadge(
-                                    state: prov.state!,
-                                    isMyTurn: true,
-                                    compact: true,
-                                  ),
-                                  const SizedBox(height: 6),
-                                ],
-                                handWidget,
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    playerInfoCard,
-                                  ],
-                                ),
-                              ],
+                    // ── Opponent: Left ────────────────────────────────
+                    Positioned(
+                      left: isPortrait ? 4 : 14,
+                      top: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: isPortrait
+                            ? const Alignment(-1.0, 0.15)
+                            : Alignment.centerLeft,
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) {
+                            final total = prov.state?.players.length ?? 4;
+                            final mySeat = prov.me?.seatIndex ?? 0;
+                            final oppSeat = total == 4
+                                ? (mySeat + 3) % 4
+                                : total == 3
+                                    ? (mySeat + 2) % 3
+                                    : -1;
+                            if (oppSeat == -1) return const SizedBox.shrink();
+                            return KeyedSubtree(
+                              key: _areaKeys[oppSeat],
+                              child: _buildSideOpponent(
+                                  prov.state!, oppSeat, prov,
+                                  isLeft: true),
                             );
-                          }
+                          },
+                        ),
+                      ),
+                    ),
 
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6.0),
-                                child: playerInfoCard,
+                    // ── Opponent: Right ───────────────────────────────
+                    Positioned(
+                      right: isPortrait ? 4 : 14,
+                      top: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: isPortrait
+                            ? const Alignment(1.0, 0.15)
+                            : Alignment.centerRight,
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) {
+                            final total = prov.state?.players.length ?? 4;
+                            final mySeat = prov.me?.seatIndex ?? 0;
+                            final oppSeat = total == 4
+                                ? (mySeat + 1) % 4
+                                : total == 3
+                                    ? (mySeat + 1) % 3
+                                    : -1;
+                            if (oppSeat == -1) return const SizedBox.shrink();
+                            return KeyedSubtree(
+                              key: _areaKeys[oppSeat],
+                              child: _buildSideOpponent(
+                                  prov.state!, oppSeat, prov,
+                                  isLeft: false),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // ── Opponent: Top ─────────────────────────────────
+                    Positioned(
+                      top: isPortrait ? 128 : 64,
+                      left: 0,
+                      right: 0,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) {
+                            final total = prov.state?.players.length ?? 4;
+                            final mySeat = prov.me?.seatIndex ?? 0;
+                            final oppSeat = total == 2
+                                ? (mySeat + 1) % 2
+                                : total == 4
+                                    ? (mySeat + 2) % 4
+                                    : -1;
+                            if (oppSeat == -1) return const SizedBox.shrink();
+                            return KeyedSubtree(
+                              key: _areaKeys[oppSeat],
+                              child: _buildOpponentStrip(
+                                  prov.state!, oppSeat, prov),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // ── Local Player ──────────────────────────────────
+                    Positioned(
+                      bottom: 4,
+                      left: 0,
+                      right: 0,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Consumer<GameProvider>(
+                          builder: (ctx, prov, _) {
+                            final me = prov.me;
+                            if (me == null) return const SizedBox();
+
+                            final handWidget = PlayerHand(
+                              hand: prov.myHand,
+                              isMyTurn: prov.isMyTurn,
+                              state: prov.state!,
+                              me: prov.me,
+                              onPlayCard: prov.playCard,
+                              onEarthquakeStrike: prov.triggerEarthquakeStrike,
+                            );
+
+                            final playerInfoCard = KeyedSubtree(
+                              key: _areaKeys[me.seatIndex],
+                              child: InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => TakenTricksDialog(
+                                        takenTricks: me.takenTricks),
+                                  );
+                                },
+                                child: PlayerInfoWidget(
+                                  key: _playerKeys[me.seatIndex],
+                                  player: me,
+                                  state: prov.state!,
+                                  isCurrentTurn: prov.isMyTurn,
+                                  isBidder: prov.amBidder,
+                                  isMe: true,
+                                  compact: !isPortrait,
+                                ),
                               ),
-                              const SizedBox(width: 14),
-                              Column(
+                            );
+
+                            final bool showTurnTimer =
+                                prov.state?.phase == GamePhase.trickTaking &&
+                                    prov.isMyTurn;
+
+                            if (isPortrait) {
+                              return Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
@@ -395,74 +411,108 @@ class _GameScreenState extends State<GameScreen> {
                                     const SizedBox(height: 6),
                                   ],
                                   handWidget,
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      playerInfoCard,
+                                    ],
+                                  ),
                                 ],
-                              ),
-                            ],
-                          );
+                              );
+                            }
+
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6.0),
+                                  child: playerInfoCard,
+                                ),
+                                const SizedBox(width: 14),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    if (showTurnTimer) ...[
+                                      TurnTimerBadge(
+                                        state: prov.state!,
+                                        isMyTurn: true,
+                                        compact: true,
+                                      ),
+                                      const SizedBox(height: 6),
+                                    ],
+                                    handWidget,
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // ── Reactions Overlay (Bubbles over player seats) ───────
+                    Consumer<GameProvider>(
+                      builder: (ctx, prov, _) =>
+                          _buildReactionsOverlay(prov, isPortrait),
+                    ),
+
+                    // ── Phase overlay ─────────────────────────────────
+                    Consumer<GameProvider>(
+                      builder: (ctx, prov, _) =>
+                          _buildPhaseOverlay(ctx, prov.state!, prov),
+                    ),
+
+                    // ── Reconnection banner ───────────────────────────
+                    Consumer<ReconnectionManager>(
+                      builder: (ctx, reconnect, _) => ReconnectionBanner(
+                        reconnectionState: reconnect.reconnectionState,
+                        onRetry: reconnect.retry,
+                        onGoHome: () async {
+                          await reconnect.dismissAndGoHome();
+                          if (ctx.mounted) {
+                            ctx.read<GameProvider>().reset();
+                            Navigator.of(ctx, rootNavigator: true)
+                                .pushNamedAndRemoveUntil('/', (route) => false);
+                          }
                         },
                       ),
                     ),
-                  ),
-
-                  // ── Reactions Overlay (Bubbles over player seats) ───────
-                  Consumer<GameProvider>(
-                    builder: (ctx, prov, _) => _buildReactionsOverlay(prov, isPortrait),
-                  ),
-
-                  // ── Phase overlay ─────────────────────────────────
-                  Consumer<GameProvider>(
-                    builder: (ctx, prov, _) =>
-                        _buildPhaseOverlay(ctx, prov.state!, prov),
-                  ),
-
-                  // ── Reconnection banner ───────────────────────────
-                  Consumer<ReconnectionManager>(
-                    builder: (ctx, reconnect, _) => ReconnectionBanner(
-                      reconnectionState: reconnect.reconnectionState,
-                      onRetry: reconnect.retry,
-                      onGoHome: () async {
-                        await reconnect.dismissAndGoHome();
-                        if (ctx.mounted) {
-                          ctx.read<GameProvider>().reset();
-                          Navigator.of(ctx, rootNavigator: true)
-                              .pushNamedAndRemoveUntil('/', (route) => false);
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Double Round Overlay (All-Pass Presentation) ──────────
-            if (_showDoubleRoundOverlay)
-              Positioned.fill(
-                child: DoubleRoundOverlay(
-                  onDismissed: () {
-                    if (mounted) {
-                      setState(() {
-                        _showDoubleRoundOverlay = false;
-                      });
-                    }
-                  },
+                  ],
                 ),
               ),
 
-            // ── Fixed Trump Round Overlay (Championship Rounds 14-18) ───
-            if (_showFixedTrumpOverlay && state.fixedTrump != null)
-              Positioned.fill(
-                child: FixedTrumpRoundOverlay(
-                  roundNumber: state.roundNumber,
-                  fixedTrump: state.fixedTrump!,
-                  onDismissed: () {
-                    if (mounted) {
-                      setState(() {
-                        _showFixedTrumpOverlay = false;
-                      });
-                    }
-                  },
+              // ── Double Round Overlay (All-Pass Presentation) ──────────
+              if (_showDoubleRoundOverlay)
+                Positioned.fill(
+                  child: DoubleRoundOverlay(
+                    onDismissed: () {
+                      if (mounted) {
+                        setState(() {
+                          _showDoubleRoundOverlay = false;
+                        });
+                      }
+                    },
+                  ),
                 ),
-              ),
+
+              // ── Fixed Trump Round Overlay (Championship Rounds 14-18) ───
+              if (_showFixedTrumpOverlay && state.fixedTrump != null)
+                Positioned.fill(
+                  child: FixedTrumpRoundOverlay(
+                    roundNumber: state.roundNumber,
+                    fixedTrump: state.fixedTrump!,
+                    onDismissed: () {
+                      if (mounted) {
+                        setState(() {
+                          _showFixedTrumpOverlay = false;
+                        });
+                      }
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -479,13 +529,18 @@ class _GameScreenState extends State<GameScreen> {
     final total = state.players.length;
     final mySeat = prov.me?.seatIndex ?? 0;
 
-    final leftSeat = total == 4 ? (mySeat + 3) % 4 : (total == 3 ? (mySeat + 2) % 3 : -1);
-    final rightSeat = total == 4 ? (mySeat + 1) % 4 : (total == 3 ? (mySeat + 1) % 3 : -1);
+    final leftSeat =
+        total == 4 ? (mySeat + 3) % 4 : (total == 3 ? (mySeat + 2) % 3 : -1);
+    final rightSeat =
+        total == 4 ? (mySeat + 1) % 4 : (total == 3 ? (mySeat + 1) % 3 : -1);
     final topSeat = total == 4 ? (mySeat + 2) % 4 : -1;
 
-    final leftPlayer = state.players.where((p) => p.seatIndex == leftSeat).firstOrNull;
-    final rightPlayer = state.players.where((p) => p.seatIndex == rightSeat).firstOrNull;
-    final topPlayer = state.players.where((p) => p.seatIndex == topSeat).firstOrNull;
+    final leftPlayer =
+        state.players.where((p) => p.seatIndex == leftSeat).firstOrNull;
+    final rightPlayer =
+        state.players.where((p) => p.seatIndex == rightSeat).firstOrNull;
+    final topPlayer =
+        state.players.where((p) => p.seatIndex == topSeat).firstOrNull;
     final myPlayer = prov.me;
 
     return Stack(
@@ -503,7 +558,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
 
         // Left opponent reaction
-        if (leftPlayer != null && prov.activeReactions.containsKey(leftPlayer.id))
+        if (leftPlayer != null &&
+            prov.activeReactions.containsKey(leftPlayer.id))
           Positioned(
             left: isPortrait ? 8 : 16,
             bottom: isPortrait ? 260 : 180,
@@ -515,7 +571,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
 
         // Right opponent reaction
-        if (rightPlayer != null && prov.activeReactions.containsKey(rightPlayer.id))
+        if (rightPlayer != null &&
+            prov.activeReactions.containsKey(rightPlayer.id))
           Positioned(
             right: isPortrait ? 8 : 16,
             bottom: isPortrait ? 260 : 180,
@@ -544,7 +601,8 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildReactionTriggerButton(BuildContext context, GameProvider provider, bool isPortrait) {
+  Widget _buildReactionTriggerButton(
+      BuildContext context, GameProvider provider, bool isPortrait) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -706,20 +764,20 @@ class _GameScreenState extends State<GameScreen> {
             );
           },
           child: HiddenCardFan(
-              count: player.hand.length,
-              isLeft: isLeft,
-              isRight: !isLeft),
+              count: player.hand.length, isLeft: isLeft, isRight: !isLeft),
         ),
         const SizedBox(height: 10),
         if (!isLeft)
-          _buildReactionTriggerButton(context, provider, MediaQuery.of(context).orientation == Orientation.portrait)
+          _buildReactionTriggerButton(context, provider,
+              MediaQuery.of(context).orientation == Orientation.portrait)
         else
           Visibility(
             maintainSize: true,
             maintainAnimation: true,
             maintainState: true,
             visible: false,
-            child: _buildReactionTriggerButton(context, provider, MediaQuery.of(context).orientation == Orientation.portrait),
+            child: _buildReactionTriggerButton(context, provider,
+                MediaQuery.of(context).orientation == Orientation.portrait),
           ),
       ],
     );
@@ -845,8 +903,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        provider.reset();
+                      onTap: () async {
+                        await provider.temporarilyLeaveOngoingGame();
+                        if (!context.mounted) return;
                         Navigator.of(context, rootNavigator: true)
                             .pushNamedAndRemoveUntil('/', (route) => false);
                       },
@@ -1040,7 +1099,10 @@ class HiddenCardFan extends StatelessWidget {
   final bool isRight;
 
   const HiddenCardFan(
-      {super.key, required this.count, this.isLeft = false, this.isRight = false});
+      {super.key,
+      required this.count,
+      this.isLeft = false,
+      this.isRight = false});
 
   @override
   Widget build(BuildContext context) {

@@ -10,7 +10,7 @@ class MatchRecord {
   final String date;
   final String winnerName;
   final int winnerScore;
-  final String gameType; // 'kotchina' or 'ninety_nine'
+  final String gameType; // 'kotchina', 'ninety_nine', or 'basra'
   final List<PlayerResult> players;
 
   MatchRecord({

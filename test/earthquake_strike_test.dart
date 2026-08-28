@@ -10,6 +10,7 @@ import 'package:estimation/core/models/game_state.dart';
 import 'package:estimation/core/models/player.dart';
 import 'package:estimation/core/events/estimation_event_bus.dart';
 import 'package:estimation/core/events/estimation_game_events.dart';
+import 'package:estimation/models/earthquake_effect.dart';
 import 'package:estimation/widgets/player_hand.dart';
 import 'package:estimation/widgets/playing_card_widget.dart';
 import 'package:estimation/widgets/earthquake/earthquake_effect_overlay.dart';
@@ -133,9 +134,29 @@ void main() {
       final painter1 = EarthquakeCrackPainter(progress: 0.2);
       final painter2 = EarthquakeCrackPainter(progress: 0.5);
       final painter3 = EarthquakeCrackPainter(progress: 0.2);
+      final frostPainter = EarthquakeCrackPainter(
+        progress: 0.2,
+        effect: EarthquakeEffect.frost,
+      );
 
       expect(painter1.shouldRepaint(painter2), isTrue);
       expect(painter1.shouldRepaint(painter3), isFalse);
+      expect(painter1.shouldRepaint(frostPainter), isTrue);
+    });
+
+    test('Earthquake effect storage values are backward compatible', () {
+      expect(
+        EarthquakeEffect.fromStorage(null),
+        EarthquakeEffect.magma,
+      );
+      expect(
+        EarthquakeEffect.fromStorage('unknown-effect'),
+        EarthquakeEffect.magma,
+      );
+      expect(
+        EarthquakeEffect.fromStorage('frost'),
+        EarthquakeEffect.frost,
+      );
     });
   });
 

@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/game_provider.dart';
 import 'modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
+import 'modes/basra/presentation/providers/basra_game_provider.dart';
 import 'screens/mode_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
@@ -19,19 +20,20 @@ import 'screens/academy/academy_home_screen.dart';
 import 'screens/puzzles/puzzles_home_screen.dart';
 import 'modes/ninety_nine/presentation/screens/ninety_nine_home_screen.dart';
 import 'modes/ninety_nine/presentation/screens/ninety_nine_game_screen.dart';
+import 'modes/basra/presentation/screens/basra_home_screen.dart';
+import 'modes/basra/presentation/screens/basra_game_screen.dart';
+import 'features/matchmaking/presentation/screens/matchmaking_screen.dart';
 
 import 'services/audio_service.dart';
 import 'services/reconnection_manager.dart';
 import 'services/device_performance_service.dart';
 import 'services/auth_service.dart';
+import 'services/settings_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize device performance hardware detection (e.g. Note 9 / low-spec auto-detection)
-  await DevicePerformanceService.instance.initialize();
-  
+
   // Enable full-screen edge-to-edge mode for status & navigation bars
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
@@ -45,42 +47,117 @@ void main() async {
     ),
   );
 
-  SystemChrome.setPreferredOrientations([
+  await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
 
-  // Pre-initialize audio service for card and collection feedback
-  AudioService.instance.initialize();
+  runApp(const AppBootstrap());
+}
 
-  // Pre-load wallpaper images into Flutter's image codec cache BEFORE runApp
-  // so they are instantly available when the first frame renders
-  await Future.wait([
-    _preloadAsset('assets/wallpapers/w1.jpg'),
-    _preloadAsset('assets/wallpapers/w2.jpg'),
-  ]);
+class AppBootstrap extends StatefulWidget {
+  const AppBootstrap({super.key});
 
-  // Supabase initialization
-  await Supabase.initialize(
-    url: 'https://eqmkbfxerxqihforsgvx.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
-  );
+  @override
+  State<AppBootstrap> createState() => _AppBootstrapState();
+}
 
-  // Initialize AuthService
-  await AuthService.instance.initialize();
+class _AppBootstrapState extends State<AppBootstrap> {
+  bool _isReady = false;
+  bool _isLoading = true;
+  Object? _error;
 
-  // Start app UI immediately
-  runApp(const KotshinaApp());
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+  }
 
-  // Ensure anonymous user exists for RLS asynchronously in background if not authenticated
-  final auth = Supabase.instance.client.auth;
-  if (auth.currentUser == null) {
-    auth.signInAnonymously().catchError((e) {
-      debugPrint('[Auth] signInAnonymously failed (offline?): $e');
-      return AuthResponse();
+  Future<void> _initialize() async {
+    if (_isLoading && _error != null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
     });
+
+    try {
+      await Supabase.initialize(
+        url: 'https://eqmkbfxerxqihforsgvx.supabase.co',
+        anonKey:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
+      );
+
+      await Future.wait([
+        DevicePerformanceService.instance.initialize(),
+        SettingsService.instance.initialize(),
+        AuthService.instance.initialize(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _isReady = true;
+        _isLoading = false;
+      });
+
+      unawaited(AudioService.instance.initialize());
+      unawaited(Future.wait([
+        _preloadAsset('assets/wallpapers/w1.jpg'),
+        _preloadAsset('assets/wallpapers/w2.jpg'),
+      ]));
+
+      final auth = Supabase.instance.client.auth;
+      if (auth.currentUser == null) {
+        unawaited(
+          auth.signInAnonymously().catchError((Object error) {
+            debugPrint('[Auth] signInAnonymously failed (offline?): $error');
+            return AuthResponse();
+          }),
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[Bootstrap] initialization failed: $error\n$stackTrace');
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isReady) return const KotshinaApp();
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.theme,
+      home: Scaffold(
+        body: Center(
+          child: _error == null
+              ? const CircularProgressIndicator(color: AppTheme.gold)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      color: AppTheme.errorRed,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('تعذر تشغيل التطبيق'),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _isLoading ? null : _initialize,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
   }
 }
 
@@ -124,9 +201,17 @@ class KotshinaApp extends StatelessWidget {
         ChangeNotifierProvider<NinetyNineGameProvider>(
           create: (_) => NinetyNineGameProvider(),
         ),
-        ChangeNotifierProxyProvider<NinetyNineGameProvider, GameProvider>(
-          create: (ctx) => GameProvider()..nnProvider = ctx.read<NinetyNineGameProvider>(),
-          update: (ctx, nnProvider, previous) => previous!..nnProvider = nnProvider,
+        ChangeNotifierProvider<BasraGameProvider>(
+          create: (_) => BasraGameProvider(),
+        ),
+        ChangeNotifierProxyProvider2<NinetyNineGameProvider, BasraGameProvider,
+            GameProvider>(
+          create: (ctx) => GameProvider()
+            ..nnProvider = ctx.read<NinetyNineGameProvider>()
+            ..basraProvider = ctx.read<BasraGameProvider>(),
+          update: (ctx, nnProvider, basraProvider, previous) => previous!
+            ..nnProvider = nnProvider
+            ..basraProvider = basraProvider,
         ),
         // ── Reconnection manager (depends on GameProvider) ─────────────────
         ChangeNotifierProxyProvider<GameProvider, ReconnectionManager>(
@@ -157,12 +242,15 @@ class KotshinaApp extends StatelessWidget {
           '/kotchina/home': (_) => const HomeScreen(),
           '/lobby': (_) => const LobbyScreen(),
           '/game': (_) => const GameScreen(),
+          '/matchmaking': (_) => const MatchmakingScreen(),
           '/profile': (_) => const ProfileScreen(),
           '/local_discovery': (_) => const LocalDiscoveryScreen(),
           '/academy': (_) => const AcademyHomeScreen(),
           '/puzzles': (_) => const PuzzlesHomeScreen(),
           '/ninety_nine/home': (_) => const NinetyNineHomeScreen(),
           '/ninety_nine/game': (_) => const NinetyNineGameScreen(),
+          '/basra/home': (_) => const BasraHomeScreen(),
+          '/basra/game': (_) => const BasraGameScreen(),
         },
       ),
     );

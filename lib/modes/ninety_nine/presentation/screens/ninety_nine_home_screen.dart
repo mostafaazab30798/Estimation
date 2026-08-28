@@ -10,6 +10,7 @@ import '../../../../services/audio_service.dart';
 import '../../../../services/profile_service.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/performance_blur.dart';
+import '../../../../widgets/ongoing_game_guard.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class NinetyNineHomeScreen extends StatefulWidget {
@@ -80,7 +81,10 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
     return null;
   }
 
-  Future<void> _hostOnlineRoom(BuildContext context, int expectedPlayers) async {
+  Future<void> _hostOnlineRoom(
+      BuildContext context, int expectedPlayers) async {
+    if (await guardAgainstOngoingGame(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -102,6 +106,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Future<void> _joinWithCode(BuildContext context) async {
+    if (await guardAgainstOngoingGame(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -129,6 +135,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Future<void> _startBotGame(BuildContext context) async {
+    if (await guardAgainstOngoingGame(context)) return;
+    if (!context.mounted) return;
     final err = _validateName();
     if (err != null) {
       _snack(context, err);
@@ -161,8 +169,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GameProvider>();
-    final isLoading = provider.status == ConnectionStatus.connecting ||
-        provider.isSearching;
+    final isLoading =
+        provider.status == ConnectionStatus.connecting || provider.isSearching;
     final isLandscape =
         MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
 
@@ -326,7 +334,6 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   Widget _buildPrimaryAction(BuildContext context) {
     return ModeHomeActionButton(
       label: 'لعب فردي سريع',
-      subtitle: 'مباراة فورية ضد البوت',
       icon: AppIcons.bolt,
       gradient: const [_purple, Color(0xFF4A00E0)],
       isLarge: true,
@@ -345,7 +352,6 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
             Expanded(
               child: ModeHomeActionButton(
                 label: 'إنشاء غرفة',
-                subtitle: 'استضافة',
                 icon: AppIcons.addCircleOutline,
                 gradient: const [_red, _redDark],
                 onTap: () => _tap(() => _showHostSheet(context)),
@@ -355,7 +361,6 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
             Expanded(
               child: ModeHomeActionButton(
                 label: 'انضمام',
-                subtitle: 'كود الغرفة',
                 icon: AppIcons.login,
                 gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
                 onTap: () => _tap(() => _showJoinSheet(context)),
