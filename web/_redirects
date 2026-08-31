@@ -1,0 +1,2 @@
+# Serve index.html for unknown paths so Flutter routing still works on refresh.
+/*    /index.html   200

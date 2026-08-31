@@ -1,12 +1,19 @@
-name: Flutter Android Release
+name: Flutter Release
 
 on:
   push:
     branches:
       - main
 
+# Web job (Git-connected Pages + Wrangler upload from this workflow):
+#   1. Pause Cloudflare automatic builds (Flutter is not on CF's build image).
+#   2. GitHub secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+#   3. Optional repo variable CLOUDFLARE_PAGES_PROJECT if the Pages
+#      project is not named "estimation".
+
 permissions:
   contents: write
+  deployments: write
 
 jobs:
   build-and-release:
@@ -252,4 +259,113 @@ jobs:
 
           echo "======================================"
           echo "✅ Supabase updated successfully!"
+          echo "======================================"
+
+
+  # ============================================================
+  # Web: Flutter web build → Cloudflare Pages (Direct Upload)
+  # Runs in parallel with the Android job.
+  # ============================================================
+  build-and-deploy-web:
+    name: Build Web and Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'estimation' }}
+
+    steps:
+
+      # ============================================================
+      # 1. Checkout repository
+      # ============================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ============================================================
+      # 2. Require Cloudflare secrets
+      # ============================================================
+      - name: Check Cloudflare secrets
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=0
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "❌ Missing secret CLOUDFLARE_API_TOKEN"
+            missing=1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "❌ Missing secret CLOUDFLARE_ACCOUNT_ID"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Add both secrets under Settings → Secrets and variables → Actions."
+            echo "Token permission: Account → Cloudflare Pages → Edit"
+            exit 1
+          fi
+          echo "✅ Cloudflare secrets present."
+          echo "Pages project: $CLOUDFLARE_PAGES_PROJECT"
+
+
+      # ============================================================
+      # 3. Setup Flutter
+      # ============================================================
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+
+      # ============================================================
+      # 4. Get Flutter dependencies
+      # ============================================================
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+
+      # ============================================================
+      # 5. Build Flutter Web (release, no source maps)
+      # ============================================================
+      - name: Build Flutter Web
+        run: flutter build web --release --no-source-maps
+
+
+      # ============================================================
+      # 6. Cloudflare Pages SPA headers / redirects
+      #    (copied after build in case Flutter skips underscore files)
+      # ============================================================
+      - name: Copy Cloudflare Pages config
+        shell: bash
+        run: |
+          cp -f web/_headers build/web/_headers
+          cp -f web/_redirects build/web/_redirects
+          echo "✅ Cloudflare Pages _headers and _redirects in build/web"
+
+
+      # ============================================================
+      # 7. Deploy to Cloudflare Pages
+      # ============================================================
+      - name: Deploy to Cloudflare Pages
+        id: cf
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy build/web --project-name=${{ env.CLOUDFLARE_PAGES_PROJECT }} --branch=${{ github.ref_name }} --commit-dirty=true
+
+
+      # ============================================================
+      # 8. Print live URL
+      # ============================================================
+      - name: Print deployment URL
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "Cloudflare Pages deployment"
+          echo "======================================"
+          echo "URL   : ${{ steps.cf.outputs.deployment-url }}"
+          echo "Alias : ${{ steps.cf.outputs.pages-deployment-alias-url }}"
           echo "======================================"
