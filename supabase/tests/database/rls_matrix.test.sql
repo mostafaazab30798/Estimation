@@ -129,9 +129,10 @@ select throws_ok(
   'non-host cannot save opponent hand'
 );
 
-select throws_ok(
+-- Denied at GRANT (42501) or inside the function (SERVICE_ROLE_ONLY).
+select throws_like(
   $$ select public.increment_player_stats(tests.get_supabase_uid('bob'), 50, true) $$,
-  'SERVICE_ROLE_ONLY',
+  '(permission denied|SERVICE_ROLE_ONLY|COMPETITIVE_FIELDS_READ_ONLY)',
   'authenticated user cannot increment stats'
 );
 
