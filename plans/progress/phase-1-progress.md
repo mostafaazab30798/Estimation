@@ -9,7 +9,7 @@
 - **Phase:** 1 — Repair trust boundaries
 - **Plan file:** `plans/phase-1-trust-boundaries.md`
 - **Overall status:** In progress
-- **Last updated:** 2026-08-31 13:15 (UTC+3)
+- **Last updated:** 2026-08-31 14:30 (UTC+3)
 - **Updated by:** Auto (Cursor agent) + user confirmation
 - **Branch(es):** (working tree, uncommitted)
 - **% exit criteria met:** 0 of 10 (migrations applied; live validation pending)
@@ -25,7 +25,7 @@
 
 | Item | Finding(s) | Status | Evidence | Notes |
 |------|-----------|--------|----------|-------|
-| W1.1 | P0-04, P0-05 | In progress | `supabase/functions/game-action/index.ts` scaffold | Reducer RPC + client wiring not done |
+| W1.1 | P0-04, P0-05 | In progress | Migration `202608310007`, Edge Function reducer, pgTAP tests | Estimation reducer done; client opt-in via `GameActionService`; 99/Basra stubbed |
 | W1.2 | P0-04 | In progress | Sanitized broadcast + RPC hand merge in client | Migration applied; **smoke test online game + frame capture still needed** |
 | W1.3 | P0-05, P0-06 | In progress | Migration applied: competitive trigger + service_role-only stats RPC | Match-end XP now no-ops from client until server authority ships |
 | W1.4 | P0-06 | In progress | Migrations applied; **`202608310003` fixes leaderboard view** | User to apply 003 |
@@ -83,7 +83,7 @@ Exit code: 0
 
 | Exit criterion | Met? | Evidence |
 |----------------|------|----------|
-| Trusted authority validates all actions (W1.1) | No | Scaffold only |
+| Trusted authority validates all actions (W1.1) | Partial | Estimation reducer + RPC; pgTAP tests; client opt-in service; **not live-deployed / not wired to GameClient yet** |
 | Public/private separation; no opponent cards on wire (W1.2) | Partial | Code uses `toSanitizedJson`; **no captured Realtime frames yet** |
 | Stats server-derived; clients cannot write XP (W1.3) | Partial | Trigger + service_role RPC; no match-outcome authority yet |
 | No `USING (true)` select policies (W1.4) | Partial | Migration applied; RLS matrix (W1.6) not run yet |
@@ -111,13 +111,41 @@ Exit code: 0
 5. **Host-authoritative interim risk** until W1.1 reducer ships.
 6. **Match XP** silent no-op until server authority (W1.1/W1.3).
 
+## What was done this session (2026-08-31 — W1.1)
+
+1. **Migration** `202608310007_apply_game_action.sql`:
+   - `game_rooms.action_seq` monotonic counter
+   - `game_action_log` idempotency table (member-readable audit)
+   - `apply_game_action` RPC (service_role only) — binds `p_actor_uid`, seq check, rate limit, turn validation
+   - `get_authority_room_state` RPC — merges private hands for reducer input
+   - `estimation_validate_turn` defense-in-depth for Estimation phases
+2. **Edge Function reducer** (`supabase/functions/game-action/reducer/`):
+   - Full Estimation (kotchina) port of `GameEngine` action handling
+   - 99 / Basra return `MODE_NOT_IMPLEMENTED` (next PRs)
+3. **Edge Function wired:** JWT → membership → reduce → `apply_game_action` commit
+4. **pgTAP:** `supabase/tests/database/apply_game_action.test.sql` — 8 cases (seq, idempotency, turn, auth)
+5. **Client substrate:** `lib/services/game_action_service.dart` — opt-in via `useServerAuthority` flag (host broadcast still default until wired in `GameClient`)
+
+## Files changed (W1.1)
+
+| File | Change | Related item |
+|------|--------|--------------|
+| `supabase/migrations/202608310007_apply_game_action.sql` | Added | W1.1 |
+| `supabase/functions/game-action/index.ts` | Wired reducer + RPC | W1.1 |
+| `supabase/functions/game-action/reducer/types.ts` | Added | W1.1 |
+| `supabase/functions/game-action/reducer/estimation.ts` | Added | W1.1 |
+| `supabase/functions/game-action/reducer/index.ts` | Added | W1.1 |
+| `supabase/tests/database/apply_game_action.test.sql` | Added | W1.1, W1.6 |
+| `lib/services/game_action_service.dart` | Added | W1.1 |
+
 ## What's left / next steps
 
-1. Push to GitHub and confirm `rls-security` job passes (evidence for W1.6).
-2. Wire `apply_game_action` Postgres RPC + Edge Function reducer (W1.1).
-3. Capture 4-player Realtime frames (W1.2 validation).
-4. Protocol abuse suite (W1.6 part 2).
-5. Finish root SQL reconciliation (W1.5).
+1. Apply migration `202608310007` to project + deploy `game-action` Edge Function
+2. Push to GitHub and confirm `rls-security` job passes (includes new pgTAP file)
+3. Wire `GameClient` / `GameServer` to route human actions through `GameActionService` when `useServerAuthority=true`
+4. Implement 99 / Basra reducers
+5. Capture 4-player Realtime frames (W1.2 validation)
+6. Match-end XP hook from server-recorded results (W1.3 — blocked until online games use authority path)
 
 ### Post-migration smoke checklist
 
@@ -131,6 +159,6 @@ Exit code: 0
 
 ## Changelog
 
-- **2026-08-31 PM** — Auto — W1.6 RLS pgTAP matrix, base schema migration, CI `rls-security` job.
+- **2026-08-31 PM** — Auto — W1.1: `apply_game_action` migration, Estimation TS reducer, Edge Function wired, pgTAP tests, `GameActionService`.
 - **2026-08-31 PM** — Auto — Fix `public_profiles` registered-users-only (004); leaderboard fixes.
 - **2026-08-31 AM** — Auto — Phase 1 kickoff: authority decision, RLS migration, sanitized online transport, edge function scaffold, progress report.

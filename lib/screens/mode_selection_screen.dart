@@ -11,6 +11,8 @@ import '../services/audio_service.dart';
 import '../services/settings_service.dart';
 import '../services/profile_service.dart';
 import 'package:estimation/core/icons/app_icons.dart';
+import '../core/constants.dart';
+import '../core/widgets/app_logo.dart';
 
 // ── Game Mode Model ──────────────────────────────────────────────────────────
 
@@ -44,7 +46,7 @@ class ModeSelectionScreen extends StatefulWidget {
 
 class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     with SingleTickerProviderStateMixin {
-  String _playerName = 'لاعب كوتشينة';
+  String _playerName = kDefaultPlayerName;
   String _playerPhoto = ProfileService.presetAvatars.first.id;
   late final AnimationController _animController;
   late final Animation<double> _fadeIn;
@@ -213,8 +215,10 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
   Widget _buildHeroHeader({bool compact = false}) {
     return Column(
       children: [
+        AppLogo(size: compact ? 56 : 80),
+        SizedBox(height: compact ? 8 : 12),
         Text(
-          'كوتشينة',
+          kAppName,
           style: GoogleFonts.cairo(
             fontSize: compact ? 26 : 34,
             fontWeight: FontWeight.w900,

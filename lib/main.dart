@@ -31,6 +31,8 @@ import 'services/device_performance_service.dart';
 import 'services/auth_service.dart';
 import 'services/settings_service.dart';
 import 'theme/app_theme.dart';
+import 'core/constants.dart';
+import 'core/widgets/app_logo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -137,7 +139,14 @@ class _AppBootstrapState extends State<AppBootstrap> {
       home: Scaffold(
         body: Center(
           child: _error == null
-              ? const CircularProgressIndicator(color: AppTheme.gold)
+              ? const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppLogo(size: 112),
+                    SizedBox(height: 24),
+                    CircularProgressIndicator(color: AppTheme.gold),
+                  ],
+                )
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -225,7 +234,7 @@ class KotshinaApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'كوتشينة مالتيبلاير',
+        title: kAppName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.theme,
 

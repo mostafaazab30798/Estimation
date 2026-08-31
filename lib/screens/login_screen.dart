@@ -1,13 +1,11 @@
 // lib/screens/login_screen.dart
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,6 +18,17 @@ import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../core/constants.dart';
+import '../core/widgets/app_logo.dart';
+
+abstract final class _LoginPalette {
+  static const deepViolet = Color(0xFF2E2858);
+  static const softViolet = Color(0xFF5A528C);
+  static const periwinkle = Color(0xFFA8A0D8);
+  static const coral = Color(0xFFE07A6A);
+  static const cardTop = Color(0xE8FFFFFF);
+  static const cardBottom = Color(0xD0EEE8FA);
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,20 +37,13 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _floatController;
+class _LoginScreenState extends State<LoginScreen> {
   StreamSubscription<AuthState>? _authSubscription;
   bool _isGuestLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4200),
-    )..repeat();
-
     if (kIsWeb) {
       _authSubscription =
           Supabase.instance.client.auth.onAuthStateChange.listen((data) {
@@ -55,7 +57,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
-    _floatController.dispose();
     _authSubscription?.cancel();
     super.dispose();
   }
@@ -114,11 +115,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isCompact = size.height < 700;
-
     return Scaffold(
-      backgroundColor: AppTheme.deepNavy,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -129,35 +126,60 @@ class _LoginScreenState extends State<LoginScreen>
             subtleOverlay: true,
           ),
           SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: isCompact ? 12 : 20,
-                    ),
-                    child: Column(
-                      children: [
-                        SizedBox(height: isCompact ? 8 : 24),
-                        _LoginHero(
-                          floatAnimation: _floatController,
-                          compact: isCompact,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final heroWidth =
+                    (constraints.maxWidth * 0.72).clamp(220.0, 280.0);
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      Spacer(flex: constraints.maxHeight < 700 ? 1 : 2),
+                      Flexible(
+                        flex: 4,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Image.asset(
+                                'assets/p1.png',
+                                width: heroWidth,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.high,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'كوتشينة',
+                              style: GoogleFonts.cairo(
+                                fontSize: 34,
+                                fontWeight: FontWeight.w900,
+                                color: _LoginPalette.deepViolet,
+                                height: 1.05,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.white.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: isCompact ? 20 : 32),
-                        _LoginAuthPanel(
-                          onGoogleSignIn: _handleGoogleSignIn,
-                          onGuestContinue: _handleGuestContinue,
-                          isGuestLoading: _isGuestLoading,
-                        ),
-                        SizedBox(height: isCompact ? 16 : 24),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      _LoginAuthPanel(
+                        onGoogleSignIn: _handleGoogleSignIn,
+                        onGuestContinue: _handleGuestContinue,
+                        isGuestLoading: _isGuestLoading,
+                      ),
+                      Spacer(flex: constraints.maxHeight < 700 ? 2 : 3),
+                    ],
                   ),
-                ),
-                const ModeHomeSuitFooter(),
-              ],
+                );
+              },
             ),
           ),
         ],
@@ -165,76 +187,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
-
-// ── Hero ─────────────────────────────────────────────────────────────────────
-
-class _LoginHero extends StatelessWidget {
-  final Animation<double> floatAnimation;
-  final bool compact;
-
-  const _LoginHero({
-    required this.floatAnimation,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final imageWidth = compact ? 240.0 : 280.0;
-
-    return Column(
-      children: [
-        AnimatedBuilder(
-          animation: floatAnimation,
-          builder: (context, child) {
-            final t = floatAnimation.value * math.pi * 2;
-            final bob = math.sin(t) * 5;
-            return Transform.translate(
-              offset: Offset(0, bob),
-              child: child,
-            );
-          },
-          child: Image.asset(
-            'assets/p1.png',
-            width: imageWidth,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms, curve: Curves.easeOut)
-            .scale(
-              begin: const Offset(0.92, 0.92),
-              end: const Offset(1, 1),
-              duration: 700.ms,
-              curve: Curves.easeOutBack,
-            ),
-        SizedBox(height: compact ? 14 : 20),
-        Text(
-          'كوتشينة',
-          style: GoogleFonts.cairo(
-            fontSize: compact ? 30 : 38,
-            fontWeight: FontWeight.w900,
-            color: AppTheme.white,
-            letterSpacing: 0.5,
-            height: 1.05,
-            shadows: [
-              Shadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-        )
-            .animate(delay: 120.ms)
-            .fadeIn(duration: 500.ms)
-            .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
-      ],
-    );
-  }
-}
-
-// ── Auth Panel ───────────────────────────────────────────────────────────────
 
 class _LoginAuthPanel extends StatelessWidget {
   final Future<bool> Function() onGoogleSignIn;
@@ -252,60 +204,55 @@ class _LoginAuthPanel extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
           width: double.infinity,
-          constraints: const BoxConstraints(maxWidth: 420),
-          padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+          constraints: const BoxConstraints(maxWidth: 400),
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.surface2.withValues(alpha: 0.82),
-                AppTheme.deepNavy.withValues(alpha: 0.88),
-              ],
-            ),
             borderRadius: BorderRadius.circular(28),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_LoginPalette.cardTop, _LoginPalette.cardBottom],
+            ),
             border: Border.all(
-              color: AppTheme.steelBlue.withValues(alpha: 0.22),
+              color: Colors.white.withValues(alpha: 0.7),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: _LoginPalette.periwinkle.withValues(alpha: 0.28),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: AppTheme.gold.withValues(alpha: 0.06),
-                blurRadius: 40,
-                spreadRadius: 2,
               ),
             ],
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 'مرحباً بك',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.cairo(
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.cream,
+                  color: _LoginPalette.deepViolet,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Consumer<AuthService>(
                 builder: (context, auth, _) => GoogleSignInButton(
                   onSlide: onGoogleSignIn,
                   isLoading: auth.isLoading,
+                  variant: GoogleSignInButtonVariant.login,
                 ),
               ),
-              const SizedBox(height: 16),
-              _OrDivider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+              const _OrDivider(),
+              const SizedBox(height: 14),
               _GuestButton(
                 onPressed: onGuestContinue,
                 isLoading: isGuestLoading,
@@ -314,53 +261,38 @@ class _LoginAuthPanel extends StatelessWidget {
           ),
         ),
       ),
-    )
-        .animate(delay: 280.ms)
-        .fadeIn(duration: 550.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.08, end: 0, curve: Curves.easeOutCubic);
+    );
   }
 }
 
 class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: Container(
+          child: Divider(
+            color: _LoginPalette.periwinkle.withValues(alpha: 0.4),
             height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  AppTheme.steelBlue.withValues(alpha: 0.35),
-                ],
-              ),
-            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'أو',
             style: GoogleFonts.cairo(
               fontSize: 12,
-              color: AppTheme.steelBlue.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
+              color: _LoginPalette.softViolet,
             ),
           ),
         ),
         Expanded(
-          child: Container(
+          child: Divider(
+            color: _LoginPalette.periwinkle.withValues(alpha: 0.4),
             height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.steelBlue.withValues(alpha: 0.35),
-                  Colors.transparent,
-                ],
-              ),
-            ),
           ),
         ),
       ],
@@ -394,45 +326,42 @@ class _GuestButtonState extends State<_GuestButton> {
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
+        scale: _pressed ? 0.98 : 1,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          width: double.infinity,
-          height: 54,
+          height: 50,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
+            color: Colors.white.withValues(alpha: _pressed ? 0.5 : 0.62),
             border: Border.all(
-              color: AppTheme.steelBlue.withValues(alpha: 0.45),
-              width: 1.4,
+              color: _LoginPalette.coral.withValues(alpha: 0.32),
             ),
-            color: Colors.white.withValues(alpha: 0.05),
           ),
           child: widget.isLoading
-              ? const Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      color: AppTheme.steelBlue,
-                      strokeWidth: 2.5,
-                    ),
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: _LoginPalette.softViolet,
+                    strokeWidth: 2.5,
                   ),
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const AppIcon(
+                    AppIcon(
                       AppIcons.person,
-                      color: AppTheme.steelBlue,
-                      size: 20,
+                      color: _LoginPalette.coral,
+                      size: 18,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Text(
                       'متابعة كضيف',
                       style: GoogleFonts.cairo(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.cream,
+                        color: _LoginPalette.deepViolet,
                       ),
                     ),
                   ],

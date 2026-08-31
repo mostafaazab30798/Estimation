@@ -1,5 +1,14 @@
 // lib/core/constants.dart
 
+/// User-facing app name shown on the home screen, about, and share branding.
+const String kAppName = 'سهرة ورق';
+
+/// Fallback display name when the player has not set a username.
+const String kDefaultPlayerName = 'لاعب سهرة ورق';
+
+/// Asset path for the app logo and launcher artwork.
+const String kAppLogoAsset = 'assets/logo.png';
+
 /// Suit priority (higher index = higher priority in bids and sorting)
 /// Spade > Heart > Diamond > Club
 enum Suit {

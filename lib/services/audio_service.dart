@@ -4,8 +4,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'settings_service.dart';
-import '../core/events/estimation_event_bus.dart';
-import '../core/events/estimation_game_events.dart';
 
 /// Dedicated service managing audio playback and haptic feedback for game events.
 class AudioService {
@@ -178,30 +176,8 @@ class AudioService {
     );
   }
 
-  StreamSubscription? _eventSub;
-
-  /// Optional bus binding. SFX are owned by game UI at the visual moment
-  /// (card land, trick sweep, dash win, match end) so this stays unbound.
-  void bindToEventBus({String? currentUserId}) {
-    unbindFromEventBus();
-    _eventSub = EstimationEventBus.instance.events.listen((event) {
-      playEventAudio(event, currentUserId: currentUserId);
-    });
-  }
-
-  void unbindFromEventBus() {
-    _eventSub?.cancel();
-    _eventSub = null;
-  }
-
-  /// Intentionally a no-op. Playing from the event bus duplicated widget SFX
-  /// and fired celebration sounds on non-major events (perfect estimate,
-  /// double round, any missed bid, etc.).
-  void playEventAudio(EstimationGameEvent event, {String? currentUserId}) {}
-
   /// Cleanly disposes audio players.
   void dispose() {
-    unbindFromEventBus();
     _cardPlayer?.dispose();
     _collectPlayer?.dispose();
     _winPlayer?.dispose();

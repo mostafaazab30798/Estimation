@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../core/constants.dart';
+import '../core/widgets/app_logo.dart';
 import 'login_screen.dart';
 import 'mode_selection_screen.dart';
 
@@ -80,7 +82,14 @@ class _AppEntryLoaderState extends State<AppEntryLoader> {
       return const Scaffold(
         backgroundColor: AppTheme.deepNavy,
         body: Center(
-          child: CircularProgressIndicator(color: AppTheme.gold),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLogo(size: 112),
+              SizedBox(height: 24),
+              CircularProgressIndicator(color: AppTheme.gold),
+            ],
+          ),
         ),
       );
     }

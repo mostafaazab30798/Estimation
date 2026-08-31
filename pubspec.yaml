@@ -1,5 +1,5 @@
 name: estimation
-description: "كوتشينة — لعبة ورق تنافسية للشبكة المحلية"
+description: "سهرة ورق — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
 version: 1.11.0+22
 environment:
@@ -60,12 +60,18 @@ flutter:
     - assets/avatars/
     - assets/p1.png
     - assets/google.png
+    - assets/logo.png
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   remove_alpha_ios: true
-  image_path: "assets/cards.png"
+  image_path: "assets/logo.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#161D4A"
-  adaptive_icon_foreground: "assets/cards.png"
+  adaptive_icon_background: "#1A0B3D"
+  adaptive_icon_foreground: "assets/logo.png"
+  web:
+    generate: true
+    image_path: "assets/logo.png"
+    background_color: "#1A0B3D"
+    theme_color: "#1A0B3D"

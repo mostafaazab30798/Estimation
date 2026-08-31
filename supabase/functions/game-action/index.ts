@@ -1,9 +1,8 @@
-// Phase 1 W1.1 — Trusted game action entry point (scaffold).
-//
-// Validates JWT → auth.uid(), room membership, idempotency, and turn legality,
-// then delegates to Postgres RPCs. Full reducer logic lands in follow-up PRs.
+// Phase 1 W1.1 — Trusted game action authority.
+// JWT → membership → TS reducer → apply_game_action RPC (atomic commit).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { reduceGameAction } from "./reducer/index.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +29,9 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !supabaseAnonKey) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
     return json({ error: "SERVER_MISCONFIGURED" }, 500);
   }
 
@@ -60,18 +61,18 @@ Deno.serve(async (req) => {
     return json({ error: "PAYLOAD_TOO_LARGE" }, 413);
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) {
     return json({ error: "NOT_AUTHENTICATED" }, 401);
   }
 
   const uid = userData.user.id;
 
-  const { data: isMember, error: memberError } = await supabase.rpc(
+  const { data: isMember, error: memberError } = await userClient.rpc(
     "is_room_member",
     { p_room_id: roomId },
   );
@@ -79,21 +80,115 @@ Deno.serve(async (req) => {
     return json({ error: "NOT_ROOM_MEMBER" }, 403);
   }
 
-  // TODO(W1.1): apply_game_action RPC — validate turn, bind playerId to uid,
-  // enforce idempotent actionId + monotonic expectedSeq, compute next state.
-  return json(
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+
+  const authority = await loadAuthorityState(serviceClient, roomId);
+  if (!authority) {
+    return json({ error: "ROOM_NOT_FOUND" }, 404);
+  }
+
+  const reduceResult = reduceGameAction({
+    ctx: authority,
+    actorUid: uid,
+    action,
+    payload,
+  });
+
+  if (!reduceResult.ok) {
+    return json({ error: reduceResult.error ?? "REDUCE_FAILED" }, 422);
+  }
+
+  // Ephemeral-only actions (reactions, sync requests) — no state commit.
+  if (reduceResult.ephemeral && !reduceResult.nextPublicState) {
+    return json({
+      status: "ephemeral",
+      seq: authority.actionSeq,
+      ephemeral: reduceResult.ephemeral,
+    });
+  }
+
+  if (!reduceResult.nextPublicState) {
+    return json({ error: "NO_STATE" }, 500);
+  }
+
+  const resolvedActionId = actionId ?? crypto.randomUUID();
+
+  const { data: commit, error: commitError } = await serviceClient.rpc(
+    "apply_game_action",
     {
-      status: "accepted_scaffold",
-      roomId,
-      action,
-      playerId: uid,
-      actionId: actionId ?? null,
-      expectedSeq: expectedSeq ?? null,
-      note: "Reducer not wired yet — host-authoritative path still active in client.",
+      p_room_id: roomId,
+      p_actor_uid: uid,
+      p_action: action,
+      p_payload: payload,
+      p_action_id: resolvedActionId,
+      p_expected_seq: expectedSeq ?? authority.actionSeq,
+      p_next_public_state: reduceResult.nextPublicState,
+      p_hand_updates: reduceResult.handUpdates ?? {},
     },
-    202,
   );
+
+  if (commitError) {
+    const code = mapRpcError(commitError.message);
+    return json({ error: code, detail: commitError.message }, mapRpcStatus(code));
+  }
+
+  return json({
+    status: "applied",
+    ...(commit as Record<string, unknown>),
+    ephemeral: reduceResult.ephemeral ?? null,
+  });
 });
+
+async function loadAuthorityState(
+  client: SupabaseClient,
+  roomId: string,
+): Promise<{
+  roomId: string;
+  gameType: string;
+  hostId: string;
+  actionSeq: number;
+  state: Record<string, unknown>;
+} | null> {
+  const { data, error } = await client.rpc("get_authority_room_state", {
+    p_room_id: roomId,
+  });
+
+  if (error || !data) return null;
+
+  const row = data as Record<string, unknown>;
+  return {
+    roomId: String(row.roomId),
+    gameType: String(row.gameType ?? "kotchina"),
+    hostId: String(row.hostId),
+    actionSeq: Number(row.actionSeq ?? 0),
+    state: (row.state ?? {}) as Record<string, unknown>,
+  };
+}
+
+function mapRpcError(message: string): string {
+  if (message.includes("SEQ_MISMATCH")) return "SEQ_MISMATCH";
+  if (message.includes("NOT_YOUR_TURN")) return "NOT_YOUR_TURN";
+  if (message.includes("WRONG_PHASE")) return "WRONG_PHASE";
+  if (message.includes("HOST_ONLY")) return "HOST_ONLY";
+  if (message.includes("RATE_LIMIT")) return "RATE_LIMIT_EXCEEDED";
+  if (message.includes("NOT_ROOM_MEMBER")) return "NOT_ROOM_MEMBER";
+  if (message.includes("UNKNOWN_ACTION")) return "UNKNOWN_ACTION";
+  return "COMMIT_FAILED";
+}
+
+function mapRpcStatus(code: string): number {
+  switch (code) {
+    case "SEQ_MISMATCH":
+    case "NOT_YOUR_TURN":
+    case "WRONG_PHASE":
+    case "HOST_ONLY":
+      return 409;
+    case "RATE_LIMIT_EXCEEDED":
+      return 429;
+    default:
+      return 500;
+  }
+}
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
