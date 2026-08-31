@@ -136,6 +136,23 @@ class ProfileService {
     await prefs.setString(_kNameKey, formatted);
   }
 
+  /// Reference sent to other players — never includes raw gallery bytes.
+  static String publicAvatarRef(String? photoData) {
+    if (photoData == null || photoData.isEmpty) {
+      return presetAvatars.first.id;
+    }
+    if (photoData.startsWith('preset:') ||
+        photoData.startsWith('http://') ||
+        photoData.startsWith('https://') ||
+        photoData.startsWith('ugc:')) {
+      return photoData;
+    }
+    if (isBase64Photo(photoData)) {
+      return 'ugc:custom';
+    }
+    return presetAvatars.first.id;
+  }
+
   /// Loads saved profile photo string from SharedPreferences.
   /// Defaults to the first preset avatar if not set.
   static Future<String> getProfilePhoto() async {

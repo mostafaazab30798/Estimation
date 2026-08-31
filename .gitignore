@@ -4,6 +4,10 @@
 *.pyc
 *.swp
 *.db
+*.rar
+*.zip
+hs_err_pid*.log
+replay_pid*.log
 .DS_Store
 .atom/
 .build/

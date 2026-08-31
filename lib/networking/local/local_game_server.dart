@@ -16,6 +16,7 @@ import '../../core/models/bid.dart';
 import '../../core/models/card.dart';
 import '../../core/models/game_state.dart';
 import '../../core/models/player.dart';
+import '../../services/profile_service.dart';
 import '../messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
@@ -208,7 +209,9 @@ class LocalGameServer {
   void _handleJoinRequest(Map<String, dynamic> payload) {
     final playerId = payload['playerId'] as String;
     final playerName = payload['name'] as String;
-    final playerPhoto = payload['photo'] as String?;
+    final playerPhoto = ProfileService.publicAvatarRef(
+      payload['photo'] as String?,
+    );
 
     final existingIndex = _state.players.indexWhere((p) => p.id == playerId);
 
@@ -223,7 +226,7 @@ class LocalGameServer {
       }
       final seat = _state.players.length;
       _state.players.add(Player(id: playerId, name: playerName, seatIndex: seat, photo: playerPhoto));
-    } else if (playerPhoto != null && _state.players[existingIndex].photo != playerPhoto) {
+    } else if (_state.players[existingIndex].photo != playerPhoto) {
       _state.players[existingIndex] = _state.players[existingIndex].copyWith(photo: playerPhoto);
     }
 

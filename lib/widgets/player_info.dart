@@ -15,6 +15,8 @@ import 'hud/score_display.dart';
 import 'hud/trick_progress_indicator.dart';
 import 'hud/status_badge.dart';
 import 'package:estimation/core/icons/app_icons.dart';
+import '../services/auth_service.dart';
+import '../widgets/user_safety_sheet.dart';
 
 class PlayerInfoWidget extends StatefulWidget {
   final Player player;
@@ -103,13 +105,25 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
         final isDealer = widget.state.dealerSeatIndex == widget.player.seatIndex;
 
         return RepaintBoundary(
-          child: GlassPlayerCard(
+          child: GestureDetector(
+            onLongPress: (!widget.isMe &&
+                    widget.player.id.length > 20 &&
+                    AuthService.instance.isAuthenticated)
+                ? () => showUserSafetySheet(
+                      context,
+                      reportedUserId: widget.player.id,
+                      displayName: widget.player.name,
+                      contextType: 'estimation_match',
+                    )
+                : null,
+            child: GlassPlayerCard(
             isCurrentTurn: widget.isCurrentTurn,
             accentColor: accentColor,
             compact: widget.compact,
             child: widget.compact
                 ? _buildCompact(rankIndex, accentColor, isDealer, displayActual)
                 : _buildFull(rankIndex, accentColor, isDealer, displayActual),
+          ),
           ),
         );
       },

@@ -131,18 +131,24 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         shell: bash
         run: |
-          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "Decoding release keystore..."
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
-
-            echo "Creating key.properties..."
-            printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n" \
-              "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
-
-            echo "✅ Keystore and key.properties configured."
-          else
-            echo "⚠️ ANDROID_KEYSTORE_BASE64 secret not found, proceeding with default signing."
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "❌ ANDROID_KEYSTORE_BASE64 secret is required for release builds."
+            echo "Release builds must not fall back to the debug signing key. See android/SIGNING.md."
+            exit 1
           fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "❌ KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD secrets are required."
+            exit 1
+          fi
+
+          echo "Decoding release keystore..."
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+
+          echo "Creating key.properties..."
+          printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n" \
+            "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+
+          echo "✅ Keystore and key.properties configured."
 
       # ============================================================
       # 7. Build Split-per-ABI Release APKs
@@ -260,6 +266,11 @@ jobs:
           echo "======================================"
           echo "✅ Supabase updated successfully!"
           echo "======================================"
+
+      - name: Remove temporary signing files
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/app/upload-keystore.jks
 
 
   # ============================================================

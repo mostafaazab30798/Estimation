@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-and-test:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ea9e9a3294eaa207c8e77 # v4.2.2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@2783a3f08e1baf5ad7792df95ff9c644c90edffa # v2.16.0
+        with:
+          flutter-version: '3.38.8'
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Flutter test
+        run: flutter test
+
+  rls-security:
+    name: RLS security matrix
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ea9e9a3294eaa207c8e77 # v4.2.2
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase (Postgres only)
+        run: supabase start -x edge-runtime,imgproxy,mailpit,storage-api,vector,realtime
+
+      - name: Apply migrations from scratch
+        run: supabase db reset
+
+      - name: Run RLS pgTAP suite
+        run: supabase test db

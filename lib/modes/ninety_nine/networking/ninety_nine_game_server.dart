@@ -24,6 +24,7 @@ class NinetyNineGameServer {
   final void Function(Map<String, dynamic> reactionData)? onReaction;
   String _hostId = '';
   String _hostName = '';
+  late String _roomId;
   int _maxPlayers = 2;
   Timer? _botTimer;
   bool _botProcessing = false;
@@ -42,6 +43,7 @@ class NinetyNineGameServer {
     _isStopped = false;
     _hostId = hostId;
     _hostName = hostName;
+    _roomId = roomId;
     _maxPlayers = maxPlayers;
 
 
@@ -304,14 +306,28 @@ class NinetyNineGameServer {
     // Always notify the local host UI first
     onStateUpdate(_state);
 
-    // Then broadcast raw state JSON to all clients (same pattern as Kotchina)
+    final payload = Map<String, dynamic>.from(_state.toSanitizedJson());
     _channel?.sendBroadcastMessage(
       event: 'state',
-      payload: _state.toJson(),
+      payload: payload,
     );
+
+    if (!_roomId.startsWith('test_') &&
+        _state.players.any((p) => p.hand.isNotEmpty && !p.isBot)) {
+      _saveHandCards();
+    }
 
     // Check if next turn belongs to a bot
     _scheduleBotTurnIfNeeded();
+  }
+
+  void _saveHandCards() {
+    for (final player in _state.players) {
+      if (player.isBot) continue;
+      _lobbyRepo
+          .savePlayerHand(_roomId, player.id, player.hand)
+          .catchError((e) => debugPrint('[99Server] Hand save failed: $e'));
+    }
   }
 
   // ── Bot AI Automation ────────────────────────────────────────────────────

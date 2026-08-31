@@ -215,20 +215,20 @@ class LobbyRepository {
 
   // ── Hand cards ────────────────────────────────────────────────────────
 
-  /// Fetch the calling player's private hand from room_players.hand_cards.
+  /// Fetch the calling player's private hand via owner-only RPC.
   /// Returns an empty list if no hand has been persisted yet.
   Future<List<PlayingCard>> getMyHandCards(
     String roomId,
     String playerId,
   ) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return [];
+    }
     try {
-      final response = await _client
-          .from('room_players')
-          .select('hand_cards')
-          .eq('room_id', roomId)
-          .eq('player_id', playerId)
-          .single();
-      final handJson = response['hand_cards'];
+      final handJson = await _client.rpc(
+        'get_my_hand_cards',
+        params: {'p_room_id': roomId},
+      );
       if (handJson == null) return [];
       return (handJson as List<dynamic>)
           .map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
@@ -236,6 +236,34 @@ class LobbyRepository {
     } catch (e) {
       debugPrint('[Lobby] getMyHandCards failed: $e');
       return [];
+    }
+  }
+
+  /// Host-only: all private hands in a room (for host promotion / recovery).
+  Future<Map<String, List<PlayingCard>>> getRoomPrivateHandsForHost(
+    String roomId,
+  ) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return {};
+    }
+    try {
+      final raw = await _client.rpc(
+        'get_room_private_hands_for_host',
+        params: {'p_room_id': roomId},
+      );
+      if (raw is! Map) return {};
+      final result = <String, List<PlayingCard>>{};
+      raw.forEach((playerId, handJson) {
+        if (handJson is List) {
+          result[playerId.toString()] = handJson
+              .map((c) => PlayingCard.fromJson(c as Map<String, dynamic>))
+              .toList();
+        }
+      });
+      return result;
+    } catch (e) {
+      debugPrint('[Lobby] getRoomPrivateHandsForHost failed: $e');
+      return {};
     }
   }
 

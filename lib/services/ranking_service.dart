@@ -8,6 +8,7 @@ import '../models/rank_tier.dart';
 import '../models/match_rank.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
+import 'ugc_service.dart';
 
 enum LeaderboardSort {
   xp,
@@ -303,21 +304,23 @@ class RankingService {
         orderColumn = 'level';
       }
 
-      // Filter out anonymous sessions (only include authenticated players with email)
       final response = await client
-          .from('profiles')
+          .from('public_profiles')
           .select()
-          .neq('email', '')
-          .not('email', 'is', null)
           .order(orderColumn, ascending: false)
           .order('xp', ascending: false)
           .limit(limit)
           .timeout(const Duration(seconds: 4));
 
+      final blocked = await UgcService.instance.fetchBlockedUserIds();
+
       final List<LeaderboardPlayer> players = [];
       int rank = 1;
       for (final item in response as List<dynamic>) {
-        players.add(LeaderboardPlayer.fromMap(item as Map<String, dynamic>, rank));
+        final map = item as Map<String, dynamic>;
+        final id = map['id']?.toString() ?? '';
+        if (blocked.contains(id)) continue;
+        players.add(LeaderboardPlayer.fromMap(map, rank));
         rank++;
       }
       return players;
@@ -335,11 +338,9 @@ class RankingService {
 
       final client = Supabase.instance.client;
       final myProfileRes = await client
-          .from('profiles')
+          .from('public_profiles')
           .select()
           .eq('id', userId)
-          .neq('email', '')
-          .not('email', 'is', null)
           .maybeSingle();
       if (myProfileRes == null) return null;
 
@@ -347,10 +348,8 @@ class RankingService {
       final myWins = (myProfileRes['games_won'] as num?)?.toInt() ?? 0;
 
       var query = client
-          .from('profiles')
-          .select('id')
-          .neq('email', '')
-          .not('email', 'is', null);
+          .from('public_profiles')
+          .select('id');
 
       if (sort == LeaderboardSort.wins) {
         query = query.gt('games_won', myWins);

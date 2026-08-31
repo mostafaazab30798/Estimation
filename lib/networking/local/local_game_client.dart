@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../core/models/game_state.dart';
+import '../../services/profile_service.dart';
 import '../messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
@@ -86,7 +87,7 @@ class LocalGameClient {
       payload: {
         'playerId': _lastPlayerId,
         'name': _lastPlayerName,
-        'photo': _lastPlayerPhoto,
+        'photo': ProfileService.publicAvatarRef(_lastPlayerPhoto),
       },
     );
     _channel!.sink.add(msg.toJsonString());

@@ -116,7 +116,9 @@ class _GameScreenState extends State<GameScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (provider.state == null ||
-          provider.status != ConnectionStatus.connected) return;
+          provider.status != ConnectionStatus.connected) {
+        return;
+      }
       _maybeShowDashCallDialog(context, provider, state);
       _maybeShowBidDialog(context, provider, state);
       _maybeShowDeclarationDialog(context, provider, state);

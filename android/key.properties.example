@@ -2,7 +2,7 @@
 # Copy this file to `android/key.properties` and fill in your production credentials.
 # Make sure key.properties is added to .gitignore!
 
-keyAlias=uploadKey
+keyAlias=estimation-upload
 keyPassword=your_key_password_here
-storeFile=../upload-keystore.jks
+storeFile=C:/SecureKeys/Estimation/estimation-upload.jks
 storePassword=your_store_password_here

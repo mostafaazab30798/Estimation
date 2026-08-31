@@ -4,11 +4,11 @@ import 'package:image/image.dart' as img;
 void main() async {
   final assetsDir = Directory('assets');
   if (!assetsDir.existsSync()) {
-    print('Assets directory not found');
+    stdout.writeln('Assets directory not found');
     return;
   }
 
-  print('Starting compression of theme images...');
+  stdout.writeln('Starting compression of theme images...');
   
   final themeDirs = assetsDir.listSync().whereType<Directory>().where((d) => d.path.contains('theme_'));
   
@@ -16,7 +16,7 @@ void main() async {
   int processedCount = 0;
 
   for (final dir in themeDirs) {
-    print('Processing ${dir.path}...');
+    stdout.writeln('Processing ${dir.path}...');
     final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.png'));
     
     for (final file in files) {
@@ -41,12 +41,12 @@ void main() async {
           final saved = originalSize - newSize;
           totalSaved += saved;
           processedCount++;
-          print('Compressed ${file.path.split(Platform.pathSeparator).last}: ${(originalSize/1024).toStringAsFixed(1)}KB -> ${(newSize/1024).toStringAsFixed(1)}KB (Saved ${(saved/1024).toStringAsFixed(1)}KB)');
+          stdout.writeln('Compressed ${file.path.split(Platform.pathSeparator).last}: ${(originalSize/1024).toStringAsFixed(1)}KB -> ${(newSize/1024).toStringAsFixed(1)}KB (Saved ${(saved/1024).toStringAsFixed(1)}KB)');
         }
       }
     }
   }
   
-  print('Done! Compressed $processedCount files.');
-  print('Total space saved: ${(totalSaved / 1024 / 1024).toStringAsFixed(2)} MB');
+  stdout.writeln('Done! Compressed $processedCount files.');
+  stdout.writeln('Total space saved: ${(totalSaved / 1024 / 1024).toStringAsFixed(2)} MB');
 }

@@ -559,7 +559,7 @@ class _PlayerHandState extends State<PlayerHand>
                 transform: Matrix4.translationValues(
                     offsetX + shakeX, offsetY + shakeY, 0.0)
                   ..rotateZ(baseAngle + shakeAngle)
-                  ..scale(scale, scale, 1.0),
+                  ..scaleByDouble(scale, scale, 1.0, 1.0),
                 child: cardWidget,
               ),
             ),

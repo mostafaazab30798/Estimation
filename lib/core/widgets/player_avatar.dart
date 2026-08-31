@@ -58,6 +58,26 @@ class PlayerAvatar extends StatelessWidget {
       );
     }
 
+    if (photoData == 'ugc:custom') {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A5568), Color(0xFF2D3748)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: hasBorder ? Border.all(color: borderColor, width: borderWidth) : null,
+          boxShadow: boxShadow ?? AppTheme.glowShadow,
+        ),
+        child: Center(
+          child: Icon(Icons.person, color: AppTheme.cream, size: size * 0.45),
+        ),
+      );
+    }
+
     if (ProfileService.isBase64Photo(photoData)) {
       final img = ProfileService.parseBase64Image(photoData);
       if (img != null) {

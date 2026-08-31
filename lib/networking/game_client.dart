@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/models/game_state.dart';
+import '../services/profile_service.dart';
 import 'messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
@@ -81,7 +82,7 @@ class GameClient {
             payload: {
               'playerId': playerId,
               'name': playerName,
-              'photo': playerPhoto,
+              'photo': ProfileService.publicAvatarRef(playerPhoto),
             },
           );
 

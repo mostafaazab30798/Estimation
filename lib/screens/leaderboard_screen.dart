@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/ranking_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/rank_tier_badge.dart';
+import '../widgets/user_safety_sheet.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class LeaderboardView extends StatefulWidget {
@@ -347,7 +348,16 @@ class _LeaderboardViewState extends State<LeaderboardView> {
       final auth = AuthService.instance;
       final isMe = auth.isAuthenticated && auth.currentUser?.id == player.id;
 
-      return Container(
+      return GestureDetector(
+        onLongPress: (!isMe && auth.isAuthenticated)
+            ? () => showUserSafetySheet(
+                  context,
+                  reportedUserId: player.id,
+                  displayName: player.username,
+                  contextType: 'leaderboard',
+                )
+            : null,
+        child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -471,6 +481,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
             ),
           ],
         ),
+      ),
       );
     }).toList();
   }

@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:estimation/core/models/card.dart';
-import 'package:estimation/modes/basra/domain/models/basra_game_state.dart';
 import 'package:estimation/modes/basra/presentation/providers/basra_game_provider.dart';
 import 'package:estimation/services/audio_service.dart';
 import 'package:estimation/theme/app_theme.dart';

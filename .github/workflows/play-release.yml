@@ -1,0 +1,110 @@
+name: Play Release (AAB)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: play-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-play-aab:
+    name: Build signed Play App Bundle
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ea9e9a3294eaa207c8e77 # v4.2.2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@2783a3f08e1baf5ad7792df95ff9c644c90edffa # v2.16.0
+        with:
+          flutter-version: '3.38.8'
+          channel: stable
+          cache: true
+
+      - name: Flutter Pub Get
+        run: flutter pub get
+
+      - name: Assert monotonic version code
+        shell: bash
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //')
+          VERSION_CODE=$(echo "$VERSION" | cut -d'+' -f2)
+          LAST_CODE=$(tr -d '[:space:]' < android/last_play_version_code.txt)
+
+          echo "Current version code : $VERSION_CODE"
+          echo "Last Play version code: $LAST_CODE"
+
+          if [ "$VERSION_CODE" -le "$LAST_CODE" ]; then
+            echo "❌ Version code $VERSION_CODE must be greater than last Play release ($LAST_CODE)."
+            exit 1
+          fi
+          echo "✅ Version code is monotonic."
+
+      - name: Flutter test
+        run: flutter test
+
+      - name: Flutter analyze
+        run: flutter analyze
+
+      - name: Setup Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "❌ ANDROID_KEYSTORE_BASE64 secret is required for Play release builds."
+            exit 1
+          fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "❌ KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD secrets are required."
+            exit 1
+          fi
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n" \
+            "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+          echo "✅ Upload keystore configured."
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: play-aab-${{ github.sha }}
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload R8 mapping file
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: play-mapping-${{ github.sha }}
+          path: build/app/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload native debug symbols
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: play-native-symbols-${{ github.sha }}
+          path: build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove temporary signing files
+        if: always()
+        shell: bash
+        run: rm -f android/key.properties android/app/upload-keystore.jks

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/utils/string_utils.dart';
+import '../core/utils/display_name_validator.dart';
 import '../models/user_profile.dart';
 import 'profile_service.dart';
 
@@ -218,6 +219,11 @@ class AuthService extends ChangeNotifier {
       };
       if (username != null && username.trim().isNotEmpty) {
         final formatted = StringUtils.capitalizeWords(username);
+        final validationError = DisplayNameValidator.validate(formatted);
+        if (validationError != null) {
+          debugPrint('[AuthService] updateProfile validation: $validationError');
+          return false;
+        }
         updates['username'] = formatted;
         await ProfileService.saveProfileName(formatted);
       }
@@ -250,24 +256,40 @@ class AuthService extends ChangeNotifier {
       });
       await refreshProfile();
     } catch (e) {
-      debugPrint('[AuthService] recordGameResult RPC failed, falling back to direct update: $e');
-      if (_currentProfile != null) {
-        final currentXp = _currentProfile!.xp + xpGain;
-        final newLevel = UserProfile.calculateLevel(currentXp);
-        await _supabase.from('profiles').update({
-          'xp': currentXp,
-          'level': newLevel,
-          'games_played': _currentProfile!.gamesPlayed + 1,
-          'games_won': _currentProfile!.gamesWon + (won ? 1 : 0),
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', user.id);
-        await refreshProfile();
-      }
+      // Competitive stats are server-only (Phase 1 W1.3); no client fallback.
+      debugPrint('[AuthService] recordGameResult RPC failed: $e');
     }
   }
 
   /// Formats a name so each word starts with a capital letter (Title Case).
   static String capitalizeName(String name) => StringUtils.capitalizeWords(name);
+
+  /// Deletes the authenticated account and all associated app data server-side.
+  /// Call after Google re-authentication.
+  Future<void> deleteAccount() async {
+    final user = currentUser;
+    if (user == null || user.isAnonymous) {
+      throw StateError('يجب تسجيل الدخول لحذف الحساب.');
+    }
+
+    await _supabase.rpc('delete_user_account');
+    _currentProfile = null;
+    notifyListeners();
+
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+
+    try {
+      await _supabase.auth.signOut();
+    } catch (_) {}
+
+    try {
+      await _supabase.auth.signInAnonymously();
+    } catch (e) {
+      debugPrint('[AuthService] Anonymous fallback after delete error: $e');
+    }
+  }
 
   Future<UserProfile> _fetchOrBootstrapProfile(User user, [GoogleSignInAccount? googleUser]) async {
     final rawName = googleUser?.displayName ??

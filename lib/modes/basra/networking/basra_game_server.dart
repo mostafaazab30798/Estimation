@@ -24,6 +24,7 @@ class BasraGameServer {
   final void Function(Map<String, dynamic> reactionData)? onReaction;
   String _hostId = '';
   String _hostName = '';
+  late String _roomId;
   int _maxPlayers = 2;
   Timer? _botTimer;
   bool _botProcessing = false;
@@ -42,6 +43,7 @@ class BasraGameServer {
     _isStopped = false;
     _hostId = hostId;
     _hostName = hostName;
+    _roomId = roomId;
     _maxPlayers = maxPlayers;
 
     _state = BasraGameState(
@@ -249,8 +251,24 @@ class BasraGameServer {
   void _broadcastState() {
     if (_isStopped) return;
     onStateUpdate(_state);
-    _channel?.sendBroadcastMessage(event: 'state', payload: _state.toJson());
+    final payload = Map<String, dynamic>.from(_state.toSanitizedJson());
+    _channel?.sendBroadcastMessage(event: 'state', payload: payload);
+
+    if (!_roomId.startsWith('test_') &&
+        _state.players.any((p) => p.hand.isNotEmpty && !p.isBot)) {
+      _saveHandCards();
+    }
+
     _scheduleBotTurnIfNeeded();
+  }
+
+  void _saveHandCards() {
+    for (final player in _state.players) {
+      if (player.isBot) continue;
+      _lobbyRepo
+          .savePlayerHand(_roomId, player.id, player.hand)
+          .catchError((e) => debugPrint('[BasraServer] Hand save failed: $e'));
+    }
   }
 
   void _scheduleBotTurnIfNeeded() {

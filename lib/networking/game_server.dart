@@ -15,6 +15,7 @@ import '../core/models/bid.dart';
 import '../core/models/card.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
+import '../services/profile_service.dart';
 import 'messages.dart';
 
 typedef StateUpdateCallback = void Function(GameState state);
@@ -203,7 +204,9 @@ class GameServer {
   void _handleJoinRequest(Map<String, dynamic> payload) {
     final playerId = payload['playerId'] as String;
     final playerName = payload['name'] as String;
-    final playerPhoto = payload['photo'] as String?;
+    final playerPhoto = ProfileService.publicAvatarRef(
+      payload['photo'] as String?,
+    );
 
     // Check if player is already in the state
     final existingIndex = _state.players.indexWhere((p) => p.id == playerId);
@@ -222,8 +225,7 @@ class GameServer {
       final seat = _state.players.length;
       _state.players.add(Player(
           id: playerId, name: playerName, seatIndex: seat, photo: playerPhoto));
-    } else if (playerPhoto != null &&
-        _state.players[existingIndex].photo != playerPhoto) {
+    } else if (_state.players[existingIndex].photo != playerPhoto) {
       // Update photo if changed during reconnection
       _state.players[existingIndex] =
           _state.players[existingIndex].copyWith(photo: playerPhoto);
@@ -588,7 +590,18 @@ class GameServer {
     if (_isStopped) return;
     _prepareTurnTimer();
 
-    final payload = _state.toJson();
+    // Online Realtime broadcast is room-wide — never send real opponent hands.
+    final payload = Map<String, dynamic>.from(_state.toSanitizedJson());
+    final players = payload['players'];
+    if (players is List) {
+      payload['players'] = players.map((raw) {
+        final player = Map<String, dynamic>.from(raw as Map);
+        player['photo'] =
+            ProfileService.publicAvatarRef(player['photo'] as String?);
+        return player;
+      }).toList();
+    }
+
     _channel?.sendBroadcastMessage(
       event: 'state',
       payload: payload,
@@ -596,6 +609,12 @@ class GameServer {
     onStateUpdate(_state);
     _scheduleBotTurn();
     _startTurnTimer();
+
+    // Keep owner-only hand rows fresh for client RPC recovery.
+    if (_state.players.any((p) =>
+        p.hand.isNotEmpty && !p.id.startsWith('bot_'))) {
+      _saveHandCards();
+    }
 
     // Persist a snapshot on phase change or phase snapshot updates
     if (_state.phase != _lastPersistedPhase) {
@@ -752,7 +771,7 @@ class GameServer {
     if (roomId.startsWith('test_')) return;
     Supabase.instance.client.rpc('save_game_state', params: {
       'p_room_id': roomId,
-      'p_state': _state.toJson(),
+      'p_state': _state.toSanitizedJson(),
     }).catchError(
       (e) => debugPrint('[Server] Phase snapshot persist failed: $e'),
     );
@@ -885,8 +904,9 @@ class GameServer {
         return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
 
       case GamePhase.trickTaking:
-        if (_state.currentTrick.length == 4)
+        if (_state.currentTrick.length == 4) {
           return false; // Waiting to clear trick
+        }
         final seat = _state.currentPlayerSeatIndex;
         final players = _state.players.where((p) => p.seatIndex == seat);
         return players.isNotEmpty && _botPlayerIds.contains(players.first.id);

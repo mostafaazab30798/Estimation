@@ -1,0 +1,13 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self' mailto:; frame-ancestors 'none'; object-src 'none'
+
+/*.html
+  Cache-Control: public, max-age=300
+
+/legal/*
+  Cache-Control: public, max-age=86400
+

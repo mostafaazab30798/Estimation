@@ -146,6 +146,79 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Online clients receive sanitized broadcasts; merge own hand via owner-only RPC.
+  Future<void> _applyOnlineEstimationState(GameState incoming) async {
+    if (isHost || _transport == ConnectionTransport.local) {
+      _updateState(incoming);
+      return;
+    }
+    final roomId = _currentRoom?.id;
+    if (roomId == null || myPlayerId.isEmpty) {
+      _updateState(incoming);
+      return;
+    }
+    try {
+      final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
+      if (myHand.isNotEmpty) {
+        final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
+        if (idx != -1) incoming.players[idx].hand = myHand;
+      }
+    } catch (e) {
+      debugPrint('[GameProvider] Estimation hand merge failed: $e');
+    }
+    _updateState(incoming);
+  }
+
+  Future<void> _applyOnlineNinetyNineState(NinetyNineGameState incoming) async {
+    if (isHost || _transport == ConnectionTransport.local) {
+      nnProvider?.syncState(incoming);
+      return;
+    }
+    final roomId = _currentRoom?.id;
+    if (roomId == null || myPlayerId.isEmpty) {
+      nnProvider?.syncState(incoming);
+      return;
+    }
+    try {
+      final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
+      if (myHand.isNotEmpty) {
+        final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
+        if (idx != -1) {
+          incoming.players[idx] =
+              incoming.players[idx].copyWith(hand: myHand);
+        }
+      }
+    } catch (e) {
+      debugPrint('[GameProvider] 99 hand merge failed: $e');
+    }
+    nnProvider?.syncState(incoming);
+  }
+
+  Future<void> _applyOnlineBasraState(BasraGameState incoming) async {
+    if (isHost || _transport == ConnectionTransport.local) {
+      _basraProvider?.syncState(incoming);
+      return;
+    }
+    final roomId = _currentRoom?.id;
+    if (roomId == null || myPlayerId.isEmpty) {
+      _basraProvider?.syncState(incoming);
+      return;
+    }
+    try {
+      final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
+      if (myHand.isNotEmpty) {
+        final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
+        if (idx != -1) {
+          incoming.players[idx] =
+              incoming.players[idx].copyWith(hand: myHand);
+        }
+      }
+    } catch (e) {
+      debugPrint('[GameProvider] Basra hand merge failed: $e');
+    }
+    _basraProvider?.syncState(incoming);
+  }
+
   void _checkAutoPlayCard() {
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
@@ -554,7 +627,7 @@ class GameProvider extends ChangeNotifier {
   Future<void> _initializeMatchmakingClient(GameRoom room) async {
     final photo = await ProfileService.getProfilePhoto();
     _client = GameClient(
-      onStateUpdate: _updateState,
+      onStateUpdate: (state) => unawaited(_applyOnlineEstimationState(state)),
       onError: (error) => debugPrint('[Matchmaking] Client: $error'),
       onReaction: handleIncomingReaction,
       onEarthquake: handleIncomingEarthquake,
@@ -1150,26 +1223,21 @@ class GameProvider extends ChangeNotifier {
       if (type == 'ninety_nine') {
         _nnClient = NinetyNineGameClient(
           onError: (err) => _setError(err),
-          onStateUpdate: (state) {
-            nnProvider?.syncState(state);
-          },
+          onStateUpdate: (state) =>
+              unawaited(_applyOnlineNinetyNineState(state)),
           onReaction: handleIncomingReaction,
         );
         await _nnClient!.connect(room.id, myPlayerId, name, myPhoto);
       } else if (type == 'basra') {
         _basraClient = BasraGameClient(
           onError: (err) => _setError(err),
-          onStateUpdate: (state) {
-            _basraProvider?.syncState(state);
-          },
+          onStateUpdate: (state) => unawaited(_applyOnlineBasraState(state)),
           onReaction: handleIncomingReaction,
         );
         await _basraClient!.connect(room.id, myPlayerId, name, myPhoto);
       } else {
         _client = GameClient(
-          onStateUpdate: (state) {
-            _updateState(state);
-          },
+          onStateUpdate: (state) => unawaited(_applyOnlineEstimationState(state)),
           onError: (err) => _setError(err),
           onReaction: handleIncomingReaction,
           onEarthquake: handleIncomingEarthquake,
@@ -1779,7 +1847,7 @@ class GameProvider extends ChangeNotifier {
             if (idx != -1) _state!.players[idx].hand = myHand;
           }
         } catch (e) {
-          // Non-fatal: the host's next broadcast will overwrite with full state.
+          // Non-fatal: sanitized broadcast + RPC hand merge will recover.
           debugPrint('[Provider] Hand recovery skipped: $e');
         }
       }
@@ -1789,9 +1857,7 @@ class GameProvider extends ChangeNotifier {
 
       // 4. Re-subscribe to the Realtime broadcast channel.
       _client = GameClient(
-        onStateUpdate: (state) {
-          _updateState(state);
-        },
+        onStateUpdate: (state) => unawaited(_applyOnlineEstimationState(state)),
         onError: (err) => _setError(err),
       );
       final myPhoto = await ProfileService.getProfilePhoto();
@@ -1832,6 +1898,12 @@ class GameProvider extends ChangeNotifier {
         return false;
       }
       final restoredState = GameState.fromJson(snapshot);
+      final privateHands =
+          await _lobbyRepo.getRoomPrivateHandsForHost(session.roomId);
+      for (final entry in privateHands.entries) {
+        final idx = restoredState.players.indexWhere((p) => p.id == entry.key);
+        if (idx != -1) restoredState.players[idx].hand = entry.value;
+      }
 
       // 2. Clean up any existing connections.
       _client?.disconnect(myPlayerId);

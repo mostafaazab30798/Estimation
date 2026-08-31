@@ -343,9 +343,9 @@ class _EarthquakeEffectOverlayState extends State<EarthquakeEffectOverlay>
             Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
-                ..translate(dx, dy)
+                ..translateByDouble(dx, dy, 0.0, 1.0)
                 ..rotateZ(angle)
-                ..scale(sceneScale),
+                ..scaleByDouble(sceneScale, sceneScale, 1.0, 1.0),
               child: widget.child,
             ),
 

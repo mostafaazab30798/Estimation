@@ -2,6 +2,7 @@
 
 import 'dart:math';
 import '../core/utils/string_utils.dart';
+import '../services/ugc_service.dart';
 import 'rank_tier.dart';
 
 class UserProfile {
@@ -15,6 +16,8 @@ class UserProfile {
   final int gamesWon;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final DateTime? termsAcceptedAt;
+  final String? termsVersion;
 
   const UserProfile({
     required this.id,
@@ -27,7 +30,12 @@ class UserProfile {
     this.gamesWon = 0,
     this.createdAt,
     this.updatedAt,
+    this.termsAcceptedAt,
+    this.termsVersion,
   });
+
+  bool get hasAcceptedCurrentTerms =>
+      termsAcceptedAt != null && termsVersion == kCurrentTermsVersion;
 
   /// Factory from Supabase PostgREST JSON map
   factory UserProfile.fromMap(Map<String, dynamic> map) {
@@ -42,6 +50,10 @@ class UserProfile {
       gamesWon: (map['games_won'] as num?)?.toInt() ?? 0,
       createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
       updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'].toString()) : null,
+      termsAcceptedAt: map['terms_accepted_at'] != null
+          ? DateTime.tryParse(map['terms_accepted_at'].toString())
+          : null,
+      termsVersion: map['terms_version']?.toString(),
     );
   }
 
@@ -70,6 +82,8 @@ class UserProfile {
     int? gamesWon,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? termsAcceptedAt,
+    String? termsVersion,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -82,6 +96,8 @@ class UserProfile {
       gamesWon: gamesWon ?? this.gamesWon,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      termsAcceptedAt: termsAcceptedAt ?? this.termsAcceptedAt,
+      termsVersion: termsVersion ?? this.termsVersion,
     );
   }
 

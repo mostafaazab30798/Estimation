@@ -14,6 +14,31 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val releaseBuildRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+
+fun requireReleaseSigningProperty(name: String): String {
+    return keystoreProperties[name] as? String
+        ?: error(
+            "Release signing requires '$name' in android/key.properties. " +
+                "Release builds must not fall back to the debug key. See android/SIGNING.md."
+        )
+}
+
+fun validateReleaseSigningConfig() {
+    if (!keystorePropertiesFile.exists()) {
+        error(
+            "Release signing requires android/key.properties. " +
+                "Release builds must not fall back to the debug key. See android/SIGNING.md."
+        )
+    }
+    requireReleaseSigningProperty("storeFile")
+    requireReleaseSigningProperty("storePassword")
+    requireReleaseSigningProperty("keyAlias")
+    requireReleaseSigningProperty("keyPassword")
+}
+
 android {
     namespace = "com.mostafaazab.estimation"
     compileSdk = 36
@@ -39,10 +64,10 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String?
-                keyPassword = keystoreProperties["keyPassword"] as String?
-                storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-                storePassword = keystoreProperties["storePassword"] as String?
+                keyAlias = requireReleaseSigningProperty("keyAlias")
+                keyPassword = requireReleaseSigningProperty("keyPassword")
+                storeFile = file(requireReleaseSigningProperty("storeFile"))
+                storePassword = requireReleaseSigningProperty("storePassword")
             }
         }
     }
@@ -55,11 +80,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (releaseBuildRequested) {
+                validateReleaseSigningConfig()
             }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

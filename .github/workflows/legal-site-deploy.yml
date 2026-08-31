@@ -1,0 +1,58 @@
+name: Deploy Legal Site
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'legal-site/**'
+      - '.github/workflows/legal-site-deploy.yml'
+
+concurrency:
+  group: legal-site-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy legal.hope-tv.site
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_LEGAL_PAGES_PROJECT: ${{ vars.CLOUDFLARE_LEGAL_PAGES_PROJECT || 'estimation-legal' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ea9e9a3294eaa207c8e77 # v4.2.2
+
+      - name: Validate legal site
+        shell: bash
+        run: |
+          test -s legal-site/index.html
+          test -s legal-site/privacy/index.html
+          test -s legal-site/account-deletion/index.html
+          test -s legal-site/terms/index.html
+          test -s legal-site/legal/legal.css
+          test -s legal-site/_headers
+          test -s legal-site/_redirects
+
+      - name: Require Cloudflare credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required."
+            exit 1
+          fi
+
+      - name: Deploy separate legal Pages project
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy legal-site --project-name=${{ env.CLOUDFLARE_LEGAL_PAGES_PROJECT }} --branch=main

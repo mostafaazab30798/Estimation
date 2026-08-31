@@ -1,5 +1,6 @@
 // lib/core/models/player.dart
 import 'card.dart';
+import '../../services/profile_service.dart';
 
 class Player {
   final String id;
@@ -67,7 +68,7 @@ class Player {
         'id': id,
         'name': name,
         'seatIndex': seatIndex,
-        'photo': photo,
+        'photo': isSelf ? photo : ProfileService.publicAvatarRef(photo),
         'hand': isSelf
             ? hand.map((c) => c.toJson()).toList()
             : List.generate(

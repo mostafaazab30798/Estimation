@@ -13,6 +13,6 @@ void main() async {
   if (bytes.length > 24) {
     final width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
     final height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
-    print('Width: $width, Height: $height, Aspect Ratio: ${width / height}');
+    stdout.writeln('Width: $width, Height: $height, Aspect Ratio: ${width / height}');
   }
 }
