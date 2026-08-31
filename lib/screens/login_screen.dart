@@ -65,12 +65,12 @@ class _LoginScreenState extends State<LoginScreen>
     await SettingsService.instance.markLoginGateCompleted();
   }
 
-  Future<void> _handleGoogleSignIn() async {
+  Future<bool> _handleGoogleSignIn() async {
     HapticFeedback.mediumImpact();
     AudioService.instance.playCard();
     try {
       final profile = await AuthService.instance.signInWithGoogle();
-      if (!mounted) return;
+      if (!mounted) return false;
       if (profile != null) {
         SnackbarHelper.showSuccess(
           context,
@@ -78,14 +78,17 @@ class _LoginScreenState extends State<LoginScreen>
           title: 'تم تسجيل الدخول',
         );
         await _completeAndNavigate();
+        return true;
       }
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       SnackbarHelper.showError(
         context,
         'تعذر تسجيل الدخول. حاول مرة أخرى.',
         title: 'خطأ',
       );
+      return false;
     }
   }
 
@@ -236,7 +239,7 @@ class _LoginHero extends StatelessWidget {
 // ── Auth Panel ───────────────────────────────────────────────────────────────
 
 class _LoginAuthPanel extends StatelessWidget {
-  final VoidCallback onGoogleSignIn;
+  final Future<bool> Function() onGoogleSignIn;
   final VoidCallback onGuestContinue;
   final bool isGuestLoading;
 
@@ -298,7 +301,7 @@ class _LoginAuthPanel extends StatelessWidget {
               const SizedBox(height: 22),
               Consumer<AuthService>(
                 builder: (context, auth, _) => GoogleSignInButton(
-                  onPressed: onGoogleSignIn,
+                  onSlide: onGoogleSignIn,
                   isLoading: auth.isLoading,
                 ),
               ),

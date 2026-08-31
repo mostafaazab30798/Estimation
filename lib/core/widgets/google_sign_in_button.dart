@@ -1,79 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:slider_button/slider_button.dart';
 
 import '../../theme/app_theme.dart';
-import '../icons/app_icons.dart';
 
-/// Primary Google Sign-In CTA — cream pill with logo, used on login & profile.
-class GoogleSignInButton extends StatelessWidget {
-  final VoidCallback? onPressed;
+/// Slide-to-confirm Google Sign-In — Google icon acts as the draggable wheel.
+class GoogleSignInButton extends StatefulWidget {
+  final Future<bool> Function() onSlide;
   final bool isLoading;
   final String label;
 
   const GoogleSignInButton({
     super.key,
-    required this.onPressed,
+    required this.onSlide,
     this.isLoading = false,
-    this.label = 'تسجيل الدخول عبر Google',
+    this.label = 'اسحب للمتابعة مع Google',
   });
 
   @override
+  State<GoogleSignInButton> createState() => _GoogleSignInButtonState();
+}
+
+class _GoogleSignInButtonState extends State<GoogleSignInButton> {
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.cream,
-          disabledBackgroundColor: AppTheme.cream.withValues(alpha: 0.65),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final trackWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 48;
+
+        return SliderButton(
+          buttonKey: ValueKey('google_slider_${widget.isLoading}'),
+          action: widget.onSlide,
+          disable: widget.isLoading,
+          rightToLeftLocale: true,
+          vibrationFlag: true,
+          width: trackWidth,
+          height: 56,
+          buttonSize: 48,
+          radius: 16,
+          dismissThresholds: 0.72,
+          backgroundColor: AppTheme.cream.withValues(alpha: 0.14),
+          useGlassEffect: true,
+          glassBlurSigma: 12,
+          glassBorderColor: AppTheme.cream.withValues(alpha: 0.28),
+          glassBorderWidth: 1.2,
+          buttonColor: AppTheme.cream,
+          baseColor: AppTheme.steelBlue.withValues(alpha: 0.55),
+          highlightedColor: AppTheme.cream.withValues(alpha: 0.95),
+          alignLabel: Alignment.center,
+          boxShadow: BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: AppTheme.navyDark,
-                  strokeWidth: 2.5,
+          label: widget.isLoading
+              ? Text(
+                  'جاري تسجيل الدخول...',
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.cream.withValues(alpha: 0.85),
+                  ),
+                )
+              : Text(
+                  widget.label,
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.cream.withValues(alpha: 0.9),
+                  ),
                 ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.network(
-                    'https://lh3.googleusercontent.com/COxitqgJr1sJnIDe8-jiKhxDx1FrYbtRHKJ9ztnGKOUJGpgq-NxjqbNA6cKoooVLmQI',
-                    width: 22,
-                    height: 22,
-                    errorBuilder: (_, __, ___) => const AppIcon(
-                      AppIcons.accountCircle,
-                      size: 22,
-                      color: AppTheme.navyDark,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        style: GoogleFonts.cairo(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.navyDark,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-      ),
+          icon: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Image.asset(
+              'assets/google.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        );
+      },
     );
   }
 }

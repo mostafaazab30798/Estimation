@@ -30,6 +30,7 @@ dependencies:
   nsd: ^5.0.0
   share_plus: ^13.3.0
   hugeicons: ^1.1.7
+  slider_button: 3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -57,6 +58,7 @@ flutter:
     - assets/wallpapers/w2.jpg
     - assets/avatars/
     - assets/p1.png
+    - assets/google.png
 
 flutter_launcher_icons:
   android: "launcher_icon"
