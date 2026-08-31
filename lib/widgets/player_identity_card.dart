@@ -10,7 +10,6 @@ import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
 import '../models/rank_tier.dart';
 import '../services/auth_service.dart';
-import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/widgets/app_buttons.dart';
@@ -73,7 +72,6 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
 
   void _flipCard() {
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
     if (_isBack) {
       _flipController.reverse();
       setState(() => _isBack = false);
@@ -87,7 +85,6 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     if (_isSharing) return;
     setState(() => _isSharing = true);
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
 
     final level = AuthService.instance.currentProfile?.level ?? 1;
 
@@ -125,7 +122,6 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
 
   void _openCustomizerSheet() {
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
 
     showModalBottomSheet(
       context: context,

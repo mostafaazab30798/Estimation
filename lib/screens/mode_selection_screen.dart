@@ -117,14 +117,12 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
 
   void _openProfile() async {
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
     await Navigator.pushNamed(context, '/profile');
     _loadPlayerProfile();
   }
 
   void _tap(VoidCallback action) {
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
     action();
   }
 

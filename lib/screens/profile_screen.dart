@@ -1211,7 +1211,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             onTap: () {
                               if (vm.currentTab == id) return;
                               HapticFeedback.selectionClick();
-                              AudioService.instance.playCard();
                               vm.setTab(id);
                             },
                             borderRadius: BorderRadius.circular(22),
@@ -1329,7 +1328,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: InkWell(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    AudioService.instance.playCard();
                     vm.setProfileSubTab(id);
                   },
                   borderRadius: BorderRadius.circular(99),
@@ -3294,7 +3292,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     value: _settings.hapticsEnabled,
                     onChanged: (val) {
                       _settings.setHapticsEnabled(val);
-                      if (val) AudioService.instance.playCard();
                     },
                   ),
                 ],
@@ -3896,7 +3893,6 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
         child: ExpansionTile(
           onExpansionChanged: (exp) {
             HapticFeedback.selectionClick();
-            AudioService.instance.playCard();
             setState(() => _isExpanded = exp);
           },
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

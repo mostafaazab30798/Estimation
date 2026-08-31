@@ -31,7 +31,6 @@ import '../widgets/hud/ready_phase_overlay.dart';
 import '../widgets/hud/turn_timer_badge.dart';
 import '../widgets/hud/reaction_bubble_widget.dart';
 import '../widgets/hud/reaction_picker_sheet.dart';
-import '../services/audio_service.dart';
 import '../services/reconnection_manager.dart';
 import 'scoring_screen.dart';
 import 'match_end_screen.dart';
@@ -59,12 +58,6 @@ class _GameScreenState extends State<GameScreen> {
   GamePhase? _lastObservedPhase;
   GamePhase? _lastDialogPhase;
   bool? _lastDialogIsMyTurn;
-
-  @override
-  void initState() {
-    super.initState();
-    AudioService.instance.bindToEventBus();
-  }
 
   @override
   void didChangeDependencies() {

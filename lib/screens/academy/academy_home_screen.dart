@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/academy_models.dart';
 import '../../services/academy_service.dart';
-import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../core/widgets/app_buttons.dart';
 import 'academy_lesson_screen.dart';
@@ -33,7 +32,6 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
 
   void _openLesson(AcademyLesson lesson) async {
     HapticFeedback.lightImpact();
-    AudioService.instance.playCard();
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -186,7 +184,6 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
             accent: AppTheme.gold,
             dense: true,
             onTap: () {
-              AudioService.instance.playCard();
               Navigator.pop(context);
             },
           ),

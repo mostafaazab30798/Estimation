@@ -180,50 +180,28 @@ class AudioService {
 
   StreamSubscription? _eventSub;
 
-  /// Binds AudioService to the EstimationEventBus to automatically trigger sound cues on game events.
+  /// Optional bus binding. SFX are owned by game UI at the visual moment
+  /// (card land, trick sweep, dash win, match end) so this stays unbound.
   void bindToEventBus({String? currentUserId}) {
-    _eventSub?.cancel();
+    unbindFromEventBus();
     _eventSub = EstimationEventBus.instance.events.listen((event) {
       playEventAudio(event, currentUserId: currentUserId);
     });
   }
 
-  /// Triggers sound effects and haptics mapped to an EstimationGameEvent.
-  void playEventAudio(EstimationGameEvent event, {String? currentUserId}) {
-    if (event is TrickWon) {
-      playCollection();
-    } else if (event is EarthquakeStrikeUsed) {
-      // Slam SFX/haptics fire from EarthquakeEffectOverlay at impact time,
-      // so the rumble lands with the card strike — not at flight start.
-    } else if (event is RiskDeclaration || event is DashCallSucceeded) {
-      playRiskWin();
-    } else if (event is PerfectEstimate) {
-      if (currentUserId == null || event.playerId == currentUserId) {
-        playWin();
-      }
-    } else if (event is DeclarationMissed) {
-      if (currentUserId == null || event.playerId == currentUserId) {
-        playDefeat();
-      }
-    } else if (event is DashCallFailed) {
-      if (currentUserId == null || event.playerId == currentUserId) {
-        playDefeat();
-      }
-    } else if (event is ForbiddenDeclarationAttempt) {
-      _triggerHaptic(HapticFeedback.vibrate);
-    } else if (event is DoubleRoundStarted || event is FinalRoundStarted) {
-      playRiskWin();
-    } else if (event is MatchCompleted) {
-      if (currentUserId == null || event.winner.id == currentUserId) {
-        playWin();
-      }
-    }
+  void unbindFromEventBus() {
+    _eventSub?.cancel();
+    _eventSub = null;
   }
+
+  /// Intentionally a no-op. Playing from the event bus duplicated widget SFX
+  /// and fired celebration sounds on non-major events (perfect estimate,
+  /// double round, any missed bid, etc.).
+  void playEventAudio(EstimationGameEvent event, {String? currentUserId}) {}
 
   /// Cleanly disposes audio players.
   void dispose() {
-    _eventSub?.cancel();
-    _eventSub = null;
+    unbindFromEventBus();
     _cardPlayer?.dispose();
     _collectPlayer?.dispose();
     _winPlayer?.dispose();

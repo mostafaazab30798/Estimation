@@ -33,12 +33,14 @@ class ModeHomeBackground extends StatefulWidget {
   final String wallpaperAsset;
   final Color primaryGlow;
   final Color secondaryGlow;
+  final bool subtleOverlay;
 
   const ModeHomeBackground({
     super.key,
     required this.wallpaperAsset,
     this.primaryGlow = AppTheme.gold,
     this.secondaryGlow = AppTheme.midBlue,
+    this.subtleOverlay = false,
   });
 
   @override
@@ -82,11 +84,17 @@ class _ModeHomeBackgroundState extends State<ModeHomeBackground>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.55),
-                AppTheme.deepNavy.withValues(alpha: 0.88),
-                AppTheme.deepNavy.withValues(alpha: 0.97),
-              ],
+              colors: widget.subtleOverlay
+                  ? [
+                      Colors.black.withValues(alpha: 0.08),
+                      AppTheme.deepNavy.withValues(alpha: 0.22),
+                      AppTheme.deepNavy.withValues(alpha: 0.42),
+                    ]
+                  : [
+                      Colors.black.withValues(alpha: 0.55),
+                      AppTheme.deepNavy.withValues(alpha: 0.88),
+                      AppTheme.deepNavy.withValues(alpha: 0.97),
+                    ],
               stops: const [0.0, 0.45, 1.0],
             ),
           ),

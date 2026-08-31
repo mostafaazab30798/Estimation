@@ -8,7 +8,6 @@ import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
 import '../models/rank_tier.dart';
 import '../services/auth_service.dart';
-import '../services/audio_service.dart';
 import '../services/share_card_service.dart';
 import '../theme/app_theme.dart';
 import '../core/widgets/player_avatar.dart';
@@ -65,7 +64,6 @@ class ShareMyEstimationDialog extends StatefulWidget {
     String? matchRankTitle,
   }) {
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
 
     return showDialog(
       context: context,
@@ -98,7 +96,6 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
     if (_isSharing) return;
     setState(() => _isSharing = true);
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
 
     try {
       if (widget.type == ShareCardType.matchVictory) {
@@ -136,7 +133,6 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
   void _copyCaptionText() {
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
 
     final displayName = widget.playerName.trim().isNotEmpty ? widget.playerName.trim() : 'لاعب كوتشينة';
     String textToCopy = '';

@@ -129,11 +129,13 @@ select throws_ok(
   'non-host cannot save opponent hand'
 );
 
--- Denied at GRANT (42501) or inside the function (SERVICE_ROLE_ONLY).
-select throws_like(
-  $$ select public.increment_player_stats(tests.get_supabase_uid('bob'), 50, true) $$,
-  '(permission denied|SERVICE_ROLE_ONLY|COMPETITIVE_FIELDS_READ_ONLY)',
-  'authenticated user cannot increment stats'
+-- Clients must not have EXECUTE on the stats RPC (revoked in 202608310005).
+select ok(
+  not has_function_privilege(
+    'public.increment_player_stats(uuid, bigint, boolean)',
+    'EXECUTE'
+  ),
+  'authenticated user cannot execute increment_player_stats'
 );
 
 -- ─── Profile privacy (Alice) ─────────────────────────────────────────────────

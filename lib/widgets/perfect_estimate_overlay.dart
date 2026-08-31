@@ -7,7 +7,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
@@ -116,10 +115,8 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
 
     _mainController.forward();
 
-    // Trigger audio & haptics
     try {
       HapticFeedback.heavyImpact();
-      AudioService.instance.playWin();
     } catch (_) {}
 
     _autoDismissTimer = Timer(widget.displayDuration, () {

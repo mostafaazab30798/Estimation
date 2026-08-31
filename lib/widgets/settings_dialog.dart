@@ -208,7 +208,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
                             inactiveTrackColor: AppTheme.surface2,
                             onChanged: (val) {
                               _settings.setHapticsEnabled(val);
-                              if (val) AudioService.instance.playCard();
                             },
                           ),
                         ),

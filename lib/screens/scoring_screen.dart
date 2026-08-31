@@ -66,14 +66,11 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
 
     final me = widget.provider.me;
     if (me != null) {
-      final delta = widget.state.lastRoundScoreDeltas[me.id] ?? 0;
       if (me.declared != null && me.actual == me.declared) {
         _showPerfectEstimate = true;
-        if (me.isRisk || me.isDashCall) {
+        if (me.isDashCall) {
           AudioService.instance.playRiskWin();
         }
-      } else if (delta < 0) {
-        AudioService.instance.playDefeat();
       }
 
       // Check for round comeback for current player

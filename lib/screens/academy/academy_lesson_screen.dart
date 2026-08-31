@@ -7,7 +7,6 @@ import '../../models/academy_models.dart';
 import '../../core/constants.dart';
 import '../../core/models/card.dart';
 import '../../services/academy_service.dart';
-import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
 import '../../core/widgets/app_buttons.dart';
@@ -60,7 +59,6 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
     if (_isEvaluating || _isSubmitted) return;
 
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
 
     setState(() {
       _selectedOptionId = option.id;
@@ -77,7 +75,6 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
 
     if (isAcceptable) {
       HapticFeedback.heavyImpact();
-      AudioService.instance.playWin();
     } else {
       HapticFeedback.mediumImpact();
     }
@@ -228,7 +225,6 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
             accent: AppTheme.gold,
             dense: true,
             onTap: () {
-              AudioService.instance.playCard();
               Navigator.pop(context);
             },
           ),

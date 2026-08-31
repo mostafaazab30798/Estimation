@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../../../core/utils/snackbar_helper.dart';
 import '../../../../core/widgets/mode_home_shell.dart';
 import '../../../../providers/game_provider.dart';
-import '../../../../services/audio_service.dart';
 import '../../../../services/profile_service.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/performance_blur.dart';
@@ -162,7 +161,6 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
 
   void _tap(VoidCallback action) {
     HapticFeedback.lightImpact();
-    AudioService.instance.playCard();
     action();
   }
 

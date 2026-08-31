@@ -14,7 +14,6 @@ import '../core/widgets/mode_home_shell.dart';
 import '../core/widgets/app_buttons.dart';
 import '../core/constants.dart';
 import '../widgets/performance_blur.dart';
-import '../services/audio_service.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -265,7 +264,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _tap(VoidCallback action) {
     HapticFeedback.lightImpact();
-    AudioService.instance.playCard();
     action();
   }
 

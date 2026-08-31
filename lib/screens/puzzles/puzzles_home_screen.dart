@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/puzzle_models.dart';
 import '../../services/puzzle_service.dart';
-import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../core/widgets/app_buttons.dart';
 import 'puzzle_solve_screen.dart';
@@ -33,7 +32,6 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
 
   void _openPuzzle(EstimationPuzzle puzzle, {bool isDaily = false}) async {
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -206,7 +204,6 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
             accent: AppTheme.gold,
             dense: true,
             onTap: () {
-              AudioService.instance.playCard();
               Navigator.pop(context);
             },
           ),

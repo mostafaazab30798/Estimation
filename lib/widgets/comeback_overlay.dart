@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/comeback_event.dart';
-import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
@@ -119,10 +118,8 @@ class _ComebackOverlayState extends State<ComebackOverlay>
 
     _mainController.forward();
 
-    // Trigger audio & haptics
     try {
       HapticFeedback.heavyImpact();
-      AudioService.instance.playWin();
     } catch (_) {}
 
     _autoDismissTimer = Timer(widget.displayDuration, () {

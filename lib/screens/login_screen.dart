@@ -16,7 +16,6 @@ import '../core/icons/app_icons.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/google_sign_in_button.dart';
 import '../core/widgets/mode_home_shell.dart';
-import '../services/audio_service.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../services/settings_service.dart';
@@ -67,7 +66,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<bool> _handleGoogleSignIn() async {
     HapticFeedback.mediumImpact();
-    AudioService.instance.playCard();
     try {
       final profile = await AuthService.instance.signInWithGoogle();
       if (!mounted) return false;
@@ -94,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handleGuestContinue() async {
     HapticFeedback.lightImpact();
-    AudioService.instance.playCard();
     setState(() => _isGuestLoading = true);
 
     try {
@@ -126,9 +123,10 @@ class _LoginScreenState extends State<LoginScreen>
         fit: StackFit.expand,
         children: [
           const ModeHomeBackground(
-            wallpaperAsset: 'assets/wallpapers/w2.jpg',
-            primaryGlow: AppTheme.gold,
-            secondaryGlow: AppTheme.phaseAuction,
+            wallpaperAsset: 'assets/wallpapers/login-wall.png',
+            primaryGlow: AppTheme.phaseAuction,
+            secondaryGlow: AppTheme.midBlue,
+            subtleOverlay: true,
           ),
           SafeArea(
             child: Column(

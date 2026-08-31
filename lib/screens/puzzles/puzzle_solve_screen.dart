@@ -8,7 +8,6 @@ import '../../models/puzzle_models.dart';
 import '../../core/constants.dart';
 import '../../core/models/card.dart';
 import '../../services/puzzle_service.dart';
-import '../../services/audio_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
 import '../../core/widgets/app_buttons.dart';
@@ -56,7 +55,6 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
   void _onSelectOption(PuzzleOption option) {
     if (_isSubmitted) return;
     HapticFeedback.selectionClick();
-    AudioService.instance.playCard();
     setState(() {
       _selectedOptionId = option.id;
     });
@@ -89,7 +87,6 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
 
       if (quality.isSuccessful) {
         HapticFeedback.heavyImpact();
-        AudioService.instance.playWin();
       } else {
         HapticFeedback.mediumImpact();
       }

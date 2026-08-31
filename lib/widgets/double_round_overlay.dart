@@ -8,7 +8,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/audio_service.dart';
 import '../theme/app_theme.dart';
 
 class DoubleRoundOverlay extends StatefulWidget {
@@ -110,10 +109,8 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
 
     _mainController.forward();
 
-    // Trigger audio & haptic feedback
     try {
       HapticFeedback.heavyImpact();
-      AudioService.instance.playRiskWin();
     } catch (_) {}
 
     _autoDismissTimer = Timer(widget.displayDuration, () {
