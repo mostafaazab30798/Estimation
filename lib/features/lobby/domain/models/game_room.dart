@@ -50,6 +50,8 @@ class GameRoom {
   bool get isPrivateRoom => !isMatchmaking;
   bool get isBotVoteOpen => matchmakingState == 'voting';
   bool get isMatchmakingStarting => matchmakingState == 'starting';
+  bool get isMatchmakingWaiting =>
+      isMatchmaking && status == GameRoomStatus.waiting;
 
   factory GameRoom.fromJson(Map<String, dynamic> json) {
     GameRoomStatus parseStatus(String status) {

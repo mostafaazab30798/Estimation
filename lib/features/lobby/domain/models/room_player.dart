@@ -27,4 +27,13 @@ class RoomPlayer {
       joinedAt: DateTime.parse(json['joined_at'] as String),
     );
   }
+
+  /// True when both lists contain the same player ids, ignoring row metadata
+  /// such as `last_seen` or `hand_cards` that change on every heartbeat/save.
+  static bool sameMembership(List<RoomPlayer> a, List<RoomPlayer> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    final ids = <String>{for (final player in a) player.playerId};
+    return b.every((player) => ids.contains(player.playerId));
+  }
 }

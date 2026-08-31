@@ -149,6 +149,12 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _onAppResumed() async {
     _startHeartbeat();
 
+    // User chose "leave to home" — keep the seat reserved but do not
+    // silently rejoin in the background. They tap "return" to resume.
+    if (_gameProvider.isTemporarilyAway) {
+      return;
+    }
+
     // If we are already live in a room, just refresh the heartbeat.
     if (_gameProvider.status == ConnectionStatus.connected &&
         _gameProvider.currentRoom != null) {

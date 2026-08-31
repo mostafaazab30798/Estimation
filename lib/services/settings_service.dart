@@ -13,17 +13,20 @@ class SettingsService extends ChangeNotifier {
   static const String _kKeyHapticsEnabled = 'settings_haptics_enabled';
   static const String _kKeySfxVolume = 'settings_sfx_volume';
   static const String _kKeyEarthquakeEffect = 'settings_earthquake_effect';
+  static const String _kKeyLoginGateCompleted = 'login_gate_completed';
 
   bool _sfxEnabled = true;
   bool _hapticsEnabled = true;
   double _sfxVolume = 0.8;
   EarthquakeEffect _earthquakeEffect = EarthquakeEffect.magma;
+  bool _loginGateCompleted = false;
   bool _initialized = false;
 
   bool get sfxEnabled => _sfxEnabled;
   bool get hapticsEnabled => _hapticsEnabled;
   double get sfxVolume => _sfxVolume;
   EarthquakeEffect get earthquakeEffect => _earthquakeEffect;
+  bool get loginGateCompleted => _loginGateCompleted;
   bool get isInitialized => _initialized;
 
   /// Loads saved preferences from SharedPreferences.
@@ -37,6 +40,7 @@ class SettingsService extends ChangeNotifier {
       _earthquakeEffect = EarthquakeEffect.fromStorage(
         prefs.getString(_kKeyEarthquakeEffect),
       );
+      _loginGateCompleted = prefs.getBool(_kKeyLoginGateCompleted) ?? false;
       _initialized = true;
       notifyListeners();
     } catch (e) {
@@ -81,6 +85,19 @@ class SettingsService extends ChangeNotifier {
       await prefs.setDouble(_kKeySfxVolume, clamped);
     } catch (e) {
       debugPrint('[SettingsService] Failed to save sfxVolume: $e');
+    }
+  }
+
+  /// Marks the first-run login screen as completed (guest or Google).
+  Future<void> markLoginGateCompleted() async {
+    if (_loginGateCompleted) return;
+    _loginGateCompleted = true;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kKeyLoginGateCompleted, true);
+    } catch (e) {
+      debugPrint('[SettingsService] Failed to save loginGateCompleted: $e');
     }
   }
 

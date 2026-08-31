@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/game_provider.dart';
 import 'modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import 'modes/basra/presentation/providers/basra_game_provider.dart';
+import 'screens/app_entry_screen.dart';
 import 'screens/mode_selection_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
@@ -238,7 +239,8 @@ class KotshinaApp extends StatelessWidget {
 
         initialRoute: '/',
         routes: {
-          '/': (_) => const ModeSelectionScreen(),
+          '/': (_) => const AppEntryLoader(),
+          '/home': (_) => const ModeSelectionScreen(),
           '/kotchina/home': (_) => const HomeScreen(),
           '/lobby': (_) => const LobbyScreen(),
           '/game': (_) => const GameScreen(),

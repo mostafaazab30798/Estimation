@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:estimation/features/lobby/domain/models/game_room.dart';
+import 'package:estimation/features/lobby/domain/models/room_player.dart';
 import 'package:estimation/features/matchmaking/domain/models/bot_fill_vote_result.dart';
 import 'package:estimation/features/matchmaking/domain/models/matchmaking_join_result.dart';
 
@@ -23,6 +24,26 @@ void main() {
       expect(room.matchmakingState, 'none');
       expect(room.botsToFill, 0);
       expect(room.botOfferVersion, 0);
+    });
+
+    test('playing matchmaking rooms are not treated as waiting', () {
+      final room = GameRoom.fromJson({
+        ...baseJson(),
+        'room_kind': 'matchmaking',
+        'matchmaking_state': 'starting',
+        'status': 'playing',
+      });
+      expect(room.isMatchmaking, isTrue);
+      expect(room.isMatchmakingWaiting, isFalse);
+    });
+
+    test('waiting matchmaking rooms expose isMatchmakingWaiting', () {
+      final room = GameRoom.fromJson({
+        ...baseJson(),
+        'room_kind': 'matchmaking',
+        'matchmaking_state': 'waiting',
+      });
+      expect(room.isMatchmakingWaiting, isTrue);
     });
 
     test('matchmaking state and vote aggregate are typed', () {
@@ -67,4 +88,32 @@ void main() {
     expect(vote.shouldStart, isTrue);
     expect(vote.humanCount + vote.botsToFill, 4);
   });
+
+  group('RoomPlayer membership', () {
+    test('same roster is unchanged even when row metadata would differ', () {
+      final first = [_player('a'), _player('b')];
+      final replay = [_player('b'), _player('a')];
+      expect(RoomPlayer.sameMembership(first, replay), isTrue);
+    });
+
+    test('joining or leaving a seat is a membership change', () {
+      expect(
+        RoomPlayer.sameMembership([_player('a')], [_player('a'), _player('b')]),
+        isFalse,
+      );
+      expect(
+        RoomPlayer.sameMembership([_player('a'), _player('b')], [_player('a')]),
+        isFalse,
+      );
+    });
+  });
 }
+
+RoomPlayer _player(String playerId) => RoomPlayer(
+      id: 'row-$playerId',
+      roomId: 'room-id',
+      playerId: playerId,
+      playerName: playerId,
+      isHost: false,
+      joinedAt: DateTime.utc(2026, 8, 28),
+    );

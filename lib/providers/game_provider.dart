@@ -184,8 +184,7 @@ class GameProvider extends ChangeNotifier {
       if (myHand.isNotEmpty) {
         final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
         if (idx != -1) {
-          incoming.players[idx] =
-              incoming.players[idx].copyWith(hand: myHand);
+          incoming.players[idx] = incoming.players[idx].copyWith(hand: myHand);
         }
       }
     } catch (e) {
@@ -209,8 +208,7 @@ class GameProvider extends ChangeNotifier {
       if (myHand.isNotEmpty) {
         final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
         if (idx != -1) {
-          incoming.players[idx] =
-              incoming.players[idx].copyWith(hand: myHand);
+          incoming.players[idx] = incoming.players[idx].copyWith(hand: myHand);
         }
       }
     } catch (e) {
@@ -222,6 +220,8 @@ class GameProvider extends ChangeNotifier {
   void _checkAutoPlayCard() {
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
+
+    if (_isTemporarilyAway || _status != ConnectionStatus.connected) return;
 
     final st = _state;
     final localMe = me;
@@ -238,6 +238,9 @@ class GameProvider extends ChangeNotifier {
     if (legalCards.length == 1) {
       final cardToPlay = legalCards.first;
       _autoPlayCardTimer = Timer(const Duration(milliseconds: 550), () {
+        if (_isTemporarilyAway || _status != ConnectionStatus.connected) {
+          return;
+        }
         if (_state != null &&
             _state!.phase == GamePhase.trickTaking &&
             _state!.currentPlayerSeatIndex == me?.seatIndex &&
@@ -447,9 +450,21 @@ class GameProvider extends ChangeNotifier {
     _playersSub?.cancel();
     _playersSub = _lobbyRepo.watchRoomPlayers(roomId).listen(
       (players) {
+        final membershipChanged =
+            !RoomPlayer.sameMembership(_roomPlayers, players);
         _roomPlayers = players;
-        if (isMatchmaking) _handleMatchmakingPopulationChanged();
-        notifyListeners();
+        final room = _currentRoom;
+        if (membershipChanged &&
+            !_isTemporarilyAway &&
+            room != null &&
+            room.isMatchmakingWaiting) {
+          _handleMatchmakingPopulationChanged();
+        }
+        // Heartbeats and hand saves rewrite room_players rows without changing
+        // who is seated. Skip those notifies once the match is in progress.
+        if (membershipChanged || !_isGameInProgress) {
+          notifyListeners();
+        }
       },
       onError: (err) {
         // Same: player-list stream errors mid-game are non-fatal.
@@ -502,10 +517,12 @@ class GameProvider extends ChangeNotifier {
   }
 
   void _handleMatchmakingPopulationChanged() {
+    final room = _currentRoom;
+    if (room == null || !room.isMatchmakingWaiting || _isTemporarilyAway) {
+      return;
+    }
     debugPrint('[Matchmaking] Population changed: ${_roomPlayers.length}/4');
     _cancelMatchmakingBotOfferTimer();
-    final room = _currentRoom;
-    if (room == null || !room.isMatchmaking) return;
     if (room.isMatchmakingStarting && isHost) {
       unawaited(_startApprovedMatchmakingGame());
       return;
@@ -1237,7 +1254,8 @@ class GameProvider extends ChangeNotifier {
         await _basraClient!.connect(room.id, myPlayerId, name, myPhoto);
       } else {
         _client = GameClient(
-          onStateUpdate: (state) => unawaited(_applyOnlineEstimationState(state)),
+          onStateUpdate: (state) =>
+              unawaited(_applyOnlineEstimationState(state)),
           onError: (err) => _setError(err),
           onReaction: handleIncomingReaction,
           onEarthquake: handleIncomingEarthquake,
@@ -1773,6 +1791,13 @@ class GameProvider extends ChangeNotifier {
       return;
     }
     _isTemporarilyAway = true;
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
+    _cancelMatchmakingBotOfferTimer();
+    _roomSub?.cancel();
+    _roomSub = null;
+    _playersSub?.cancel();
+    _playersSub = null;
     try {
       await _lobbyRepo.markOffline(room.id);
     } catch (error) {
@@ -1793,6 +1818,7 @@ class GameProvider extends ChangeNotifier {
     if (isHost && _server != null) {
       _server!.reclaimHostSeat();
       await _lobbyRepo.pingHeartbeat(session.roomId);
+      _listenToRoom(session.roomId);
       _status = ConnectionStatus.connected;
       _isTemporarilyAway = false;
       notifyListeners();
