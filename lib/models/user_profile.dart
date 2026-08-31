@@ -43,7 +43,7 @@ class UserProfile {
       id: map['id']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       username: StringUtils.capitalizeWords(map['username']?.toString() ?? 'Player'),
-      avatarUrl: map['avatar_url']?.toString() ?? 'preset:king',
+      avatarUrl: map['avatar_url']?.toString() ?? '',
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level: (map['level'] as num?)?.toInt() ?? 1,
       gamesPlayed: (map['games_played'] as num?)?.toInt() ?? 0,

@@ -56,6 +56,8 @@ class AuthService extends ChangeNotifier {
 
     if (isAuthenticated) {
       await refreshProfile();
+    } else {
+      await ProfileService.ensureGuestAvatar();
     }
     _isInitialized = true;
   }
@@ -111,6 +113,8 @@ class AuthService extends ChangeNotifier {
         }
         if (profile.avatarUrl.isNotEmpty) {
           await ProfileService.saveProfilePhoto(profile.avatarUrl);
+        } else {
+          await ProfileService.ensureGuestAvatar();
         }
 
         _currentProfile = profile;
@@ -151,6 +155,8 @@ class AuthService extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
 
+    await ProfileService.ensureGuestAvatar();
+
     // Re-sign in anonymously in background for RLS if needed
     try {
       await _supabase.auth.signInAnonymously();
@@ -187,6 +193,9 @@ class AuthService extends ChangeNotifier {
         if (_currentProfile!.username.isNotEmpty) {
           await ProfileService.saveProfileName(_currentProfile!.username);
         }
+        if (_currentProfile!.avatarUrl.isNotEmpty) {
+          await ProfileService.saveProfilePhoto(_currentProfile!.avatarUrl);
+        }
         notifyListeners();
         return _currentProfile;
       } else {
@@ -194,6 +203,9 @@ class AuthService extends ChangeNotifier {
         _currentProfile = await _fetchOrBootstrapProfile(user);
         if (_currentProfile!.username.isNotEmpty) {
           await ProfileService.saveProfileName(_currentProfile!.username);
+        }
+        if (_currentProfile!.avatarUrl.isNotEmpty) {
+          await ProfileService.saveProfilePhoto(_currentProfile!.avatarUrl);
         }
         notifyListeners();
         return _currentProfile;
@@ -276,6 +288,8 @@ class AuthService extends ChangeNotifier {
     _currentProfile = null;
     notifyListeners();
 
+    await ProfileService.assignRandomAvatar();
+
     try {
       await _googleSignIn.signOut();
     } catch (_) {}
@@ -291,6 +305,49 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  String? _googlePhotoUrl(User user, [GoogleSignInAccount? googleUser]) {
+    final candidates = <String?>[
+      googleUser?.photoUrl,
+      user.userMetadata?['avatar_url']?.toString(),
+      user.userMetadata?['picture']?.toString(),
+    ];
+    for (final candidate in candidates) {
+      if (candidate != null &&
+          (candidate.startsWith('http://') || candidate.startsWith('https://'))) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  Future<String> _resolveAvatarUrl({
+    required User user,
+    GoogleSignInAccount? googleUser,
+    String? existingAvatarUrl,
+  }) async {
+    if (existingAvatarUrl != null &&
+        existingAvatarUrl.isNotEmpty &&
+        ProfileService.isGuestAssignableAvatar(existingAvatarUrl)) {
+      return existingAvatarUrl;
+    }
+
+    final googlePhoto = _googlePhotoUrl(user, googleUser);
+    if (googlePhoto != null) return googlePhoto;
+
+    if (existingAvatarUrl != null &&
+        existingAvatarUrl.isNotEmpty &&
+        ProfileService.isAssignableAvatar(existingAvatarUrl)) {
+      return existingAvatarUrl;
+    }
+
+    final local = await ProfileService.getRawProfilePhoto();
+    if (local != null && ProfileService.isAssignableAvatar(local)) {
+      return local;
+    }
+
+    return ProfileService.randomPresetId();
+  }
+
   Future<UserProfile> _fetchOrBootstrapProfile(User user, [GoogleSignInAccount? googleUser]) async {
     final rawName = googleUser?.displayName ??
         user.userMetadata?['full_name'] ??
@@ -299,10 +356,10 @@ class AuthService extends ChangeNotifier {
         'Player';
     final formattedName = capitalizeName(rawName);
 
-    final fallbackAvatar = googleUser?.photoUrl ??
-        user.userMetadata?['avatar_url'] ??
-        user.userMetadata?['picture'] ??
-        'preset:king';
+    final fallbackAvatar = await _resolveAvatarUrl(
+      user: user,
+      googleUser: googleUser,
+    );
 
     // Do not insert anonymous users into public.profiles
     if (user.isAnonymous || (user.email == null || user.email!.isEmpty)) {
@@ -329,7 +386,23 @@ class AuthService extends ChangeNotifier {
             await _supabase.from('profiles').update({'username': existingFormatted}).eq('id', user.id);
           } catch (_) {}
         }
-        return profile.copyWith(username: existingFormatted);
+        final resolvedAvatar = await _resolveAvatarUrl(
+          user: user,
+          googleUser: googleUser,
+          existingAvatarUrl: profile.avatarUrl,
+        );
+        if (resolvedAvatar != profile.avatarUrl) {
+          try {
+            await _supabase
+                .from('profiles')
+                .update({'avatar_url': resolvedAvatar})
+                .eq('id', user.id);
+          } catch (_) {}
+        }
+        return profile.copyWith(
+          username: existingFormatted,
+          avatarUrl: resolvedAvatar,
+        );
       }
 
       final newProfileMap = {

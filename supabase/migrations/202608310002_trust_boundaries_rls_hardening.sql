@@ -236,6 +236,8 @@ end;
 $$;
 
 revoke all on function public.increment_player_stats(uuid, bigint, boolean) from public;
+revoke execute on function public.increment_player_stats(uuid, bigint, boolean) from authenticated;
+revoke execute on function public.increment_player_stats(uuid, bigint, boolean) from anon;
 grant execute on function public.increment_player_stats(uuid, bigint, boolean) to service_role;
 
 -- ─── Harden hand + snapshot RPCs ───────────────────────────────────────────

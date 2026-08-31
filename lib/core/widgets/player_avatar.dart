@@ -108,18 +108,26 @@ class PlayerAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: avatar.gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.navyDark,
         border: hasBorder ? Border.all(color: borderColor, width: borderWidth) : null,
         boxShadow: boxShadow ?? AppTheme.glowShadow,
       ),
-      child: Center(
-        child: Text(
-          avatar.emoji,
-          style: TextStyle(fontSize: size * 0.45),
+      child: ClipOval(
+        child: Image.asset(
+          avatar.assetPath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Icon(
+                Icons.person,
+                color: AppTheme.cream,
+                size: size * 0.45,
+              ),
+            );
+          },
         ),
       ),
     );

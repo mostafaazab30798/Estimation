@@ -104,6 +104,7 @@ begin
     'request.jwt.claims',
     json_build_object(
       'sub', user_data ->> 'id',
+      'role', 'authenticated',
       'email', user_data ->> 'email',
       'phone', user_data ->> 'phone',
       'user_metadata', user_data -> 'raw_user_meta_data',

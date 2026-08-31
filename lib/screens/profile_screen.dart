@@ -664,7 +664,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await AuthService.instance.signInWithGoogle();
       await AuthService.instance.deleteAccount();
       await ProfileService.saveProfileName('');
-      await ProfileService.saveProfilePhoto(ProfileService.presetAvatars.first.id);
       if (!mounted) return;
       await _loadProfileData();
       if (!mounted) return;
@@ -808,11 +807,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             duration: const Duration(milliseconds: 180),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: avatar.gradientColors,
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
                               border: Border.all(
                                 color:
                                     isSelected ? AppTheme.gold : Colors.white24,
@@ -820,10 +814,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               boxShadow: isSelected ? AppTheme.glowShadow : [],
                             ),
-                            child: Center(
-                              child: Text(
-                                avatar.emoji,
-                                style: const TextStyle(fontSize: 26),
+                            child: ClipOval(
+                              child: SizedBox.expand(
+                                child: Image.asset(
+                                  avatar.assetPath,
+                                  fit: BoxFit.cover,
+                                  filterQuality: FilterQuality.high,
+                                ),
                               ),
                             ),
                           ),

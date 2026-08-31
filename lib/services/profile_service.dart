@@ -1,6 +1,7 @@
 // lib/services/profile_service.dart
 
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/utils/string_utils.dart';
@@ -12,14 +13,12 @@ import 'estimation_stats_service.dart';
 class PresetAvatar {
   final String id;
   final String label;
-  final String emoji;
-  final List<Color> gradientColors;
+  final String assetPath;
 
   const PresetAvatar({
     required this.id,
     required this.label,
-    required this.emoji,
-    required this.gradientColors,
+    required this.assetPath,
   });
 }
 
@@ -73,54 +72,92 @@ class ProfileService {
 
   static const List<PresetAvatar> presetAvatars = [
     PresetAvatar(
-      id: 'preset:king',
-      label: 'الكينج',
-      emoji: '👑',
-      gradientColors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+      id: 'preset:bear',
+      label: 'الدب',
+      assetPath: 'assets/avatars/bear.png',
     ),
     PresetAvatar(
-      id: 'preset:ace',
-      label: 'الآس',
-      emoji: '♠️',
-      gradientColors: [Color(0xFF2C3E50), Color(0xFF1A1A2E)],
+      id: 'preset:cat',
+      label: 'القط',
+      assetPath: 'assets/avatars/cat.png',
     ),
     PresetAvatar(
-      id: 'preset:falcon',
-      label: 'الصقر',
-      emoji: '🦅',
-      gradientColors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+      id: 'preset:chicken',
+      label: 'الدجاجة',
+      assetPath: 'assets/avatars/chicken.png',
     ),
     PresetAvatar(
-      id: 'preset:cobra',
-      label: 'الكوبرا',
-      emoji: '🐍',
-      gradientColors: [Color(0xFF11998E), Color(0xFF38EF7D)],
+      id: 'preset:duck',
+      label: 'البطة',
+      assetPath: 'assets/avatars/duck.png',
     ),
     PresetAvatar(
-      id: 'preset:crown',
-      label: 'التاج',
-      emoji: '💎',
-      gradientColors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+      id: 'preset:meerkat',
+      label: 'الميركات',
+      assetPath: 'assets/avatars/meerkat.png',
     ),
     PresetAvatar(
-      id: 'preset:lion',
-      label: 'الأسد',
-      emoji: '🦁',
-      gradientColors: [Color(0xFFF2994A), Color(0xFFF2C94C)],
+      id: 'preset:panda',
+      label: 'الباندا',
+      assetPath: 'assets/avatars/panda.png',
     ),
     PresetAvatar(
-      id: 'preset:phoenix',
-      label: 'العنقاء',
-      emoji: '🔥',
-      gradientColors: [Color(0xFFFF416C), Color(0xFFFF4B2B)],
+      id: 'preset:penguin',
+      label: 'البطريق',
+      assetPath: 'assets/avatars/penguin.png',
     ),
     PresetAvatar(
-      id: 'preset:joker',
-      label: 'الجوكر',
-      emoji: '🃏',
-      gradientColors: [Color(0xFF654EA3), Color(0xFFEAAFC8)],
+      id: 'preset:rabbit',
+      label: 'الأرنب',
+      assetPath: 'assets/avatars/rabbit.png',
     ),
   ];
+
+  static bool isKnownPreset(String photoData) =>
+      presetAvatars.any((avatar) => avatar.id == photoData);
+
+  /// Avatars a guest may keep: animal presets or a custom gallery photo.
+  /// Network (Google) photos are excluded so guests always get a local avatar.
+  static bool isGuestAssignableAvatar(String photoData) {
+    if (photoData.isEmpty) return false;
+    if (isKnownPreset(photoData)) return true;
+    if (photoData.startsWith('ugc:')) return true;
+    return isBase64Photo(photoData);
+  }
+
+  /// Avatars a signed-in player may keep, including a Google profile photo.
+  static bool isAssignableAvatar(String photoData) {
+    if (isGuestAssignableAvatar(photoData)) return true;
+    return photoData.startsWith('http://') || photoData.startsWith('https://');
+  }
+
+  static String randomPresetId([Random? rng]) {
+    final index = (rng ?? Random()).nextInt(presetAvatars.length);
+    return presetAvatars[index].id;
+  }
+
+  static Future<String?> getRawProfilePhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kPhotoKey);
+  }
+
+  /// Picks a random animal avatar for guests when none is saved, or when the
+  /// saved value is a retired emoji preset / Google URL.
+  static Future<String> ensureGuestAvatar() async {
+    final saved = await getRawProfilePhoto();
+    if (saved != null && isGuestAssignableAvatar(saved)) {
+      return saved;
+    }
+    final id = randomPresetId();
+    await saveProfilePhoto(id);
+    return id;
+  }
+
+  static Future<String> assignRandomAvatar() async {
+    final id = randomPresetId();
+    await saveProfilePhoto(id);
+    return id;
+  }
 
   /// Loads saved player name from SharedPreferences
   static Future<String> getProfileName() async {
@@ -141,8 +178,10 @@ class ProfileService {
     if (photoData == null || photoData.isEmpty) {
       return presetAvatars.first.id;
     }
-    if (photoData.startsWith('preset:') ||
-        photoData.startsWith('http://') ||
+    if (photoData.startsWith('preset:')) {
+      return isKnownPreset(photoData) ? photoData : presetAvatars.first.id;
+    }
+    if (photoData.startsWith('http://') ||
         photoData.startsWith('https://') ||
         photoData.startsWith('ugc:')) {
       return photoData;

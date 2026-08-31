@@ -55,6 +55,8 @@ flutter:
     - assets/theme_4/
     - assets/wallpapers/w1.jpg
     - assets/wallpapers/w2.jpg
+    - assets/avatars/
+    - assets/p1.png
 
 flutter_launcher_icons:
   android: "launcher_icon"

@@ -182,9 +182,11 @@ select isnt_empty(
 );
 
 select ok(
-  (select (public.get_room_private_hands_for_host(
-    'aaaaaaaa-bbbb-cccc-dddd-000000000001'::uuid
-  )->>tests.get_supabase_uid('bob')::text)) is not null),
+  (
+    select public.get_room_private_hands_for_host(
+      'aaaaaaaa-bbbb-cccc-dddd-000000000001'::uuid
+    )->>(tests.get_supabase_uid('bob')::text)
+  ) is not null,
   'host recovery includes member hand'
 );
 

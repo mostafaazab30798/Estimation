@@ -18,6 +18,7 @@ import '../core/widgets/google_sign_in_button.dart';
 import '../core/widgets/mode_home_shell.dart';
 import '../services/audio_service.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 
@@ -29,29 +30,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final AnimationController _floatController;
-  late final AnimationController _glowController;
   StreamSubscription<AuthState>? _authSubscription;
   bool _isGuestLoading = false;
-
-  static final _featureItems = [
-    _LoginFeature(
-      icon: AppIcons.cloudSync,
-      label: 'مزامنة XP والتقدم',
-      color: AppTheme.gold,
-    ),
-    _LoginFeature(
-      icon: AppIcons.leaderboard,
-      label: 'لوحة المتصدرين',
-      color: AppTheme.rankGold,
-    ),
-    _LoginFeature(
-      icon: AppIcons.history,
-      label: 'سجل المباريات السحابي',
-      color: AppTheme.midBlue,
-    ),
-  ];
 
   @override
   void initState() {
@@ -60,10 +42,6 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 4200),
     )..repeat();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2800),
-    )..repeat(reverse: true);
 
     if (kIsWeb) {
       _authSubscription =
@@ -79,7 +57,6 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _floatController.dispose();
-    _glowController.dispose();
     _authSubscription?.cancel();
     super.dispose();
   }
@@ -122,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (auth.currentUser == null) {
         await auth.signInAnonymously();
       }
+      await ProfileService.ensureGuestAvatar();
       await _completeAndNavigate();
     } catch (e) {
       if (!mounted) return;
@@ -164,7 +142,6 @@ class _LoginScreenState extends State<LoginScreen>
                         SizedBox(height: isCompact ? 8 : 24),
                         _LoginHero(
                           floatAnimation: _floatController,
-                          glowAnimation: _glowController,
                           compact: isCompact,
                         ),
                         SizedBox(height: isCompact ? 20 : 32),
@@ -192,85 +169,45 @@ class _LoginScreenState extends State<LoginScreen>
 
 class _LoginHero extends StatelessWidget {
   final Animation<double> floatAnimation;
-  final Animation<double> glowAnimation;
   final bool compact;
 
   const _LoginHero({
     required this.floatAnimation,
-    required this.glowAnimation,
     this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final emblemSize = compact ? 96.0 : 112.0;
+    final imageWidth = compact ? 240.0 : 280.0;
 
     return Column(
       children: [
-        SizedBox(
-          height: compact ? 130 : 160,
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              _FloatingCard(
-                animation: floatAnimation,
-                phase: 0,
-                offset: const Offset(-52, -18),
-                rotation: -0.22,
-                asset: 'assets/estimation.png',
-                width: compact ? 52 : 60,
-              ),
-              _FloatingCard(
-                animation: floatAnimation,
-                phase: 0.33,
-                offset: const Offset(58, -8),
-                rotation: 0.18,
-                asset: 'assets/basra.png',
-                width: compact ? 48 : 56,
-              ),
-              _FloatingCard(
-                animation: floatAnimation,
-                phase: 0.66,
-                offset: const Offset(0, 42),
-                rotation: 0.06,
-                asset: 'assets/99.png',
-                width: compact ? 44 : 52,
-              ),
-              AnimatedBuilder(
-                animation: glowAnimation,
-                builder: (context, child) {
-                  final glow = 0.55 + (glowAnimation.value * 0.45);
-                  return Container(
-                    width: emblemSize + 28,
-                    height: emblemSize + 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.gold.withValues(alpha: 0.22 * glow),
-                          blurRadius: 36 * glow,
-                          spreadRadius: 4 * glow,
-                        ),
-                      ],
-                    ),
-                    child: child,
-                  );
-                },
-                child: _BrandEmblem(size: emblemSize),
-              ),
-            ],
+        AnimatedBuilder(
+          animation: floatAnimation,
+          builder: (context, child) {
+            final t = floatAnimation.value * math.pi * 2;
+            final bob = math.sin(t) * 5;
+            return Transform.translate(
+              offset: Offset(0, bob),
+              child: child,
+            );
+          },
+          child: Image.asset(
+            'assets/p1.png',
+            width: imageWidth,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
           ),
         )
             .animate()
             .fadeIn(duration: 600.ms, curve: Curves.easeOut)
             .scale(
-              begin: const Offset(0.88, 0.88),
+              begin: const Offset(0.92, 0.92),
               end: const Offset(1, 1),
               duration: 700.ms,
               curve: Curves.easeOutBack,
             ),
-        SizedBox(height: compact ? 12 : 18),
+        SizedBox(height: compact ? 14 : 20),
         Text(
           'كوتشينة',
           style: GoogleFonts.cairo(
@@ -291,123 +228,7 @@ class _LoginHero extends StatelessWidget {
             .animate(delay: 120.ms)
             .fadeIn(duration: 500.ms)
             .slideY(begin: 0.15, end: 0, curve: Curves.easeOutCubic),
-        const SizedBox(height: 6),
-        Text(
-          'العب. تنافس. تقدّم.',
-          style: GoogleFonts.cairo(
-            fontSize: compact ? 13 : 14.5,
-            color: AppTheme.steelBlue,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
-        )
-            .animate(delay: 200.ms)
-            .fadeIn(duration: 500.ms)
-            .slideY(begin: 0.12, end: 0, curve: Curves.easeOutCubic),
       ],
-    );
-  }
-}
-
-class _BrandEmblem extends StatelessWidget {
-  final double size;
-
-  const _BrandEmblem({required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1A2E40), Color(0xFF0D1E2E)],
-        ),
-        border: Border.all(
-          color: AppTheme.gold.withValues(alpha: 0.55),
-          width: 2,
-        ),
-        boxShadow: AppTheme.neumorphicExtruded,
-      ),
-      child: ClipOval(
-        child: Padding(
-          padding: EdgeInsets.all(size * 0.06),
-          child: Image.asset(
-            'assets/cards.png',
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.high,
-            errorBuilder: (_, __, ___) => const Center(
-              child: AppIcon(
-                AppIcons.style,
-                color: AppTheme.gold,
-                size: 40,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FloatingCard extends StatelessWidget {
-  final Animation<double> animation;
-  final double phase;
-  final Offset offset;
-  final double rotation;
-  final String asset;
-  final double width;
-
-  const _FloatingCard({
-    required this.animation,
-    required this.phase,
-    required this.offset,
-    required this.rotation,
-    required this.asset,
-    required this.width,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final t = (animation.value + phase) % 1.0;
-        final bob = math.sin(t * math.pi * 2) * 6;
-        final drift = math.cos(t * math.pi * 2) * 3;
-        return Transform.translate(
-          offset: Offset(offset.dx + drift, offset.dy + bob),
-          child: Transform.rotate(
-            angle: rotation + math.sin(t * math.pi * 2) * 0.04,
-            child: child,
-          ),
-        );
-      },
-      child: Container(
-        width: width,
-        height: width * 1.35,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.45),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            asset,
-            fit: BoxFit.cover,
-            filterQuality: FilterQuality.high,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -474,17 +295,6 @@ class _LoginAuthPanel extends StatelessWidget {
                   color: AppTheme.cream,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'سجّل دخولك لمزامنة تقدمك أو تابع كضيف',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(
-                  fontSize: 12.5,
-                  color: AppTheme.steelBlue,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
-                ),
-              ),
               const SizedBox(height: 22),
               Consumer<AuthService>(
                 builder: (context, auth, _) => GoogleSignInButton(
@@ -499,8 +309,6 @@ class _LoginAuthPanel extends StatelessWidget {
                 onPressed: onGuestContinue,
                 isLoading: isGuestLoading,
               ),
-              const SizedBox(height: 22),
-              _FeatureRow(items: _LoginScreenState._featureItems),
             ],
           ),
         ),
@@ -632,71 +440,4 @@ class _GuestButtonState extends State<_GuestButton> {
       ),
     );
   }
-}
-
-class _FeatureRow extends StatelessWidget {
-  final List<_LoginFeature> items;
-
-  const _FeatureRow({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (int i = 0; i < items.length; i++)
-          _FeatureChip(feature: items[i])
-              .animate(delay: (420 + i * 80).ms)
-              .fadeIn(duration: 400.ms)
-              .slideY(begin: 0.1, end: 0),
-      ],
-    );
-  }
-}
-
-class _FeatureChip extends StatelessWidget {
-  final _LoginFeature feature;
-
-  const _FeatureChip({required this.feature});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: feature.color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: feature.color.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppIcon(feature.icon, color: feature.color, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            feature.label,
-            style: GoogleFonts.cairo(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.cream.withValues(alpha: 0.9),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginFeature {
-  final AppIconData icon;
-  final String label;
-  final Color color;
-
-  const _LoginFeature({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
 }

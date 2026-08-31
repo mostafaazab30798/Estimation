@@ -171,31 +171,7 @@ drop policy if exists "Users can delete their own game history" on public.game_h
 create policy "Users can delete their own game history"
   on public.game_history for delete to authenticated using (auth.uid() = user_id);
 
--- ─── Legacy stats RPC (tightened in later migrations) ───────────────────────
-
-create or replace function public.increment_player_stats(
-  player_id uuid,
-  xp_gain bigint default 0,
-  won boolean default false
-)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  update public.profiles
-  set
-    xp = xp + xp_gain,
-    games_played = games_played + 1,
-    games_won = case when won then games_won + 1 else games_won end,
-    level = 1 + floor(sqrt((xp + xp_gain) / 100.0))::int,
-    updated_at = timezone('utc', now())
-  where id = player_id and (auth.uid() = player_id or auth.role() = 'service_role');
-end;
-$$;
-
-grant execute on function public.increment_player_stats(uuid, bigint, boolean) to authenticated;
+-- Stats RPC hardened in 202608310002 (not defined here — avoids legacy body on CI reset).
 
 -- ─── Realtime (best-effort; local stack may already publish these) ─────────
 
