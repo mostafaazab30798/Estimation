@@ -14,6 +14,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Pinned — `version: latest` hits GitHub API rate limits on setup-cli@v1.
+  SUPABASE_CLI_VERSION: "2.72.7"
+
 jobs:
   analyze-and-test:
     name: Analyze and test
@@ -61,9 +65,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
       - name: Start Supabase (Postgres only)
         run: supabase start -x edge-runtime,imgproxy,mailpit,storage-api,vector,realtime
