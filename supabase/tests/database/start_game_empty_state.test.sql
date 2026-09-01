@@ -2,7 +2,7 @@
 
 begin;
 
-select plan(3);
+select plan(4);
 
 select tests.create_supabase_user('sg_host', 'sg-host@test.local');
 select tests.create_supabase_user('sg_join', 'sg-join@test.local');
@@ -28,7 +28,7 @@ values (
   'cccccccc-cccc-cccc-cccc-000000000001'::uuid,
   'SG0001',
   tests.get_supabase_uid('sg_host'),
-  'playing',
+  'waiting',
   4,
   '127.0.0.1',
   0,
@@ -41,7 +41,7 @@ values (
 on conflict (id) do update set
   action_seq = 0,
   game_state = null,
-  status = 'playing';
+  status = 'waiting';
 
 delete from public.room_players
 where room_id = 'cccccccc-cccc-cccc-cccc-000000000001'::uuid;
@@ -61,13 +61,23 @@ values
     false
   );
 
-select isnt(
+select is(
+  (
+    select count(*)::int
+    from public.room_players
+    where room_id = 'cccccccc-cccc-cccc-cccc-000000000001'::uuid
+  ),
+  2,
+  'fixture has two room_players rows before authority load'
+);
+
+select is(
   (
     select public.get_authority_room_state(
       'cccccccc-cccc-cccc-cccc-000000000001'::uuid
     ) #>> '{state,players,0,seatIndex}'
   ),
-  null,
+  '0',
   'authority roster includes seatIndex before first commit'
 );
 
