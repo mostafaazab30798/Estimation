@@ -94,7 +94,7 @@ insert into public.game_rooms (
   id, room_code, host_id, status, max_players, host_ip, ws_port, game_type, action_seq, game_state
 )
 values (
-  'dddddddd-dddd-dddd-dddd-00000000basra'::uuid,
+  'dddddddd-dddd-dddd-dddd-0000000000ba'::uuid,
   'BSR001',
   tests.get_supabase_uid('nn_alice'),
   'playing',
@@ -127,13 +127,13 @@ on conflict (id) do update set action_seq = 0, game_state = excluded.game_state;
 
 insert into public.room_players (room_id, player_id, player_name, is_host)
 values
-  ('dddddddd-dddd-dddd-dddd-00000000basra'::uuid, tests.get_supabase_uid('nn_alice'), 'Alice', true),
-  ('dddddddd-dddd-dddd-dddd-00000000basra'::uuid, tests.get_supabase_uid('nn_bob'), 'Bob', false)
+  ('dddddddd-dddd-dddd-dddd-0000000000ba'::uuid, tests.get_supabase_uid('nn_alice'), 'Alice', true),
+  ('dddddddd-dddd-dddd-dddd-0000000000ba'::uuid, tests.get_supabase_uid('nn_bob'), 'Bob', false)
 on conflict (room_id, player_id) do nothing;
 
 select throws_ok(
   $$ select public.apply_game_action(
-       'dddddddd-dddd-dddd-dddd-00000000basra'::uuid,
+       'dddddddd-dddd-dddd-dddd-0000000000ba'::uuid,
        tests.get_supabase_uid('nn_bob'),
        'playCardBasra',
        '{"card":{"suit":"club","rank":"ace"}}'::jsonb,

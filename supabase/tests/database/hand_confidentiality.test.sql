@@ -47,6 +47,16 @@ set game_state = jsonb_build_object(
 )
 where id = 'bbbbbbbb-bbbb-bbbb-bbbb-000000000002'::uuid;
 
+select is(
+  (
+    select game_state -> 'players' -> 1 -> 'hand' -> 0 ->> 'rank'
+    from public.game_rooms
+    where id = 'bbbbbbbb-bbbb-bbbb-bbbb-000000000002'::uuid
+  ),
+  'two',
+  'trigger masks opponent hand in persisted game_state'
+);
+
 select tests.authenticate_as('hc_bob');
 
 select is(
