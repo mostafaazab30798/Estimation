@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 import 'package:estimation/core/models/card.dart';
+import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/modes/basra/domain/basra_card_rules.dart';
 import 'package:estimation/modes/basra/domain/models/basra_game_state.dart';
 import 'package:estimation/theme/app_theme.dart';
@@ -90,13 +91,15 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
 
         final media = MediaQuery.of(context);
         final screenWidth = media.size.width;
-        final cardWidth = (screenWidth * 0.175).clamp(62.0, 86.0);
+        final layout = GameLayoutMetrics.of(context);
+        final cardWidth = (screenWidth * 0.175)
+            .clamp(62.0, layout.handMaxCardWidth + 4);
         final cardHeight = cardWidth / playingCardAspectRatio;
-        final availableWidth = (screenWidth - 24).clamp(280.0, screenWidth * 0.96);
+        final availableWidth = layout.handAvailableWidth(screenWidth);
         var actualOverlap = cards.length > 1
             ? (availableWidth - cardWidth) / (cards.length - 1)
             : 0.0;
-        actualOverlap = actualOverlap.clamp(0.0, 44.0);
+        actualOverlap = actualOverlap.clamp(0.0, layout.handMaxOverlap);
         final totalWidth = cardWidth + (cards.length - 1) * actualOverlap;
 
         return Column(

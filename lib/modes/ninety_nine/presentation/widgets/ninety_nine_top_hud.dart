@@ -2,7 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/theme/app_theme.dart';
+import 'package:estimation/widgets/hud/split_hud_panel.dart';
 import 'package:estimation/widgets/performance_blur.dart';
 import 'package:estimation/modes/ninety_nine/presentation/dialogs/ninety_nine_game_guide_dialog.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
@@ -42,45 +44,96 @@ class NinetyNineTopHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final phaseColor = _phaseColor();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = GameLayoutMetrics.of(context);
+        final useSplitHud = layout.shouldUseSplitHud(constraints.maxWidth);
+        final isPortrait = layout.isPortrait;
+        final phaseColor = _phaseColor();
 
-    return PerformanceBlur(
-      borderRadius: BorderRadius.circular(22),
-      sigmaX: 14,
-      sigmaY: 14,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xCC2A4560), Color(0xCC1D3348)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+        if (useSplitHud) {
+          return _buildTabletSplit(context, phaseColor, layout);
+        }
+
+        return PerformanceBlur(
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: AppTheme.steelBlue.withValues(alpha: 0.15),
-            width: 1.0,
+          sigmaX: 14,
+          sigmaY: 14,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xCC2A4560), Color(0xCC1D3348)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: AppTheme.steelBlue.withValues(alpha: 0.15),
+                width: 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: phaseColor.withValues(alpha: 0.06),
+                  blurRadius: 24,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: isPortrait
+                ? _buildPortrait(phaseColor, context)
+                : _buildLandscape(phaseColor, context),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: phaseColor.withValues(alpha: 0.06),
-              blurRadius: 24,
-              spreadRadius: 2,
-            ),
-          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTabletSplit(
+    BuildContext context,
+    Color phaseColor,
+    GameLayoutMetrics layout,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SplitHudPanel(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ExitButton(onTap: onExitTap),
+              const SizedBox(width: 8),
+              _GuideButton(context: context),
+            ],
+          ),
         ),
-        child: isPortrait
-            ? _buildPortrait(phaseColor, context)
-            : _buildLandscape(phaseColor, context),
-      ),
+        const Expanded(child: SizedBox.shrink()),
+        SplitHudPanel(
+          glowColor: phaseColor,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _RoundPhaseCenter(
+                roundNumber: game.currentRoundNumber,
+                phaseColor: phaseColor,
+                phaseText: _phaseArabic(),
+                enlarged: true,
+              ),
+              const SizedBox(height: 8),
+              _DirectionBadge(direction: game.direction, enlarged: true),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -92,7 +145,7 @@ class NinetyNineTopHud extends StatelessWidget {
           children: [
             _ExitButton(onTap: onExitTap),
             const SizedBox(width: 6),
-            const _GuideButton(),
+            _GuideButton(context: context),
             const SizedBox(width: 10),
             Expanded(
               child: _RoundPhaseCenter(
@@ -114,7 +167,7 @@ class NinetyNineTopHud extends StatelessWidget {
       children: [
         _ExitButton(onTap: onExitTap),
         const SizedBox(width: 6),
-        const _GuideButton(),
+        _GuideButton(context: context),
         const Spacer(),
         _RoundPhaseCenter(
           roundNumber: game.currentRoundNumber,
@@ -146,7 +199,8 @@ class _ExitButton extends StatelessWidget {
 }
 
 class _GuideButton extends StatelessWidget {
-  const _GuideButton();
+  final BuildContext context;
+  const _GuideButton({required this.context});
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +210,7 @@ class _GuideButton extends StatelessWidget {
       size: AppIconButtonSize.sm,
       onTap: () {
         showDialog(
-          context: context,
+          context: this.context,
           builder: (_) => const NinetyNineGameGuideDialog(),
         );
       },
@@ -168,47 +222,47 @@ class _RoundPhaseCenter extends StatelessWidget {
   final int roundNumber;
   final Color phaseColor;
   final String phaseText;
+  final bool enlarged;
 
   const _RoundPhaseCenter({
     required this.roundNumber,
     required this.phaseColor,
     required this.phaseText,
+    this.enlarged = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'الجولة $roundNumber',
-              style: GoogleFonts.cairo(
-                color: AppTheme.gold,
-                fontSize: 13.5,
-                fontWeight: FontWeight.bold,
-              ),
+        Text(
+          'الجولة $roundNumber',
+          style: GoogleFonts.cairo(
+            color: AppTheme.goldLight,
+            fontSize: enlarged ? 16 : 13.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(width: enlarged ? 10 : 8),
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: enlarged ? 10 : 8,
+            vertical: enlarged ? 4 : 2,
+          ),
+          decoration: BoxDecoration(
+            color: phaseColor.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+          ),
+          child: Text(
+            phaseText,
+            style: GoogleFonts.cairo(
+              color: phaseColor,
+              fontSize: enlarged ? 12 : 11,
+              fontWeight: FontWeight.w700,
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: phaseColor.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
-              ),
-              child: Text(
-                phaseText,
-                style: GoogleFonts.cairo(
-                  color: phaseColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -217,7 +271,9 @@ class _RoundPhaseCenter extends StatelessWidget {
 
 class _DirectionBadge extends StatelessWidget {
   final int direction;
-  const _DirectionBadge({required this.direction});
+  final bool enlarged;
+
+  const _DirectionBadge({required this.direction, this.enlarged = false});
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +281,10 @@ class _DirectionBadge extends StatelessWidget {
     final color = isClockwise ? AppTheme.gold : Colors.white;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: enlarged ? 11 : 9,
+        vertical: enlarged ? 6 : 4,
+      ),
       decoration: BoxDecoration(
         color: AppTheme.navyDark.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(10),
@@ -237,14 +296,14 @@ class _DirectionBadge extends StatelessWidget {
           AppIcon(
             isClockwise ? AppIcons.autorenew : AppIcons.swapHorizontalCircle,
             color: color,
-            size: 15,
+            size: enlarged ? 17 : 15,
           ),
           const SizedBox(width: 4),
           Text(
             isClockwise ? 'مع العقارب ↻' : 'عكس العقارب ↺',
             style: GoogleFonts.cairo(
               color: color,
-              fontSize: 11.5,
+              fontSize: enlarged ? 12.5 : 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),

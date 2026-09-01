@@ -5,6 +5,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../core/models/game_state.dart';
 import '../core/models/card.dart';
 import '../services/audio_service.dart';
@@ -161,8 +162,8 @@ class _TrickAreaState extends State<TrickArea>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final size = constraints.maxWidth;
-                final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-                final cardW = size * (isPortrait ? 0.27 : 0.31);
+                final layout = GameLayoutMetrics.of(context);
+                final cardW = size * layout.trickCardWidthFraction;
                 final cardH = cardW / playingCardAspectRatio;
 
                 Widget animatedCardFor(int relativeSeat) {

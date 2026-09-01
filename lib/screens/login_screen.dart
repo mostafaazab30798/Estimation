@@ -19,7 +19,6 @@ import '../services/profile_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../core/constants.dart';
-import '../core/widgets/app_logo.dart';
 
 abstract final class _LoginPalette {
   static const deepViolet = Color(0xFF2E2858);
@@ -96,18 +95,16 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isGuestLoading = true);
 
     try {
-      final auth = Supabase.instance.client.auth;
-      if (auth.currentUser == null) {
-        await auth.signInAnonymously();
-      }
+      // Local-only — anonymous Supabase auth is optional and may be disabled.
       await ProfileService.ensureGuestAvatar();
       await _completeAndNavigate();
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[Login] guest continue failed: $e\n$stack');
       if (!mounted) return;
       setState(() => _isGuestLoading = false);
       SnackbarHelper.showError(
         context,
-        'تعذر المتابعة. تحقق من الاتصال بالإنترنت.',
+        'تعذر المتابعة. حاول مرة أخرى.',
         title: 'خطأ',
       );
     }
@@ -144,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Flexible(
                               child: Image.asset(
-                                'assets/p1.png',
+                                kAppLoginArtAsset,
                                 width: heroWidth,
                                 fit: BoxFit.contain,
                                 filterQuality: FilterQuality.high,
@@ -152,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'كوتشينة',
+                              kAppName,
                               style: GoogleFonts.cairo(
                                 fontSize: 34,
                                 fontWeight: FontWeight.w900,
@@ -332,7 +329,7 @@ class _GuestButtonState extends State<_GuestButton> {
           height: 50,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(25),
             color: Colors.white.withValues(alpha: _pressed ? 0.5 : 0.62),
             border: Border.all(
               color: _LoginPalette.coral.withValues(alpha: 0.32),

@@ -8,6 +8,7 @@ import '../core/utils/string_utils.dart';
 import '../core/utils/display_name_validator.dart';
 import '../models/user_profile.dart';
 import 'profile_service.dart';
+import 'ugc_service.dart';
 
 class AuthService extends ChangeNotifier {
   AuthService._internal();
@@ -86,7 +87,7 @@ class AuthService extends ChangeNotifier {
       }
 
       // Mobile (Android / iOS): Use native Google Account Bottom Sheet
-      final googleUser = await _googleSignIn.authenticate();
+      final googleUser = await _authenticateGoogle();
 
       // Obtain tokens
       final googleAuth = googleUser.authentication;
@@ -118,10 +119,22 @@ class AuthService extends ChangeNotifier {
         }
 
         _currentProfile = profile;
+        if (await UgcService.instance.hasAcceptedCurrentTerms() &&
+            !profile.hasAcceptedCurrentTerms) {
+          unawaited(UgcService.instance.acceptTerms());
+        }
         _isLoading = false;
         notifyListeners();
         return profile;
       }
+    } on GoogleSignInException catch (e, stack) {
+      debugPrint('[AuthService] signInWithGoogle error: $e\n$stack');
+      _isLoading = false;
+      notifyListeners();
+      if (_isUserCanceled(e)) {
+        return null;
+      }
+      rethrow;
     } catch (e, stack) {
       debugPrint('[AuthService] signInWithGoogle error: $e\n$stack');
       _isLoading = false;
@@ -303,6 +316,37 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       debugPrint('[AuthService] Anonymous fallback after delete error: $e');
     }
+  }
+
+  /// Interactive Google auth. Credential Manager can report a stale cached
+  /// account as `canceled` + "Account reauth failed"; clear state and retry once.
+  Future<GoogleSignInAccount> _authenticateGoogle({bool allowRetry = true}) async {
+    try {
+      return await _googleSignIn.authenticate();
+    } on GoogleSignInException catch (e) {
+      if (allowRetry && _isReauthFailure(e)) {
+        debugPrint(
+          '[AuthService] Google reauth failed; clearing credential state and retrying',
+        );
+        try {
+          await _googleSignIn.signOut();
+        } catch (signOutError) {
+          debugPrint('[AuthService] Google signOut before retry: $signOutError');
+        }
+        return _authenticateGoogle(allowRetry: false);
+      }
+      rethrow;
+    }
+  }
+
+  bool _isUserCanceled(GoogleSignInException error) {
+    return error.code == GoogleSignInExceptionCode.canceled &&
+        !_isReauthFailure(error);
+  }
+
+  bool _isReauthFailure(GoogleSignInException error) {
+    final description = error.description?.toLowerCase() ?? '';
+    return description.contains('reauth failed');
   }
 
   String? _googlePhotoUrl(User user, [GoogleSignInAccount? googleUser]) {

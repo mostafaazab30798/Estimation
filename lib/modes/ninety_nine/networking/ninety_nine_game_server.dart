@@ -31,6 +31,9 @@ class NinetyNineGameServer {
   final Random _random = Random();
   bool _isStopped = false;
 
+  /// When true, in-game actions go through server authority (Edge Function).
+  bool serverAuthorityMode = false;
+
   NinetyNineGameServer({required this.onStateUpdate, this.onReaction});
 
   Future<void> start(
@@ -237,6 +240,11 @@ class NinetyNineGameServer {
 
   void _handlePlayerAction(Map<String, dynamic> payload) {
     final action = payload['action'] as String? ?? '';
+    if (serverAuthorityMode &&
+        _state.phase != NinetyNinePhase.waiting &&
+        action != ActionType.requestStateSync) {
+      return;
+    }
     final playerId = payload['playerId'] as String? ?? '';
 
     switch (action) {
@@ -303,6 +311,7 @@ class NinetyNineGameServer {
 
   void _broadcastState() {
     if (_isStopped) return;
+    if (serverAuthorityMode && _state.phase != NinetyNinePhase.waiting) return;
     // Always notify the local host UI first
     onStateUpdate(_state);
 
@@ -333,6 +342,7 @@ class NinetyNineGameServer {
   // ── Bot AI Automation ────────────────────────────────────────────────────
 
   void _scheduleBotTurnIfNeeded() {
+    if (serverAuthorityMode) return;
     if (_isStopped || _state.phase != NinetyNinePhase.playing) return;
     final currentP = _state.currentPlayer;
     if (currentP == null || !currentP.isBot) return;

@@ -39,11 +39,14 @@ void main() {
       expect(jack.applyEffect(0), equals(0));
     });
 
-    test('Queen card effect: +10, clamped at 99', () {
+    test('Queen card effect: +10, illegal if it would exceed 99', () {
       const queen = PlayingCard(suit: Suit.diamond, rank: Rank.queen);
 
       expect(queen.applyEffect(50), equals(60));
-      expect(queen.applyEffect(95), equals(99));
+      expect(queen.applyEffect(89), equals(99));
+      expect(queen.isLegalPlay(89), isTrue);
+      expect(queen.isLegalPlay(90), isFalse);
+      expect(queen.unclampedEffect(95), equals(105));
     });
 
     test('4 and 7 card effects: +0', () {
@@ -55,11 +58,32 @@ void main() {
       expect(seven.isReverseCard, isTrue);
     });
 
-    test('Ace and numeric card effects', () {
-      expect(const PlayingCard(suit: Suit.spade, rank: Rank.ace).applyEffect(10), equals(11));
-      expect(const PlayingCard(suit: Suit.spade, rank: Rank.two).applyEffect(10), equals(12));
-      expect(const PlayingCard(suit: Suit.spade, rank: Rank.five).applyEffect(10), equals(15));
-      expect(const PlayingCard(suit: Suit.spade, rank: Rank.ten).applyEffect(10), equals(20));
+    test('Numeric cards that would exceed 99 are illegal', () {
+      const ten = PlayingCard(suit: Suit.spade, rank: Rank.ten);
+      const nine = PlayingCard(suit: Suit.heart, rank: Rank.nine);
+      const ace = PlayingCard(suit: Suit.club, rank: Rank.ace);
+      const two = PlayingCard(suit: Suit.spade, rank: Rank.two);
+      const five = PlayingCard(suit: Suit.spade, rank: Rank.five);
+      const king = PlayingCard(suit: Suit.diamond, rank: Rank.king);
+      const jack = PlayingCard(suit: Suit.spade, rank: Rank.jack);
+      const four = PlayingCard(suit: Suit.heart, rank: Rank.four);
+
+      expect(ace.applyEffect(10), equals(11));
+      expect(two.applyEffect(10), equals(12));
+      expect(five.applyEffect(10), equals(15));
+      expect(ten.applyEffect(10), equals(20));
+
+      expect(ten.isLegalPlay(89), isTrue);
+      expect(ten.isLegalPlay(90), isFalse);
+      expect(nine.isLegalPlay(90), isTrue);
+      expect(nine.isLegalPlay(91), isFalse);
+      expect(ace.isLegalPlay(98), isTrue);
+      expect(ace.isLegalPlay(99), isFalse);
+
+      expect(king.isLegalPlay(90), isTrue);
+      expect(king.isLegalPlay(99), isTrue);
+      expect(jack.isLegalPlay(99), isTrue);
+      expect(four.isLegalPlay(99), isTrue);
     });
   });
 
@@ -148,6 +172,65 @@ void main() {
       expect(acceptedSafe, isTrue);
       expect(state.groundTotal, equals(89));
     });
+
+    test('Cards that would make ground exceed 99 are rejected', () {
+      final state = NinetyNineGameState(
+        hostId: 'p_0',
+        players: [
+          NinetyNinePlayer(
+            id: 'p_0',
+            name: 'Player 0',
+            hand: [
+              const PlayingCard(suit: Suit.spade, rank: Rank.ten),
+              const PlayingCard(suit: Suit.heart, rank: Rank.nine),
+              const PlayingCard(suit: Suit.club, rank: Rank.queen),
+            ],
+            isBot: false,
+          ),
+          NinetyNinePlayer(
+            id: 'p_1',
+            name: 'Player 1',
+            hand: [
+              const PlayingCard(suit: Suit.diamond, rank: Rank.four),
+            ],
+            isBot: false,
+          ),
+        ],
+        playerLosses: {'p_0': 0, 'p_1': 0},
+      );
+
+      state.phase = NinetyNinePhase.playing;
+      state.groundTotal = 90;
+      state.currentPlayerIndex = 0;
+
+      expect(
+        NinetyNineGameEngine.playCard(
+          state,
+          'p_0',
+          const PlayingCard(suit: Suit.spade, rank: Rank.ten),
+        ),
+        isFalse,
+      );
+      expect(
+        NinetyNineGameEngine.playCard(
+          state,
+          'p_0',
+          const PlayingCard(suit: Suit.club, rank: Rank.queen),
+        ),
+        isFalse,
+      );
+      expect(state.groundTotal, equals(90));
+
+      expect(
+        NinetyNineGameEngine.playCard(
+          state,
+          'p_0',
+          const PlayingCard(suit: Suit.heart, rank: Rank.nine),
+        ),
+        isTrue,
+      );
+      expect(state.groundTotal, equals(99));
+    });
   });
 
   group('NinetyNineBotAi Tests', () {
@@ -172,6 +255,18 @@ void main() {
 
       final chosen = NinetyNineBotAi.chooseCard(hand: hand, groundTotal: 40);
       expect(chosen.rank, equals(Rank.five));
+    });
+
+    test('Bot never picks a card that would exceed 99', () {
+      final hand = [
+        const PlayingCard(suit: Suit.spade, rank: Rank.queen),
+        const PlayingCard(suit: Suit.heart, rank: Rank.ten),
+        const PlayingCard(suit: Suit.club, rank: Rank.five),
+      ];
+
+      final chosen = NinetyNineBotAi.chooseCard(hand: hand, groundTotal: 90);
+      expect(chosen.rank, equals(Rank.five));
+      expect(chosen.isLegalPlay(90), isTrue);
     });
   });
 }

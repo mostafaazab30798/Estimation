@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/utils/game_layout_metrics.dart';
 import '../../../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
@@ -44,48 +45,28 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
+    final isMobile = !layout.isTablet;
     final screenSize = MediaQuery.of(context).size;
-    final isMobile = screenSize.width < 600;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 10 : 28,
-          vertical: isMobile ? 16 : 32,
+          horizontal: layout.isTablet ? 28 : 10,
+          vertical: layout.isTablet ? 32 : 16,
         ),
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: 680,
+            maxWidth: layout.isLargeTablet ? 740 : 680,
             maxHeight: screenSize.height * 0.85,
           ),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2C1014), Color(0xFF16080A)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: const Color(0xFFEF4444).withValues(alpha: 0.4),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 30,
-                spreadRadius: 4,
-              ),
-              BoxShadow(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.2),
-                blurRadius: 40,
-                spreadRadius: -5,
-              ),
-            ],
+          decoration: AppTheme.dialogDecoration(
+            accent: const Color(0xFFEF4444),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTheme.dialogRadius),
             child: Column(
               children: [
                 // ── Header Bar ──────────────────────────────────────────────
@@ -210,6 +191,15 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
           ),
           const SizedBox(height: 16),
           _buildInfoCard(
+            title: '🚫 ممنوع تجاوز 99',
+            description:
+                'لا يجوز لعب أي ورقة تجعل مجموع الأرض أكبر من 99. تلك الأوراق تُقفل في يدك. '
+                'يمكنك لعب ورقة تصل بالمجموع إلى 99 تماماً، أما ما فوق ذلك فمحظور. '
+                'الأوراق المنقذة (4، 7، الولد، الشايب) لا تتجاوز الحد أبداً.',
+            accentColor: const Color(0xFFEF4444),
+          ),
+          const SizedBox(height: 16),
+          _buildInfoCard(
             title: '⚠️ لحظة الخطر (عند الوصول لـ 99)',
             description:
                 'عندما تصل الأرض لمجموع 99 تماماً، يبدأ التوتر الحقيقي! اللاعب الذي يأتي دوره ولا يملك أي ورقة آمنة في يده يخسر الجولة ويتم استبعاده فوراً!',
@@ -250,7 +240,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
           ),
           _buildCardRuleTile(
             cardName: 'البنت 👸 (Queen)',
-            effect: 'تضيف +10 لمجموع الأرض.',
+            effect: 'تضيف +10 لمجموع الأرض. لا يمكن لعبها إذا كان المجموع سيصبح أكبر من 99.',
             badge: 'تأثير خاص',
             badgeColor: AppTheme.gold,
           ),
@@ -274,7 +264,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
           ),
           _buildCardRuleTile(
             cardName: 'باقي الأرقام (2, 3, 5, 6, 8, 9, 10)',
-            effect: 'تضيف قيمتها الرقمية الوجهية فوراً لمجموع الأرض.',
+            effect: 'تضيف قيمتها الرقمية الوجهية فوراً لمجموع الأرض. تُقفل إذا كانت ستجعل المجموع أكبر من 99.',
             badge: 'إضافة وجهية',
             badgeColor: Colors.white38,
           ),
@@ -305,7 +295,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
           _buildInfoCard(
             title: '☠️ الاستبعاد ونهاية الجولة',
             description:
-                '• إذا كان مجموع الأرض 99 وجاء دورك بدون أوراق آمنة، تُستبعد وتخسر الجولة.\n'
+                '• إذا لم تملك أي ورقة يمكن لعبها دون تجاوز 99 (بما في ذلك عند وصول الأرض لـ 99 بدون أوراق آمنة)، تُستبعد وتخسر الجولة.\n'
                 '• يستمر اللعب بين باقي اللاعبين حتى يتبقى لاعب واحد فقط يكون هو الفائز بالجولة!',
             accentColor: const Color(0xFFEF4444),
           ),

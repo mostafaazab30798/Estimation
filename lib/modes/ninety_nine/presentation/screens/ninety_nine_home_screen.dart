@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/utils/wallpaper_precache.dart';
+import '../../../../core/utils/home_layout_metrics.dart';
 import '../../../../core/utils/snackbar_helper.dart';
 import '../../../../core/widgets/mode_home_shell.dart';
 import '../../../../providers/game_provider.dart';
@@ -10,6 +12,8 @@ import '../../../../services/profile_service.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/performance_blur.dart';
 import '../../../../widgets/ongoing_game_guard.dart';
+import '../../../../widgets/google_online_play_guard.dart';
+import '../../../../widgets/player_name_prompt.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class NinetyNineHomeScreen extends StatefulWidget {
@@ -20,7 +24,7 @@ class NinetyNineHomeScreen extends StatefulWidget {
 }
 
 class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
   static const _red = Color(0xFFEF4444);
   static const _redDark = Color(0xFF991B1B);
   static const _purple = Color(0xFF8E2DE2);
@@ -73,26 +77,27 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
     super.dispose();
   }
 
-  String? _validateName() {
-    if (_playerName.value.trim().isEmpty) {
-      return 'يرجى تعيين اسمك في الملف الشخصي أولاً';
-    }
-    return null;
+  Future<String?> _ensureName(BuildContext context) async {
+    final name = await ensurePlayerName(
+      context,
+      currentName: _playerName.value,
+    );
+    if (name != null) _playerName.value = name;
+    return name;
   }
 
   Future<void> _hostOnlineRoom(
       BuildContext context, int expectedPlayers) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     if (await guardAgainstOngoingGame(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.hostGame(
-      _playerName.value,
+      name,
       expectedPlayers: expectedPlayers,
       gameType: 'ninety_nine',
     );
@@ -105,23 +110,21 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Future<void> _joinWithCode(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     if (await guardAgainstOngoingGame(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
-
     final code = _codeController.text.trim();
     if (code.length != 6) {
       _snack(context, 'أدخل كود مكوّن من 6 أحرف');
       return;
     }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.joinGameWithCode(
-      _playerName.value,
+      name,
       code,
       expectedGameType: 'ninety_nine',
     );
@@ -136,15 +139,12 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   Future<void> _startBotGame(BuildContext context) async {
     if (await guardAgainstOngoingGame(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.startNinetyNineTestGame(
-      _playerName.value.trim(),
+      name.trim(),
       totalPlayers: _selectedPlayerCount,
     );
 
@@ -169,8 +169,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
     final provider = context.watch<GameProvider>();
     final isLoading =
         provider.status == ConnectionStatus.connecting || provider.isSearching;
-    final isLandscape =
-        MediaQuery.of(context).size.width > MediaQuery.of(context).size.height;
+    final metrics = HomeLayoutMetrics.of(context);
+    final heroCompact = metrics.isLandscape && !metrics.isTablet;
 
     return PopScope(
       canPop: true,
@@ -189,9 +189,13 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
                 opacity: _fadeIn,
                 child: SlideTransition(
                   position: _slideIn,
-                  child: isLandscape
-                      ? _buildLandscapeBody(context)
-                      : _buildPortraitBody(context),
+                  child: ModeHomeScreenLayout(
+                    accent: _red,
+                    topBar: _buildTopBar(context),
+                    hero: _buildHeroSection(compact: heroCompact),
+                    primaryAction: _buildPrimaryAction(context),
+                    multiplayerSection: _buildMultiplayerGrid(context),
+                  ),
                 ),
               ),
             ),
@@ -213,71 +217,11 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
     );
   }
 
-  Widget _buildPortraitBody(BuildContext context) {
-    return Column(
-      children: [
-        _buildTopBar(context),
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeroSection(),
-                const SizedBox(height: 22),
-                _buildPrimaryAction(context),
-                const SizedBox(height: 18),
-                _buildMultiplayerGrid(context),
-              ],
-            ),
-          ),
-        ),
-        const ModeHomeSuitFooter(),
-      ],
-    );
-  }
-
-  Widget _buildLandscapeBody(BuildContext context) {
-    return Column(
-      children: [
-        _buildTopBar(context),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildHeroSection(compact: true),
-                      const SizedBox(height: 20),
-                      _buildPrimaryAction(context),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                const ModeHomeLandscapeDivider(accent: _red),
-                const SizedBox(width: 20),
-                Expanded(
-                  flex: 6,
-                  child: Center(child: _buildMultiplayerGrid(context)),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const ModeHomeSuitFooter(),
-      ],
-    );
-  }
-
   Widget _buildTopBar(BuildContext context) {
+    final horizontal = HomeLayoutMetrics.of(context).modeHomeHorizontalPadding() - 4;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: EdgeInsets.fromLTRB(horizontal, 8, horizontal, 4),
       child: Row(
         children: [
           ModeHomeIconCapsule(
@@ -321,10 +265,11 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
       compact: compact,
       title: 'مود الـ 99',
       subtitle: 'تحدي السرعة والموت المفاجئ',
-      emblem: ModeHomeArtEmblem(
+      emblem: ModeHomeArtEmblem.responsive(
+        context,
         asset: 'assets/99.png',
         accent: const Color(0xFFFF2D95),
-        size: compact ? 72 : 88,
+        compact: compact,
       ),
     );
   }
@@ -340,11 +285,13 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Widget _buildMultiplayerGrid(BuildContext context) {
+    final gap = HomeLayoutMetrics.of(context).isTablet ? 14.0 : 10.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const ModeHomeSectionLabel(text: 'العب مع الآخرين', accent: _red),
-        const SizedBox(height: 10),
+        SizedBox(height: gap),
         Row(
           children: [
             Expanded(
@@ -355,7 +302,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
                 onTap: () => _tap(() => _showHostSheet(context)),
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: gap),
             Expanded(
               child: ModeHomeActionButton(
                 label: 'انضمام',
@@ -418,6 +365,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Future<void> _showHostSheet(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     var count = _selectedPlayerCount;
     await showModeHomeSheet<void>(
       context,
@@ -467,6 +416,8 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Future<void> _showJoinSheet(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     await showModeHomeSheet<void>(
       context,
       title: 'الانضمام لغرفة',
@@ -503,9 +454,12 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
   }
 
   Widget _buildLoadingCard(BuildContext context, GameProvider provider) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final cardWidth = metrics.isLargeTablet ? 340.0 : (metrics.isTablet ? 320.0 : 280.0);
+
     return Container(
-      width: 280,
-      padding: const EdgeInsets.all(24),
+      width: cardWidth,
+      padding: EdgeInsets.all(metrics.isTablet ? 28 : 24),
       decoration: AppTheme.glassDecoration(
         borderRadius: 24,
         borderColor: _red.withValues(alpha: 0.4),

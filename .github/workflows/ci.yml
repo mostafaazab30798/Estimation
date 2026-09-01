@@ -39,6 +39,19 @@ jobs:
       - name: Flutter test
         run: flutter test
 
+  client-secrets:
+    name: Client secret guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify client secret guard
+        run: bash scripts/verify-client-secrets.sh
+
+      - name: Verify env isolation
+        run: bash scripts/verify-env-isolation.sh
+
   rls-security:
     name: RLS security matrix
     runs-on: ubuntu-latest
@@ -60,3 +73,20 @@ jobs:
 
       - name: Run RLS pgTAP suite
         run: supabase test db
+
+  license-audit:
+    name: License audit and SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.8'
+          channel: stable
+          cache: true
+
+      - name: Run license audit
+        run: dart run tool/audit_licenses.dart

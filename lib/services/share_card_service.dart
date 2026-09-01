@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/constants.dart';
 import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
 
@@ -23,7 +24,8 @@ class ShareCardService {
     required EstimationStatistics stats,
     required int level,
   }) {
-    final displayName = playerName.trim().isNotEmpty ? playerName.trim() : 'لاعب كوتشينة';
+    final displayName =
+        playerName.trim().isNotEmpty ? playerName.trim() : kDefaultPlayerName;
     final archetype = profile.primaryArchetype;
     final accuracyStr = stats.declarationAccuracy.toStringAsFixed(1);
 
@@ -33,10 +35,11 @@ class ShareCardService {
       ..writeln('📜 اللقب: ${config.selectedTitle}')
       ..writeln('🧠 الشخصية التكتيكية: ${archetype.titleAr} ${archetype.emoji}')
       ..writeln('⭐ المستوى: $level • دقة الكول: $accuracyStr%')
-      ..writeln('🏆 الانتصارات: ${stats.gamesWon} • كول مثالي: ${stats.perfectEstimates}')
+      ..writeln(
+          '🏆 الانتصارات: ${stats.gamesWon} • كول مثالي: ${stats.perfectEstimates}')
       ..writeln('🔥 أطول سلسلة فوز: ${stats.longestWinningStreak}')
       ..writeln('✨ "${archetype.taglineAr}"')
-      ..writeln('#Estimation #كوتشينة #إستميشن');
+      ..writeln('#Estimation #سهرة_ورق #إستميشن');
 
     return caption.toString();
   }
@@ -50,7 +53,8 @@ class ShareCardService {
     required int bestRoundDelta,
     required String matchRankTitle,
   }) {
-    final displayName = playerName.trim().isNotEmpty ? playerName.trim() : 'لاعب كوتشينة';
+    final displayName =
+        playerName.trim().isNotEmpty ? playerName.trim() : kDefaultPlayerName;
     final caption = StringBuffer()
       ..writeln('🏆 انتصار جديد في إستميشن! • Estimation Victory 🏆')
       ..writeln('👑 البطل: $displayName ($matchRankTitle)')
@@ -59,7 +63,7 @@ class ShareCardService {
       ..writeln('🔥 ريمونتادا: $comebacks')
       ..writeln('⭐ أفضل جولة: +$bestRoundDelta نقطة')
       ..writeln('حمّل اللعبة وتحداني على الطاولة! ♠️')
-      ..writeln('#Estimation #كوتشينة #بطل_البولة');
+      ..writeln('#Estimation #سهرة_ورق #بطل_البولة');
 
     return caption.toString();
   }
@@ -74,7 +78,8 @@ class ShareCardService {
     required EstimationStatistics stats,
     required int level,
   }) async {
-    final displayName = playerName.trim().isNotEmpty ? playerName.trim() : 'لاعب كوتشينة';
+    final displayName =
+        playerName.trim().isNotEmpty ? playerName.trim() : kDefaultPlayerName;
     final caption = generateIdentityCaption(
       playerName: playerName,
       profile: profile,
@@ -84,19 +89,23 @@ class ShareCardService {
     );
 
     try {
-      final boundary = boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary = boundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
 
       if (boundary == null) {
-        debugPrint('[ShareCardService] RenderRepaintBoundary is null or not yet mounted.');
+        debugPrint(
+            '[ShareCardService] RenderRepaintBoundary is null or not yet mounted.');
         return false;
       }
 
       // High-DPI 3.0 pixel ratio for crystal clear, crisp photo output
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
 
       if (byteData == null) {
-        debugPrint('[ShareCardService] Failed to encode card image to PNG bytes.');
+        debugPrint(
+            '[ShareCardService] Failed to encode card image to PNG bytes.');
         return false;
       }
 
@@ -104,14 +113,18 @@ class ShareCardService {
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final sanitizedName = displayName.replaceAll(RegExp(r'[^\w\s]+'), '_');
-      final filePath = '${tempDir.path}/estimation_card_${sanitizedName}_$timestamp.png';
+      final filePath =
+          '${tempDir.path}/estimation_card_${sanitizedName}_$timestamp.png';
       final file = File(filePath);
       await file.writeAsBytes(buffer);
 
       // Invoke native OS image share sheet
       final result = await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path, mimeType: 'image/png', name: 'my_estimation_card.png')],
+          files: [
+            XFile(file.path,
+                mimeType: 'image/png', name: 'my_estimation_card.png')
+          ],
           text: caption,
           subject: 'بطاقة لاعب إستميشن — $displayName',
         ),
@@ -120,7 +133,8 @@ class ShareCardService {
       return result.status == ShareResultStatus.success ||
           result.status == ShareResultStatus.dismissed;
     } catch (e) {
-      debugPrint('[ShareCardService] Error during image generation / native share: $e');
+      debugPrint(
+          '[ShareCardService] Error during image generation / native share: $e');
       return false;
     }
   }
@@ -134,7 +148,8 @@ class ShareCardService {
     required int bestRoundDelta,
     required String matchRankTitle,
   }) async {
-    final displayName = playerName.trim().isNotEmpty ? playerName.trim() : 'لاعب كوتشينة';
+    final displayName =
+        playerName.trim().isNotEmpty ? playerName.trim() : kDefaultPlayerName;
     final caption = generateVictoryCaption(
       playerName: playerName,
       finalScore: finalScore,

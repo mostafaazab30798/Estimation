@@ -12,6 +12,7 @@ import '../providers/game_provider.dart';
 import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
+import '../widgets/player_name_prompt.dart';
 import '../widgets/performance_blur.dart';
 import '../core/widgets/app_buttons.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -126,15 +127,16 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
   }
 
   Future<void> _connectToRoom(DiscoveredRoom room) async {
-    if (_playerName.trim().isEmpty) {
-      SnackbarHelper.showError(context, 'يرجى تعيين اسمك في الملف الشخصي أولاً');
-      return;
-    }
-    setState(() => _connectingRoomIp = room.ip);
+    final name = await ensurePlayerName(context, currentName: _playerName);
+    if (name == null || !mounted) return;
+    setState(() {
+      _playerName = name;
+      _connectingRoomIp = room.ip;
+    });
 
     try {
       final provider = context.read<GameProvider>();
-      await provider.joinLocalGame(_playerName, room.ip, room.port, expectedGameType: room.gameType);
+      await provider.joinLocalGame(name, room.ip, room.port, expectedGameType: room.gameType);
       if (mounted) {
         if (provider.status == ConnectionStatus.connected) {
           Navigator.pushReplacementNamed(context, '/lobby');

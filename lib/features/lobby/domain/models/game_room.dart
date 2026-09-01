@@ -25,6 +25,8 @@ class GameRoom {
   final DateTime? botOfferAfter;
   final DateTime createdAt;
   final DateTime? startedAt;
+  final int actionSeq;
+  final Map<String, dynamic>? gameState;
 
   const GameRoom({
     required this.id,
@@ -44,6 +46,8 @@ class GameRoom {
     this.botOfferAfter,
     required this.createdAt,
     this.startedAt,
+    this.actionSeq = 0,
+    this.gameState,
   });
 
   bool get isMatchmaking => roomKind == 'matchmaking';
@@ -91,6 +95,8 @@ class GameRoom {
       startedAt: json['started_at'] != null
           ? DateTime.parse(json['started_at'] as String)
           : null,
+      actionSeq: (json['action_seq'] as num?)?.toInt() ?? 0,
+      gameState: json['game_state'] as Map<String, dynamic>?,
     );
   }
 }

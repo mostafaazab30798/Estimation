@@ -1,6 +1,7 @@
 // lib/services/ugc_service.dart
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Terms version — bump when community guidelines change.
@@ -12,23 +13,63 @@ class UgcService {
   UgcService._();
   static final UgcService instance = UgcService._();
 
-  final SupabaseClient _client = Supabase.instance.client;
+  static const _kTermsVersionKey = 'ugc_terms_version';
+  static const _kTermsAcceptedAtKey = 'ugc_terms_accepted_at';
+
+  String? _acceptedVersion;
+  bool _loaded = false;
+
+  SupabaseClient get _client => Supabase.instance.client;
+
+  Future<void> _ensureLoaded() async {
+    if (_loaded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _acceptedVersion = prefs.getString(_kTermsVersionKey);
+    } catch (e) {
+      debugPrint('[UgcService] load terms error: $e');
+    }
+    _loaded = true;
+  }
+
+  Future<bool> hasAcceptedCurrentTerms() async {
+    await _ensureLoaded();
+    return _acceptedVersion == kCurrentTermsVersion;
+  }
+
+  Future<void> rememberAcceptedTerms({
+    String version = kCurrentTermsVersion,
+  }) async {
+    _acceptedVersion = version;
+    _loaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kTermsVersionKey, version);
+      await prefs.setString(
+        _kTermsAcceptedAtKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
+    } catch (e) {
+      debugPrint('[UgcService] persist terms error: $e');
+    }
+  }
 
   Future<bool> acceptTerms({String version = kCurrentTermsVersion}) async {
-    final user = _client.auth.currentUser;
-    if (user == null || user.isAnonymous) return false;
+    await rememberAcceptedTerms(version: version);
 
     try {
+      final user = _client.auth.currentUser;
+      if (user == null || user.isAnonymous) return true;
+
       await _client.from('profiles').update({
         'terms_accepted_at': DateTime.now().toUtc().toIso8601String(),
         'terms_version': version,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', user.id);
-      return true;
     } catch (e) {
-      debugPrint('[UgcService] acceptTerms error: $e');
-      return false;
+      debugPrint('[UgcService] acceptTerms server sync skipped: $e');
     }
+    return true;
   }
 
   Future<bool> submitReport({
@@ -74,10 +115,10 @@ class UgcService {
   }
 
   Future<Set<String>> fetchBlockedUserIds() async {
-    final user = _client.auth.currentUser;
-    if (user == null || user.isAnonymous) return {};
-
     try {
+      final user = _client.auth.currentUser;
+      if (user == null || user.isAnonymous) return {};
+
       final rows = await _client
           .from('user_blocks')
           .select('blocked_id')
@@ -89,5 +130,11 @@ class UgcService {
       debugPrint('[UgcService] fetchBlockedUserIds error: $e');
       return {};
     }
+  }
+
+  @visibleForTesting
+  void resetForTest() {
+    _acceptedVersion = null;
+    _loaded = false;
   }
 }

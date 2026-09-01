@@ -4,13 +4,14 @@
 // Only the presentation layer is redesigned using the new hud/ components.
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../core/models/game_state.dart';
 import '../core/game_engine.dart';
+import '../core/utils/game_layout_metrics.dart';
+import '../core/utils/stale_game_route.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/player_hand.dart';
@@ -26,6 +27,7 @@ import '../widgets/earthquake/earthquake_effect_overlay.dart';
 import '../widgets/reconnection_banner.dart';
 import '../widgets/hud/game_background.dart';
 import '../widgets/hud/casino_table.dart';
+import '../core/widgets/leave_game_dialog.dart';
 import '../widgets/hud/top_hud.dart';
 import '../widgets/hud/ready_phase_overlay.dart';
 import '../widgets/hud/turn_timer_badge.dart';
@@ -170,6 +172,9 @@ class _GameScreenState extends State<GameScreen> {
     final state = provider.state;
 
     if (state == null) {
+      if (StaleGameRoute.isStaleKotchinaGame(provider)) {
+        StaleGameRoute.redirectToModeHome(context);
+      }
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
       );
@@ -185,12 +190,9 @@ class _GameScreenState extends State<GameScreen> {
       return MatchEndScreen(state: state, provider: provider);
     }
 
-    final media = MediaQuery.of(context);
-    final isPortrait = media.orientation == Orientation.portrait;
-    final minDim = math.min(media.size.width, media.size.height);
-    final trickSize = isPortrait
-        ? (minDim * 0.52).clamp(140.0, 250.0)
-        : (media.size.height * 0.44).clamp(160.0, 290.0);
+    final layout = GameLayoutMetrics.of(context);
+    final isPortrait = layout.isPortrait;
+    final trickSize = layout.trickAreaSize;
 
     // Phase-reactive glow color for the table
     final tableGlowColor = _phaseGlowColor(state.phase);
@@ -230,9 +232,9 @@ class _GameScreenState extends State<GameScreen> {
                   children: [
                     // ── Top HUD ──────────────────────────────────────
                     Positioned(
-                      top: isPortrait ? 6 : 10,
-                      left: 10,
-                      right: 10,
+                      top: layout.topHudInset,
+                      left: layout.topHudHorizontalInset,
+                      right: layout.topHudHorizontalInset,
                       child: Consumer<GameProvider>(
                         builder: (ctx, prov, _) => TopHud(
                           state: prov.state!,
@@ -243,7 +245,7 @@ class _GameScreenState extends State<GameScreen> {
 
                     // ── Center Trick Area ─────────────────────────────
                     Align(
-                      alignment: Alignment(0, isPortrait ? -0.32 : -0.25),
+                      alignment: layout.trickAreaAlignment,
                       child: SizedBox(
                         width: trickSize,
                         height: trickSize,
@@ -260,7 +262,7 @@ class _GameScreenState extends State<GameScreen> {
 
                     // ── Opponent: Left ────────────────────────────────
                     Positioned(
-                      left: isPortrait ? 4 : 14,
+                      left: layout.sideInset,
                       top: 0,
                       bottom: 0,
                       child: Align(
@@ -290,7 +292,7 @@ class _GameScreenState extends State<GameScreen> {
 
                     // ── Opponent: Right ───────────────────────────────
                     Positioned(
-                      right: isPortrait ? 4 : 14,
+                      right: layout.sideInset,
                       top: 0,
                       bottom: 0,
                       child: Align(
@@ -320,7 +322,7 @@ class _GameScreenState extends State<GameScreen> {
 
                     // ── Opponent: Top ─────────────────────────────────
                     Positioned(
-                      top: isPortrait ? 128 : 64,
+                      top: layout.topOpponentTop,
                       left: 0,
                       right: 0,
                       child: Align(
@@ -383,7 +385,7 @@ class _GameScreenState extends State<GameScreen> {
                                   isCurrentTurn: prov.isMyTurn,
                                   isBidder: prov.amBidder,
                                   isMe: true,
-                                  compact: !isPortrait,
+                                  compact: layout.localPlayerCompact,
                                 ),
                               ),
                             );
@@ -391,6 +393,8 @@ class _GameScreenState extends State<GameScreen> {
                             final bool showTurnTimer =
                                 prov.state?.phase == GamePhase.trickTaking &&
                                     prov.isMyTurn;
+
+                            final infoPad = layout.localPlayerInfoPadding;
 
                             if (isPortrait) {
                               return Column(
@@ -407,39 +411,56 @@ class _GameScreenState extends State<GameScreen> {
                                   ],
                                   handWidget,
                                   const SizedBox(height: 4),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      playerInfoCard,
-                                    ],
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: infoPad.left),
+                                    child: playerInfoCard,
                                   ),
                                 ],
                               );
                             }
 
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            final handColumn = Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 6.0),
-                                  child: playerInfoCard,
-                                ),
-                                const SizedBox(width: 14),
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    if (showTurnTimer) ...[
-                                      TurnTimerBadge(
-                                        state: prov.state!,
-                                        isMyTurn: true,
-                                        compact: true,
-                                      ),
-                                      const SizedBox(height: 6),
-                                    ],
-                                    handWidget,
-                                  ],
+                                if (showTurnTimer) ...[
+                                  TurnTimerBadge(
+                                    state: prov.state!,
+                                    isMyTurn: true,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
+                                handWidget,
+                              ],
+                            );
+
+                            if (infoPad == EdgeInsets.zero) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 6.0),
+                                    child: playerInfoCard,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: handColumn),
+                                ],
+                              );
+                            }
+
+                            return Stack(
+                              alignment: Alignment.bottomCenter,
+                              clipBehavior: Clip.none,
+                              children: [
+                                handColumn,
+                                Align(
+                                  alignment: Alignment.bottomLeft,
+                                  child: Padding(
+                                    padding: infoPad,
+                                    child: playerInfoCard,
+                                  ),
                                 ),
                               ],
                             );
@@ -451,7 +472,7 @@ class _GameScreenState extends State<GameScreen> {
                     // ── Reactions Overlay (Bubbles over player seats) ───────
                     Consumer<GameProvider>(
                       builder: (ctx, prov, _) =>
-                          _buildReactionsOverlay(prov, isPortrait),
+                          _buildReactionsOverlay(prov, layout),
                     ),
 
                     // ── Phase overlay ─────────────────────────────────
@@ -515,11 +536,14 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildReactionsOverlay(GameProvider prov, bool isPortrait) {
+  Widget _buildReactionsOverlay(GameProvider prov, GameLayoutMetrics layout) {
     if (prov.activeReactions.isEmpty) return const SizedBox.shrink();
 
     final state = prov.state;
     if (state == null) return const SizedBox.shrink();
+
+    final isPortrait = layout.isPortrait;
+    final reactions = layout.reactionLayout(isPortrait: isPortrait);
 
     final total = state.players.length;
     final mySeat = prov.me?.seatIndex ?? 0;
@@ -543,8 +567,8 @@ class _GameScreenState extends State<GameScreen> {
         // My reaction (bottom)
         if (myPlayer != null && prov.activeReactions.containsKey(myPlayer.id))
           Positioned(
-            bottom: isPortrait ? 138 : 88,
-            left: isPortrait ? 20 : 110,
+            bottom: reactions.myBottom,
+            left: reactions.myLeft,
             child: ReactionBubbleWidget(
               key: ValueKey(prov.activeReactions[myPlayer.id]!.id),
               reaction: prov.activeReactions[myPlayer.id]!,
@@ -556,8 +580,8 @@ class _GameScreenState extends State<GameScreen> {
         if (leftPlayer != null &&
             prov.activeReactions.containsKey(leftPlayer.id))
           Positioned(
-            left: isPortrait ? 8 : 16,
-            bottom: isPortrait ? 260 : 180,
+            left: reactions.sideInset,
+            bottom: reactions.sideBottom,
             child: ReactionBubbleWidget(
               key: ValueKey(prov.activeReactions[leftPlayer.id]!.id),
               reaction: prov.activeReactions[leftPlayer.id]!,
@@ -569,8 +593,8 @@ class _GameScreenState extends State<GameScreen> {
         if (rightPlayer != null &&
             prov.activeReactions.containsKey(rightPlayer.id))
           Positioned(
-            right: isPortrait ? 8 : 16,
-            bottom: isPortrait ? 260 : 180,
+            right: reactions.sideInset,
+            bottom: reactions.sideBottom,
             child: ReactionBubbleWidget(
               key: ValueKey(prov.activeReactions[rightPlayer.id]!.id),
               reaction: prov.activeReactions[rightPlayer.id]!,
@@ -581,7 +605,7 @@ class _GameScreenState extends State<GameScreen> {
         // Top opponent reaction
         if (topPlayer != null && prov.activeReactions.containsKey(topPlayer.id))
           Positioned(
-            top: isPortrait ? 80 : 70,
+            top: reactions.topOffset,
             left: 0,
             right: 0,
             child: Center(
@@ -706,7 +730,7 @@ class _GameScreenState extends State<GameScreen> {
           state: state,
           isCurrentTurn: _isTurn(state, seatIndex),
           isBidder: state.bidderPlayerId == player.id,
-          compact: true,
+          compact: GameLayoutMetrics.of(context).topOpponentCompact,
         ),
         const SizedBox(width: 8),
         InkWell(
@@ -743,7 +767,7 @@ class _GameScreenState extends State<GameScreen> {
           state: state,
           isCurrentTurn: _isTurn(state, seatIndex),
           isBidder: state.bidderPlayerId == player.id,
-          compact: true,
+          compact: GameLayoutMetrics.of(context).sideOpponentCompact,
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -805,140 +829,18 @@ class _GameScreenState extends State<GameScreen> {
   // ── Exit dialog ─────────────────────────────────────────────────────────
 
   void _confirmExit(BuildContext context, GameProvider provider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xF2324F6A), Color(0xF2182C3E)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(
-              color: AppTheme.cream.withValues(alpha: 0.10),
-              width: 1.1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 36,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.playerRed.withValues(alpha: 0.14),
-                  border: Border.all(
-                    color: AppTheme.playerRed.withValues(alpha: 0.32),
-                  ),
-                ),
-                child: const AppIcon(AppIcons.exitToApp,
-                    color: AppTheme.playerRed, size: 28),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'مغادرة اللعبة',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.cream,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.steelBlue,
-                  fontSize: 12.5,
-                  height: 1.45,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        decoration: BoxDecoration(
-                          color: AppTheme.steelBlue.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppTheme.steelBlue.withValues(alpha: 0.28),
-                          ),
-                        ),
-                        child: Text(
-                          'إلغاء',
-                          style: GoogleFonts.cairo(
-                            color: AppTheme.cream,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        await provider.temporarilyLeaveOngoingGame();
-                        if (!context.mounted) return;
-                        Navigator.of(context, rootNavigator: true)
-                            .pushNamedAndRemoveUntil('/', (route) => false);
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.playerRed, Color(0xFFB03050)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.playerRed.withValues(alpha: 0.35),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'مغادرة',
-                          style: GoogleFonts.cairo(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    LeaveGameDialog.show(
+      context,
+      onLeave: () async {
+        if (provider.isTestMode || provider.isLocal) {
+          await provider.reset();
+        } else {
+          await provider.temporarilyLeaveOngoingGame();
+        }
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (route) => false);
+      },
     );
   }
 
@@ -1103,23 +1005,26 @@ class HiddenCardFan extends StatelessWidget {
   Widget build(BuildContext context) {
     if (count == 0) return const SizedBox();
 
+    final layout = GameLayoutMetrics.of(context);
     final displayCount = count > 4 ? 4 : count;
-    const cardW = 30.0;
-    const cardH = cardW / 0.65;
+    final cardW = layout.hiddenCardWidth;
+    final cardH = cardW / 0.65;
+    final overlap = layout.hiddenCardOverlap;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!isRight) _buildRemainingText(),
-        if (!isRight) const SizedBox(width: 7),
+        if (!isRight) _buildRemainingText(layout),
+        if (!isRight)
+          SizedBox(width: layout.screenSize == GameScreenSize.phone ? 7 : 9),
         SizedBox(
-          width: cardW + (displayCount - 1) * 11.0,
+          width: cardW + (displayCount - 1) * overlap,
           height: cardH,
           child: Stack(
             clipBehavior: Clip.none,
             children: List.generate(displayCount, (i) {
               return Positioned(
-                left: i * 11.0,
+                left: i * overlap,
                 child: Transform.rotate(
                   angle: (i - (displayCount - 1) / 2) * 0.04,
                   child: Container(
@@ -1149,15 +1054,20 @@ class HiddenCardFan extends StatelessWidget {
             }),
           ),
         ),
-        if (isRight) const SizedBox(width: 7),
-        if (isRight) _buildRemainingText(),
+        if (isRight)
+          SizedBox(width: layout.screenSize == GameScreenSize.phone ? 7 : 9),
+        if (isRight) _buildRemainingText(layout),
       ],
     );
   }
 
-  Widget _buildRemainingText() {
+  Widget _buildRemainingText(GameLayoutMetrics layout) {
+    final fontSize = layout.screenSize == GameScreenSize.phone ? 11.5 : 13.0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.screenSize == GameScreenSize.phone ? 7 : 9,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
         color: AppTheme.deepNavy.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(999),
@@ -1170,7 +1080,7 @@ class HiddenCardFan extends StatelessWidget {
         '$count',
         style: GoogleFonts.cairo(
           color: AppTheme.cream,
-          fontSize: 11.5,
+          fontSize: fontSize,
           fontWeight: FontWeight.w800,
         ),
       ),

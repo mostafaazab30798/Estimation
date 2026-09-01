@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/utils/wallpaper_precache.dart';
 import '../core/widgets/mode_home_shell.dart';
 import '../core/widgets/app_buttons.dart';
 import '../theme/app_theme.dart';
@@ -12,6 +13,7 @@ import '../services/settings_service.dart';
 import '../services/profile_service.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 import '../core/constants.dart';
+import '../core/utils/home_layout_metrics.dart';
 import '../core/widgets/app_logo.dart';
 
 // ── Game Mode Model ──────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ class _MainGameMode {
   final Color accent;
   final String artAsset;
   final String route;
+
   /// When true, art sits above the disc and may overhang its rim.
   final bool artOverflows;
 
@@ -45,7 +48,7 @@ class ModeSelectionScreen extends StatefulWidget {
 }
 
 class _ModeSelectionScreenState extends State<ModeSelectionScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
   String _playerName = kDefaultPlayerName;
   String _playerPhoto = ProfileService.presetAvatars.first.id;
   late final AnimationController _animController;
@@ -213,14 +216,16 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
   }
 
   Widget _buildHeroHeader({bool compact = false}) {
+    final metrics = HomeLayoutMetrics.of(context);
+
     return Column(
       children: [
-        AppLogo(size: compact ? 56 : 80),
-        SizedBox(height: compact ? 8 : 12),
+        AppLogo(compact: compact),
+        SizedBox(height: metrics.appHeroSpacing(compact: compact)),
         Text(
           kAppName,
           style: GoogleFonts.cairo(
-            fontSize: compact ? 26 : 34,
+            fontSize: metrics.appHeroTitleSize(compact: compact),
             fontWeight: FontWeight.w900,
             color: AppTheme.white,
             letterSpacing: 0.5,
@@ -231,7 +236,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
         Text(
           'اختر نمط اللعب',
           style: GoogleFonts.cairo(
-            fontSize: compact ? 12 : 13.5,
+            fontSize: metrics.appHeroSubtitleSize(compact: compact),
             color: AppTheme.steelBlue,
             fontWeight: FontWeight.w600,
           ),
@@ -346,9 +351,8 @@ class _ModeCardState extends State<_ModeCard> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(22),
                 child: Align(
-                  alignment: widget.tall
-                      ? Alignment.topCenter
-                      : Alignment.centerRight,
+                  alignment:
+                      widget.tall ? Alignment.topCenter : Alignment.centerRight,
                   child: Container(
                     width: widget.tall ? double.infinity : 160,
                     height: widget.tall ? 140 : double.infinity,
@@ -374,9 +378,7 @@ class _ModeCardState extends State<_ModeCard> {
                   horizontal: widget.tall ? 20 : 16,
                   vertical: widget.tall ? 18 : 14,
                 ),
-                child: widget.tall
-                    ? _buildTall(mode)
-                    : _buildRow(mode),
+                child: widget.tall ? _buildTall(mode) : _buildRow(mode),
               ),
             ],
           ),

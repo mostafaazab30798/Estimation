@@ -56,8 +56,9 @@ class NinetyNineGameEngine {
     final cardIdx = player.hand.indexWhere((c) => c == card);
     if (cardIdx == -1) return false;
 
-    // If ground total is already 99, only safe cards (4, 7, Jack, King) can be played
-    if (state.groundTotal == 99 && !card.isSafeCard) {
+    // Cards that would make the ground exceed 99 are illegal (also covers
+    // ground == 99, where only safe cards 4 / 7 / Jack / King remain legal).
+    if (!card.isLegalPlay(state.groundTotal)) {
       return false;
     }
 
@@ -85,28 +86,29 @@ class NinetyNineGameEngine {
     // 4. Calculate next player index
     final nextIndex = (state.currentPlayerIndex + state.direction + state.players.length) % state.players.length;
 
-    // 5. Elimination / Round End Check
-    if (state.groundTotal == 99) {
-      final nextPlayer = state.players[nextIndex];
-      final hasSafeCard = nextPlayer.hand.any((c) => c.isSafeCard);
+    // 5. Elimination / Round End Check — next player loses if they have no
+    // card that can be played without exceeding 99.
+    final nextPlayer = state.players[nextIndex];
+    final hasLegalCard =
+        nextPlayer.hand.any((c) => c.isLegalPlay(state.groundTotal));
 
-      if (!hasSafeCard) {
-        state.roundLoserId = nextPlayer.id;
-        final currentLosses = (state.playerLosses[nextPlayer.id] ?? 0) + 1;
-        state.playerLosses[nextPlayer.id] = currentLosses;
+    if (!hasLegalCard) {
+      state.roundLoserId = nextPlayer.id;
+      final currentLosses = (state.playerLosses[nextPlayer.id] ?? 0) + 1;
+      state.playerLosses[nextPlayer.id] = currentLosses;
 
-        if (currentLosses >= maxLosses) {
-          state.matchLoserId = nextPlayer.id;
-          
-          final sortedByLosses = [...state.players]
-            ..sort((a, b) => (state.playerLosses[a.id] ?? 0).compareTo(state.playerLosses[b.id] ?? 0));
-          state.matchWinnerId = sortedByLosses.first.id;
-          state.phase = NinetyNinePhase.finished;
-        } else {
-          state.phase = NinetyNinePhase.roundFinished;
-        }
-        return true;
+      if (currentLosses >= maxLosses) {
+        state.matchLoserId = nextPlayer.id;
+
+        final sortedByLosses = [...state.players]
+          ..sort((a, b) =>
+              (state.playerLosses[a.id] ?? 0).compareTo(state.playerLosses[b.id] ?? 0));
+        state.matchWinnerId = sortedByLosses.first.id;
+        state.phase = NinetyNinePhase.finished;
+      } else {
+        state.phase = NinetyNinePhase.roundFinished;
       }
+      return true;
     }
 
     state.currentPlayerIndex = nextIndex;

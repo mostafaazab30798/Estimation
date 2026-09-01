@@ -1,8 +1,8 @@
 // lib/widgets/settings_dialog.dart
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../models/earthquake_effect.dart';
 import '../services/settings_service.dart';
 import '../services/audio_service.dart';
@@ -43,50 +43,33 @@ class _SettingsDialogState extends State<SettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
+    final dialogWidth = layout.isLargeTablet
+        ? 460.0
+        : (layout.isTablet ? 420.0 : 380.0);
+
     return Center(
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 380,
+          width: dialogWidth,
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.9,
           ),
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: AppTheme.deepNavy.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.gold.withValues(alpha: 0.35),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 24,
-                spreadRadius: 4,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: AppTheme.gold.withValues(alpha: 0.15),
-                blurRadius: 20,
-                spreadRadius: -2,
-              ),
-            ],
-          ),
+          margin: EdgeInsets.symmetric(horizontal: layout.isTablet ? 28 : 24),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(22),
-                child: AnimatedBuilder(
-                  animation: _settings,
-                  builder: (context, _) {
-                    return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+            borderRadius: BorderRadius.circular(AppTheme.dialogRadius),
+            child: Padding(
+              padding: EdgeInsets.all(layout.isTablet ? 26 : 22),
+              child: AnimatedBuilder(
+                animation: _settings,
+                builder: (context, _) {
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         // Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -251,7 +234,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
             ),
           ),
         ),
-      ),
     );
   }
 

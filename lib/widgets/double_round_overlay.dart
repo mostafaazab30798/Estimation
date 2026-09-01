@@ -1,13 +1,17 @@
 // lib/widgets/double_round_overlay.dart
 //
-// Dramatic cinematic overlay shown when all players pass during auction,
-// announcing that the next round is double-scored (⚡ x2).
+// Announcement overlay when all players pass — next round scores ×2.
 
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../core/icons/app_icons.dart';
+import '../core/utils/game_layout_metrics.dart';
+import '../core/widgets/app_buttons.dart';
 import '../theme/app_theme.dart';
 
 class DoubleRoundOverlay extends StatefulWidget {
@@ -25,122 +29,78 @@ class DoubleRoundOverlay extends StatefulWidget {
 }
 
 class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
-    with TickerProviderStateMixin {
-  late final AnimationController _mainController;
-  late final AnimationController _particleController;
-  late final AnimationController _pulseController;
-  late final AnimationController _shockwaveController;
+    with SingleTickerProviderStateMixin {
+  static const _accent = Color(0xFFFF9100);
+  static const _accentLight = Color(0xFFFFD54F);
 
-  late final Animation<double> _scaleAnim;
-  late final Animation<double> _fadeAnim;
-  late final Animation<double> _iconScaleAnim;
-  late final Animation<double> _glowAnim;
-  late final Animation<double> _shockwaveAnim;
+  late final AnimationController _entrance;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+  late final Animation<Offset> _slide;
+  late final List<_Spark> _sparks;
 
   Timer? _autoDismissTimer;
   bool _dismissing = false;
 
-  late final List<_SparkParticle> _particles;
-
   @override
   void initState() {
     super.initState();
-
     final rng = math.Random();
-    _particles = List.generate(28, (index) {
-      final angle = (index / 28) * 2 * math.pi + (rng.nextDouble() * 0.25 - 0.12);
-      final distance = 80.0 + rng.nextDouble() * 120.0;
-      final size = 3.5 + rng.nextDouble() * 5.5;
-      final isGold = rng.nextBool();
-      return _SparkParticle(
-        angle: angle,
-        distance: distance,
-        size: size,
-        color: isGold ? const Color(0xFFFFD700) : const Color(0xFFFF9100),
-      );
-    });
-
-    _mainController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 650),
-    );
-
-    _particleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..forward();
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-
-    _shockwaveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..forward();
-
-    _scaleAnim = Tween<double>(begin: 0.25, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.0, 0.85, curve: Curves.elasticOut),
+    _sparks = List.generate(
+      16,
+      (i) => _Spark(
+        angle: (i / 16) * math.pi * 2 + rng.nextDouble() * 0.2,
+        distance: 48 + rng.nextDouble() * 72,
+        size: 2.5 + rng.nextDouble() * 3.5,
       ),
     );
 
-    _fadeAnim = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.35, curve: Curves.easeIn),
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+      reverseDuration: const Duration(milliseconds: 240),
     );
-
-    _iconScaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.15, 0.9, curve: Curves.elasticOut),
-      ),
+    final curve = CurvedAnimation(
+      parent: _entrance,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
+    _fade = curve;
+    _scale = Tween<double>(begin: 0.94, end: 1).animate(curve);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(curve);
 
-    _glowAnim = Tween<double>(begin: 0.65, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _shockwaveAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _shockwaveController, curve: Curves.easeOutCubic),
-    );
-
-    _mainController.forward();
-
-    try {
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
-
-    _autoDismissTimer = Timer(widget.displayDuration, () {
-      _dismiss();
-    });
+    _entrance.forward();
+    HapticFeedback.heavyImpact();
+    _autoDismissTimer = Timer(widget.displayDuration, _dismiss);
   }
 
   void _dismiss() {
     if (_dismissing || !mounted) return;
     _dismissing = true;
     _autoDismissTimer?.cancel();
-    _mainController.reverse().then((_) {
-      if (mounted) {
-        widget.onDismissed?.call();
-      }
+    _entrance.reverse().then((_) {
+      if (mounted) widget.onDismissed?.call();
     });
   }
 
   @override
   void dispose() {
     _autoDismissTimer?.cancel();
-    _mainController.dispose();
-    _particleController.dispose();
-    _pulseController.dispose();
-    _shockwaveController.dispose();
+    _entrance.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 460.0 : 390.0);
+    final horizontalInset = layout.isTablet ? 28.0 : 22.0;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _dismiss,
@@ -149,287 +109,226 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Dark vignette backdrop
             FadeTransition(
-              opacity: _fadeAnim,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.65),
+              opacity: _fade,
+              child: ColoredBox(
+                color: AppTheme.deepNavy.withValues(alpha: 0.78),
               ),
             ),
-
-            // Shockwave ring animation
-            AnimatedBuilder(
-              animation: _shockwaveAnim,
-              builder: (context, _) {
-                final val = _shockwaveAnim.value;
-                final opacity = (1.0 - val).clamp(0.0, 0.8);
-                return Container(
-                  width: 220 + val * 200,
-                  height: 220 + val * 200,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFFFD700).withValues(alpha: opacity * 0.7),
-                      width: 3.0 * (1.0 - val),
-                    ),
-                  ),
-                );
-              },
-            ),
-
-            // Lightning Sparks
-            AnimatedBuilder(
-              animation: _particleController,
-              builder: (context, _) {
-                final t = _particleController.value;
-                final particleOpacity = (1.0 - t).clamp(0.0, 1.0);
-                return CustomPaint(
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _entrance,
+                builder: (context, _) => CustomPaint(
+                  size: MediaQuery.sizeOf(context),
                   painter: _SparkPainter(
-                    particles: _particles,
-                    progress: t,
-                    opacity: particleOpacity,
+                    sparks: _sparks,
+                    progress: _entrance.value,
                   ),
-                );
-              },
+                ),
+              ),
             ),
-
-            // Central Announcement Card
-            FadeTransition(
-              opacity: _fadeAnim,
-              child: ScaleTransition(
-                scale: _scaleAnim,
-                child: AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    final glow = _glowAnim.value;
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xF01C2438),
-                            Color(0xF00F172A),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.85 * glow),
-                          width: 2.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.45 * glow),
-                            blurRadius: 36 * glow,
-                            spreadRadius: 4 * glow,
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFFFF6D00).withValues(alpha: 0.3 * glow),
-                            blurRadius: 28,
-                            spreadRadius: 3,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            blurRadius: 32,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
+            SafeArea(
+              child: FadeTransition(
+                opacity: _fade,
+                child: SlideTransition(
+                  position: _slide,
+                  child: ScaleTransition(
+                    scale: _scale,
+                    child: Container(
+                      width: double.infinity,
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      margin: EdgeInsets.symmetric(horizontal: horizontalInset),
+                      decoration: AppTheme.dialogDecoration(accent: _accent),
+                      padding: EdgeInsets.fromLTRB(
+                        layout.isTablet ? 28 : 24,
+                        layout.isTablet ? 24 : 20,
+                        layout.isTablet ? 28 : 24,
+                        layout.isTablet ? 22 : 20,
                       ),
-                      child: child,
-                    );
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Lightning Bolt Hero Icon
-                      ScaleTransition(
-                        scale: _iconScaleAnim,
-                        child: Container(
-                          width: 76,
-                          height: 76,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFEA00), Color(0xFFFF9100)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFFFD700).withValues(alpha: 0.7),
-                                blurRadius: 24,
-                                spreadRadius: 4,
+                      child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  AppIconWell(
+                                    icon: AppIcons.bolt,
+                                    size: layout.isTablet ? 54 : 48,
+                                    iconSize: layout.isTablet ? 26 : 22,
+                                    color: _accentLight,
+                                    fill: _accent.withValues(alpha: 0.16),
+                                    borderColor: _accent.withValues(alpha: 0.38),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _accent.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: _accent.withValues(alpha: 0.32),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'ALL PASS',
+                                      style: GoogleFonts.cairo(
+                                        color: _accentLight,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: layout.isTablet ? 22 : 18),
+                              Text(
+                                'EVERYONE PASSED',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.cinzel(
+                                  fontSize: layout.isTablet ? 24 : 21,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.6,
+                                  color: AppTheme.cream,
+                                  height: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'الجميع مرر المزاد (Pass)',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.cairo(
+                                  fontSize: layout.isTablet ? 14 : 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.steelBlue,
+                                  height: 1.3,
+                                ),
+                              ),
+                              SizedBox(height: layout.isTablet ? 20 : 16),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: layout.isTablet ? 18 : 14,
+                                  vertical: layout.isTablet ? 14 : 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      _accent.withValues(alpha: 0.22),
+                                      const Color(0xFFFF3D00).withValues(alpha: 0.14),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: _accent.withValues(alpha: 0.42),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'DOUBLE ROUND NEXT',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: layout.isTablet ? 16 : 14,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.cream,
+                                        letterSpacing: 0.6,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'جولة مضاعفة تالية',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: layout.isTablet ? 13 : 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.cream.withValues(alpha: 0.9),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: layout.isTablet ? 18 : 14),
+                              Container(
+                                padding: EdgeInsets.all(layout.isTablet ? 16 : 14),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.deepNavy.withValues(alpha: 0.46),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: AppTheme.steelBlue.withValues(alpha: 0.14),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'All scores in the next round\nwill be multiplied ×2.',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: layout.isTablet ? 14 : 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.cream,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'ستتم مضاعفة جميع النقاط في الجولة القادمة ×2.',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: layout.isTablet ? 12 : 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.steelBlue,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: layout.isTablet ? 16 : 14),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gold.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: AppTheme.gold.withValues(alpha: 0.38),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const AppIcon(
+                                        AppIcons.bolt,
+                                        size: 14,
+                                        color: AppTheme.gold,
+                                        strokeWidth: AppIconTokens.strokeBold,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '×2 ROUND ACTIVE',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.gold,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          child: const Center(
-                            child: Text(
-                              '⚡',
-                              style: TextStyle(fontSize: 42, height: 1.1),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Upper Header: EVERYONE PASSED
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFFFFD54F),
-                            Color(0xFFFFFFFF),
-                            Color(0xFFFFCA28),
-                          ],
-                        ).createShader(bounds),
-                        child: Text(
-                          'EVERYONE PASSED',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.cinzel(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2.0,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-
-                      // Arabic Subtitle for Everyone Passed
-                      Text(
-                        'الجميع مرر المزاد (Pass)',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFFE082).withValues(alpha: 0.9),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Hero Badge: ⚡ DOUBLE ROUND NEXT
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF9100), Color(0xFFFF3D00)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF6D00).withValues(alpha: 0.5),
-                              blurRadius: 14,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('⚡', style: TextStyle(fontSize: 16)),
-                            const SizedBox(width: 6),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'DOUBLE ROUND NEXT',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    letterSpacing: 0.8,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                Text(
-                                  'جولة مضاعفة تالية',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    height: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 6),
-                            const Text('⚡', style: TextStyle(fontSize: 16)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Explanatory Note: All scores in the next round will be multiplied ×2
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'All scores in the next round\nwill be multiplied ×2.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.cairo(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white.withValues(alpha: 0.95),
-                                height: 1.3,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'ستتم مضاعفة جميع النقاط في الجولة القادمة ×2.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.goldLight.withValues(alpha: 0.85),
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // ×2 Indicator
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('⚡', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '×2 ROUND ACTIVE',
-                              style: GoogleFonts.cairo(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFFFFD700),
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -441,50 +340,51 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
   }
 }
 
-class _SparkParticle {
-  final double angle;
-  final double distance;
-  final double size;
-  final Color color;
-
-  _SparkParticle({
+class _Spark {
+  const _Spark({
     required this.angle,
     required this.distance,
     required this.size,
-    required this.color,
   });
+
+  final double angle;
+  final double distance;
+  final double size;
 }
 
 class _SparkPainter extends CustomPainter {
-  final List<_SparkParticle> particles;
-  final double progress;
-  final double opacity;
+  _SparkPainter({required this.sparks, required this.progress});
 
-  _SparkPainter({
-    required this.particles,
-    required this.progress,
-    required this.opacity,
-  });
+  final List<_Spark> sparks;
+  final double progress;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (opacity <= 0.0) return;
-
+    if (progress <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()..style = PaintingStyle.fill;
+    final t = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
+    final opacity = (1 - progress).clamp(0.0, 1.0);
 
-    for (final p in particles) {
-      final currentDist = p.distance * Curves.easeOutCubic.transform(progress);
-      final dx = center.dx + currentDist * math.cos(p.angle);
-      final dy = center.dy + currentDist * math.sin(p.angle);
-
-      paint.color = p.color.withValues(alpha: opacity);
-      canvas.drawCircle(Offset(dx, dy), p.size * (1.0 - progress * 0.35), paint);
+    for (var i = 0; i < sparks.length; i++) {
+      final spark = sparks[i];
+      final dist = spark.distance * t;
+      paint.color = (i.isEven
+              ? const Color(0xFFFFD700)
+              : const Color(0xFFFF9100))
+          .withValues(alpha: opacity * 0.85);
+      canvas.drawCircle(
+        Offset(
+          center.dx + dist * math.cos(spark.angle),
+          center.dy + dist * math.sin(spark.angle),
+        ),
+        spark.size * (1 - progress * 0.3),
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _SparkPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
-  }
+  bool shouldRepaint(covariant _SparkPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

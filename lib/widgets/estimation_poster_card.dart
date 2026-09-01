@@ -10,6 +10,7 @@ import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
 import '../services/achievement_service.dart';
 import '../core/widgets/player_avatar.dart';
+import '../core/constants.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class EstimationPosterCard extends StatelessWidget {
@@ -44,18 +45,29 @@ class EstimationPosterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = playerName.trim().isNotEmpty ? playerName.trim() : 'لاعب كوتشينة';
+    final displayName =
+        playerName.trim().isNotEmpty ? playerName.trim() : kDefaultPlayerName;
     final archetype = profile.primaryArchetype;
     final accuracy = stats.declarationAccuracy.toStringAsFixed(0);
     final winStreak = stats.longestWinningStreak;
-    final bestScore = stats.highestScoreInOneRound > 0 ? '+${stats.highestScoreInOneRound}' : '+0';
-    final title = config.selectedTitle.isNotEmpty ? config.selectedTitle : archetype.titleAr;
-    final tagline = archetype.taglineAr.isNotEmpty ? '« ${archetype.taglineAr} »' : '« سيد التكتيك واللمّات الحاسمة »';
+    final bestScore = stats.highestScoreInOneRound > 0
+        ? '+${stats.highestScoreInOneRound}'
+        : '+0';
+    final title = config.selectedTitle.isNotEmpty
+        ? config.selectedTitle
+        : archetype.titleAr;
+    final tagline = archetype.taglineAr.isNotEmpty
+        ? '« ${archetype.taglineAr} »'
+        : '« سيد التكتيك واللمّات الحاسمة »';
 
     // Calculate over/under bid percentages
     final totalRounds = stats.totalRounds > 0 ? stats.totalRounds : 1;
-    final overRate = ((stats.failedDeclarations * 0.6) / totalRounds * 100).clamp(0, 100).toStringAsFixed(0);
-    final underRate = ((stats.failedDeclarations * 0.4) / totalRounds * 100).clamp(0, 100).toStringAsFixed(0);
+    final overRate = ((stats.failedDeclarations * 0.6) / totalRounds * 100)
+        .clamp(0, 100)
+        .toStringAsFixed(0);
+    final underRate = ((stats.failedDeclarations * 0.4) / totalRounds * 100)
+        .clamp(0, 100)
+        .toStringAsFixed(0);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -96,10 +108,12 @@ class EstimationPosterCard extends StatelessWidget {
 
               // Inner Filigree Border Frame
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: gold.withValues(alpha: 0.45), width: 1.5),
+                  border: Border.all(
+                      color: gold.withValues(alpha: 0.45), width: 1.5),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -116,7 +130,8 @@ class EstimationPosterCard extends StatelessWidget {
                     const SizedBox(height: 14),
 
                     // ── 3. 5-Metric Ribbon Bar ───────────────────────────────────
-                    _buildFiveMetricsBar(accuracy, winStreak.toString(), bestScore),
+                    _buildFiveMetricsBar(
+                        accuracy, winStreak.toString(), bestScore),
 
                     const SizedBox(height: 14),
 
@@ -133,7 +148,8 @@ class EstimationPosterCard extends StatelessWidget {
                         // Right: Detailed Stats List
                         Expanded(
                           flex: 11,
-                          child: _buildEstimationStatsPanel(overRate, underRate),
+                          child:
+                              _buildEstimationStatsPanel(overRate, underRate),
                         ),
                       ],
                     ),
@@ -189,14 +205,15 @@ class EstimationPosterCard extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          'كوتشينة • إستميشن',
+          '$kAppName • إستميشن',
           style: GoogleFonts.cairo(
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: goldLight,
             letterSpacing: 2.0,
             shadows: [
-              const Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
+              const Shadow(
+                  color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
               Shadow(color: gold.withValues(alpha: 0.8), blurRadius: 10),
             ],
           ),
@@ -256,15 +273,23 @@ class EstimationPosterCard extends StatelessWidget {
             Positioned(
               bottom: -6,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFB8860B), Color(0xFFDAA520), Color(0xFFB8860B)],
+                    colors: [
+                      Color(0xFFB8860B),
+                      Color(0xFFDAA520),
+                      Color(0xFFB8860B)
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: goldLight, width: 0.8),
                   boxShadow: const [
-                    BoxShadow(color: Colors.black45, blurRadius: 4, offset: Offset(0, 2)),
+                    BoxShadow(
+                        color: Colors.black45,
+                        blurRadius: 4,
+                        offset: Offset(0, 2)),
                   ],
                 ),
                 child: Text(
@@ -297,18 +322,23 @@ class EstimationPosterCard extends StatelessWidget {
                   color: Colors.white,
                   letterSpacing: 0.5,
                   shadows: [
-                    const Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 2)),
+                    const Shadow(
+                        color: Colors.black87,
+                        blurRadius: 4,
+                        offset: Offset(0, 2)),
                   ],
                 ),
               ),
               const SizedBox(height: 3),
               // Title ribbon pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                 decoration: BoxDecoration(
                   color: gold.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: gold.withValues(alpha: 0.7), width: 1),
+                  border:
+                      Border.all(color: gold.withValues(alpha: 0.7), width: 1),
                 ),
                 child: Text(
                   title,
@@ -352,7 +382,8 @@ class EstimationPosterCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: gold, width: 2),
                     boxShadow: [
-                      BoxShadow(color: gold.withValues(alpha: 0.3), blurRadius: 8),
+                      BoxShadow(
+                          color: gold.withValues(alpha: 0.3), blurRadius: 8),
                     ],
                   ),
                   child: Column(
@@ -392,13 +423,15 @@ class EstimationPosterCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: gold.withValues(alpha: 0.4), width: 0.8),
+                border:
+                    Border.all(color: gold.withValues(alpha: 0.4), width: 0.8),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0.5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 3, vertical: 0.5),
                     decoration: BoxDecoration(
                       color: gold,
                       borderRadius: BorderRadius.circular(3),
@@ -432,7 +465,8 @@ class EstimationPosterCard extends StatelessWidget {
 
   // ── 5 Metrics Bar ──────────────────────────────────────────────────────────
 
-  Widget _buildFiveMetricsBar(String accuracy, String winStreak, String bestScore) {
+  Widget _buildFiveMetricsBar(
+      String accuracy, String winStreak, String bestScore) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
@@ -442,9 +476,11 @@ class EstimationPosterCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _buildMetricColumn('🏆', 'إجمالي الفوز', stats.gamesWon.toString().padLeft(3, '0')),
+          _buildMetricColumn(
+              '🏆', 'إجمالي الفوز', stats.gamesWon.toString().padLeft(3, '0')),
           _buildDivider(),
-          _buildMetricColumn('🎴', 'المباريات', stats.gamesPlayed.toString().padLeft(3, '0')),
+          _buildMetricColumn(
+              '🎴', 'المباريات', stats.gamesPlayed.toString().padLeft(3, '0')),
           _buildDivider(),
           _buildMetricColumn('🎯', 'دقة الكول', '$accuracy%'),
           _buildDivider(),
@@ -501,7 +537,8 @@ class EstimationPosterCard extends StatelessWidget {
 
   Widget _buildPlayStylePanel() {
     final metrics = profile.metrics;
-    final strategic = (metrics.scoreAwareness + metrics.trumpConfidence) / 200.0;
+    final strategic =
+        (metrics.scoreAwareness + metrics.trumpConfidence) / 200.0;
     final aggressive = metrics.aggression / 100.0;
     final riskTaking = metrics.riskTaking / 100.0;
     final accurate = (metrics.declarationAccuracy + metrics.precision) / 200.0;
@@ -553,13 +590,26 @@ class EstimationPosterCard extends StatelessWidget {
         children: [
           _buildPanelHeader('إحصائيات إستميشن'),
           const SizedBox(height: 6),
-          _buildStatRow('🎴', 'متوسط المزايدة', stats.totalRounds > 0 ? stats.averageDeclaredTricks.toStringAsFixed(1) : '0.0'),
-          _buildStatRow('📊', 'متوسط النتيجة', stats.totalRounds > 0 ? stats.averageActualTricks.toStringAsFixed(1) : '0.0'),
-          _buildStatRow('🎯', 'كول مثالي', stats.perfectEstimates.toString().padLeft(2, '0')),
+          _buildStatRow(
+              '🎴',
+              'متوسط المزايدة',
+              stats.totalRounds > 0
+                  ? stats.averageDeclaredTricks.toStringAsFixed(1)
+                  : '0.0'),
+          _buildStatRow(
+              '📊',
+              'متوسط النتيجة',
+              stats.totalRounds > 0
+                  ? stats.averageActualTricks.toStringAsFixed(1)
+                  : '0.0'),
+          _buildStatRow('🎯', 'كول مثالي',
+              stats.perfectEstimates.toString().padLeft(2, '0')),
           _buildStatRow('⬆️', 'مزايدة زائدة', '$overRate%'),
           _buildStatRow('⬇️', 'مزايدة ناقصة', '$underRate%'),
-          _buildStatRow('🚩', 'البولات المكتملة', stats.gamesPlayed.toString().padLeft(2, '0')),
-          _buildStatRow('🔄', 'الريمونتادا', stats.majorComebacks.toString().padLeft(2, '0')),
+          _buildStatRow('🚩', 'البولات المكتملة',
+              stats.gamesPlayed.toString().padLeft(2, '0')),
+          _buildStatRow('🔄', 'الريمونتادا',
+              stats.majorComebacks.toString().padLeft(2, '0')),
         ],
       ),
     );
@@ -610,7 +660,8 @@ class EstimationPosterCard extends StatelessWidget {
   // ── Achievements Panel ─────────────────────────────────────────────────────
 
   Widget _buildAchievementsPanel() {
-    final topAchievements = AchievementService.instance.getTopDisplayAchievements(stats, limit: 4);
+    final topAchievements =
+        AchievementService.instance.getTopDisplayAchievements(stats, limit: 4);
 
     return Container(
       padding: const EdgeInsets.all(10),
@@ -627,7 +678,9 @@ class EstimationPosterCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: topAchievements.map((a) {
               final isUnlocked = a.isUnlocked(stats);
-              final tierLabel = isUnlocked ? a.tier.nameAr : '${(a.getProgress(stats) * 100).toInt()}%';
+              final tierLabel = isUnlocked
+                  ? a.tier.nameAr
+                  : '${(a.getProgress(stats) * 100).toInt()}%';
               return _buildAchievementShield(
                 a.emoji,
                 a.titleAr,
@@ -641,21 +694,26 @@ class EstimationPosterCard extends StatelessWidget {
     );
   }
 
-  Widget _buildAchievementShield(String emoji, String title, String tier, {bool isUnlocked = true}) {
+  Widget _buildAchievementShield(String emoji, String title, String tier,
+      {bool isUnlocked = true}) {
     return Column(
       children: [
         Container(
           width: 44,
           height: 48,
           decoration: BoxDecoration(
-            color: isUnlocked ? emeraldMid : Colors.black.withValues(alpha: 0.6),
+            color:
+                isUnlocked ? emeraldMid : Colors.black.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isUnlocked ? gold : Colors.white24,
               width: 1.2,
             ),
             boxShadow: isUnlocked
-                ? [BoxShadow(color: gold.withValues(alpha: 0.25), blurRadius: 4)]
+                ? [
+                    BoxShadow(
+                        color: gold.withValues(alpha: 0.25), blurRadius: 4)
+                  ]
                 : null,
           ),
           child: Column(
@@ -816,9 +874,11 @@ class EstimationPosterCard extends StatelessWidget {
           children: [
             const Text('♠', style: TextStyle(fontSize: 13, color: gold)),
             const SizedBox(width: 8),
-            const Text('♥', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+            const Text('♥',
+                style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
             const SizedBox(width: 8),
-            const Text('♦', style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
+            const Text('♦',
+                style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
             const SizedBox(width: 8),
             const Text('♣', style: TextStyle(fontSize: 13, color: gold)),
           ],
@@ -826,7 +886,7 @@ class EstimationPosterCard extends StatelessWidget {
         const SizedBox(height: 3),
 
         Text(
-          'يلا نلعب سوا!  #كوتشينة_إستميشن',
+          'يلا نلعب سوا!  #سهرة_ورق',
           style: GoogleFonts.cairo(
             fontSize: 9.0,
             fontWeight: FontWeight.bold,
@@ -949,7 +1009,8 @@ class _RadarChartPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(x - textPainter.width / 2, y - textPainter.height / 2));
+      textPainter.paint(canvas,
+          Offset(x - textPainter.width / 2, y - textPainter.height / 2));
     }
   }
 
@@ -974,5 +1035,6 @@ class _PosterBackgroundWatermarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PosterBackgroundWatermarkPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _PosterBackgroundWatermarkPainter oldDelegate) =>
+      false;
 }

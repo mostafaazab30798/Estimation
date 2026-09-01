@@ -87,7 +87,10 @@ class _MatchEndScreenState extends State<MatchEndScreen>
       _rewardBreakdown = breakdown;
     });
 
-    final result = await RankingService.instance.processMatchReward(breakdown);
+    final result = await RankingService.instance.awardOnlineMatchXp(
+      breakdown: breakdown,
+      roomId: widget.provider.currentRoom?.id,
+    );
     if (mounted && result != null) {
       setState(() {
         _xpResult = result;

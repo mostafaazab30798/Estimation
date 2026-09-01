@@ -61,6 +61,26 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "سهرة ورق Dev")
+        }
+        create("staging") {
+            dimension = "environment"
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            resValue("string", "app_name", "سهرة ورق Staging")
+        }
+        create("prod") {
+            dimension = "environment"
+            resValue("string", "app_name", "سهرة ورق")
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
@@ -73,6 +93,15 @@ android {
     }
 
     buildTypes {
+        // Google Sign-In (Credential Manager) matches package + SHA-1. Using
+        // the upload key for debug avoids a second OAuth Android client for
+        // debug.keystore when key.properties is present. Play Store still
+        // needs the Play App Signing SHA-1 registered separately.
+        getByName("debug") {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

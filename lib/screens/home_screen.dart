@@ -1,15 +1,22 @@
 // lib/screens/home_screen.dart
 
 import 'package:flutter/material.dart';
+import '../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/game_provider.dart';
 import '../services/reconnection_manager.dart';
+import '../services/online_play_gate.dart';
+import '../widgets/recover_ongoing_game_banner.dart';
+import '../widgets/online_play_block_dialog.dart';
+import '../widgets/google_online_play_guard.dart';
+import '../widgets/player_name_prompt.dart';
 import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
+import '../core/utils/wallpaper_precache.dart';
 import '../core/widgets/mode_home_shell.dart';
 import '../core/widgets/app_buttons.dart';
 import '../core/constants.dart';
@@ -24,7 +31,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
   final _playerName = ValueNotifier<String>('');
   final _codeController = TextEditingController();
   late AnimationController _animController;
@@ -63,7 +70,15 @@ class _HomeScreenState extends State<HomeScreen>
       _profilePhoto.value = savedPhoto;
     }
 
-    if (mounted) await _showOngoingGameDisclaimer(context);
+    if (mounted) {
+      final gate = context.read<OnlinePlayGate>();
+      final status = await gate.refresh();
+      if (!status.canJoinNewOnline) gate.startPolling();
+    }
+
+    if (mounted && context.read<OnlinePlayGate>().canReturnToOngoingGame) {
+      await _showOngoingGameDisclaimer(context);
+    }
   }
 
   Future<bool> _showOngoingGameDisclaimer(BuildContext context) async {
@@ -73,8 +88,7 @@ class _HomeScreenState extends State<HomeScreen>
     final shouldReturn = await showDialog<bool>(
           context: context,
           barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            backgroundColor: AppTheme.navyDark,
+          builder: (dialogContext) => AppAlertDialog(
             title: Text(
               'العودة إلى المباراة؟',
               style: GoogleFonts.cairo(
@@ -83,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             content: Text(
-              'لديك مباراة ما زالت جارية. لا يمكنك بدء مباراة أو دخول طابور جديد حتى تنتهي. يمكنك العودة إلى مقعدك الآن، حتى إذا كان البوت يلعب مكانك مؤقتاً.',
+              'لديك مباراة ما زالت جارية. لا يمكنك بدء مباراة أو دخول طابور جديد حتى تنتهي أو تُفصل تلقائياً بعد 5 دقائق. البوت يلعب مكانك بعد 30 ثانية. يمكنك العودة واستعادة مقعدك خلال 5 دقائق.',
               style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
             ),
             actions: [
@@ -133,28 +147,29 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  String? _validateName() {
-    if (_playerName.value.trim().isEmpty) {
-      return 'يرجى تعيين اسمك في الملف الشخصي أولاً';
-    }
-    return null;
+  Future<String?> _ensureName(BuildContext context) async {
+    final name = await ensurePlayerName(
+      context,
+      currentName: _playerName.value,
+    );
+    if (name != null) _playerName.value = name;
+    return name;
   }
 
   int get _selectedTotalRounds =>
       _estimationMode.value == 'mini' ? kMiniTotalRounds : kBoulaTotalRounds;
 
   Future<void> _host(BuildContext context, int expectedPlayers) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     if (await _showOngoingGameDisclaimer(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.hostGame(
-      _playerName.value,
+      name,
       expectedPlayers: expectedPlayers,
       totalRounds: _selectedTotalRounds,
     );
@@ -168,15 +183,12 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _hostLocal(BuildContext context, int expectedPlayers) async {
     if (await _showOngoingGameDisclaimer(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.hostLocalGame(
-      _playerName.value,
+      name,
       expectedPlayers: expectedPlayers,
       gameType: 'kotchina',
       totalRounds: _selectedTotalRounds,
@@ -189,22 +201,21 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _joinWithCode(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     if (await _showOngoingGameDisclaimer(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
     final code = _codeController.text.trim();
     if (code.length != 6) {
       _snack(context, 'أدخل كود مكوّن من 6 أحرف');
       return;
     }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.joinGameWithCode(
-      _playerName.value,
+      name,
       code,
       expectedGameType: 'kotchina',
     );
@@ -218,15 +229,12 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _testMode(BuildContext context) async {
     if (await _showOngoingGameDisclaimer(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
 
     final provider = context.read<GameProvider>();
     await provider.startTestGame(
-      _playerName.value,
+      name,
       totalRounds: _selectedTotalRounds,
     );
     if (context.mounted && provider.status == ConnectionStatus.connected) {
@@ -237,16 +245,15 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _startOnlineMatchmaking(BuildContext context) async {
-    if (await _showOngoingGameDisclaimer(context)) return;
+    if (await guardGoogleOnlinePlay(context)) return;
     if (!context.mounted) return;
-    final err = _validateName();
-    if (err != null) {
-      _snack(context, err);
-      return;
-    }
+    if (await guardOnlineMatchmaking(context)) return;
+    if (!context.mounted) return;
+    final name = await _ensureName(context);
+    if (name == null || !context.mounted) return;
     final provider = context.read<GameProvider>();
     await provider.startMatchmaking(
-      _playerName.value,
+      name,
       gameType: 'kotchina',
       totalRounds: _selectedTotalRounds,
     );
@@ -520,25 +527,44 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildPrimaryAction(BuildContext context) {
-    return Column(
-      children: [
-        ModeHomeActionButton(
-          label: 'لعب أونلاين',
-          //subtitle: 'ابحث عن لاعبين تلقائياً',
-          icon: AppIcons.groups,
-          gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
-          isLarge: true,
-          onTap: () => _tap(() => _startOnlineMatchmaking(context)),
-        ),
-        const SizedBox(height: 10),
-        ModeHomeActionButton(
-          label: 'لعب فردي سريع',
-          icon: AppIcons.bolt,
-          gradient: const [Color(0xFFD4A853), Color(0xFFA07830)],
-          isLarge: true,
-          onTap: () => _tap(() => _testMode(context)),
-        ),
-      ],
+    return Consumer<OnlinePlayGate>(
+      builder: (context, gate, _) {
+        final blocked = !gate.canJoinNewOnline;
+        final countdown = gate.remainingLabel;
+        final showCountdown = blocked && countdown.isNotEmpty;
+        final canReturn = gate.canReturnToOngoingGame;
+        return Column(
+          children: [
+            const RecoverOngoingGameBanner(),
+            const OnlineBanNotice(),
+            ModeHomeActionButton(
+              label: showCountdown
+                  ? 'لعب أونلاين ($countdown)'
+                  : 'لعب أونلاين',
+              subtitle: blocked
+                  ? (canReturn
+                      ? 'اضغط للخيارات: انتظر أو عد للمباراة'
+                      : 'المباراة السابقة انتهت — انتظر انتهاء المهلة')
+                  : null,
+              icon: AppIcons.groups,
+              gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
+              isLarge: true,
+              enabled: true,
+              onTap: blocked
+                  ? () => _tap(() => guardOnlineMatchmaking(context))
+                  : () => _tap(() => _startOnlineMatchmaking(context)),
+            ),
+            const SizedBox(height: 10),
+            ModeHomeActionButton(
+              label: 'لعب فردي سريع',
+              icon: AppIcons.bolt,
+              gradient: const [Color(0xFFD4A853), Color(0xFFA07830)],
+              isLarge: true,
+              onTap: () => _tap(() => _testMode(context)),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -616,6 +642,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _showHostSheet(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     await showModeHomeSheet<void>(
       context,
       title: 'إنشاء غرفة جديدة',
@@ -631,6 +659,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _showJoinSheet(BuildContext context) async {
+    if (await guardGoogleOnlinePlay(context)) return;
+    if (!context.mounted) return;
     await showModeHomeSheet<void>(
       context,
       title: 'الانضمام لغرفة',
@@ -779,11 +809,7 @@ class _HomeScreenState extends State<HomeScreen>
         child: Container(
           width: 360,
           padding: const EdgeInsets.all(24),
-          decoration: AppTheme.glassDecoration(
-            borderRadius: 24,
-            borderColor: Colors.white.withValues(alpha: 0.15),
-            fillColor: AppTheme.navyDark.withValues(alpha: 0.95),
-          ),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.errorRed),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../theme/app_theme.dart';
 import '../core/constants.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -58,48 +59,25 @@ class _GameGuideDialogState extends State<GameGuideDialog>
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
     final screenSize = MediaQuery.of(context).size;
-    final isMobile = screenSize.width < 600;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 10 : 28,
-          vertical: isMobile ? 16 : 32,
+          horizontal: layout.isTablet ? 28 : 10,
+          vertical: layout.isTablet ? 32 : 16,
         ),
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: 720,
+            maxWidth: layout.isLargeTablet ? 780 : 720,
             maxHeight: screenSize.height * 0.88,
           ),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFA1D3348), Color(0xFA122232)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.accentBlue.withValues(alpha: 0.35),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 30,
-                spreadRadius: 4,
-              ),
-              BoxShadow(
-                color: AppTheme.accentBlue.withValues(alpha: 0.15),
-                blurRadius: 40,
-                spreadRadius: -5,
-              ),
-            ],
-          ),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.accentBlue),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppTheme.dialogRadius),
             child: Column(
               children: [
                 // ── Header ───────────────────────────────────────────

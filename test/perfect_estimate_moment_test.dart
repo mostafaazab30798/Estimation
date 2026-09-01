@@ -77,5 +77,27 @@ void main() {
 
       expect(dismissed, isTrue);
     });
+
+    testWidgets('shows dedicated messaging for a successful Dash Call',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: PerfectEstimateOverlay(
+              declared: 0,
+              won: 0,
+              isDashCall: true,
+              displayDuration: Duration(seconds: 10),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('PERFECT DASH CALL'), findsOneWidget);
+      expect(find.text('داش كول مثالي'), findsOneWidget);
+      expect(find.text('⚡'), findsOneWidget);
+    });
   });
 }

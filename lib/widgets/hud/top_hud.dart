@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/utils/game_layout_metrics.dart';
 import '../../core/models/game_state.dart';
 import '../../core/constants.dart';
 import '../../core/widgets/app_buttons.dart';
@@ -14,6 +15,7 @@ import '../performance_blur.dart';
 import '../game_guide_dialog.dart';
 import '../settings_dialog.dart';
 import '../round_scores_dialog.dart';
+import 'split_hud_panel.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 class TopHud extends StatelessWidget {
@@ -103,14 +105,27 @@ class TopHud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final phaseColor = _phaseColor();
-    final underOver = _underOverData();
-    final bidderName = state.bidderPlayerId != null
-        ? state.playerById(state.bidderPlayerId!).name
-        : null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = GameLayoutMetrics.of(context);
+        final useSplitHud = layout.shouldUseSplitHud(constraints.maxWidth);
+        final isPortrait = layout.isPortrait;
+        final phaseColor = _phaseColor();
+        final underOver = _underOverData();
+        final bidderName = state.bidderPlayerId != null
+            ? state.playerById(state.bidderPlayerId!).name
+            : null;
 
-    return PerformanceBlur(
+        if (useSplitHud) {
+          return _buildTabletSplit(
+            phaseColor: phaseColor,
+            underOver: underOver,
+            bidderName: bidderName,
+            layout: layout,
+          );
+        }
+
+        return PerformanceBlur(
       borderRadius: BorderRadius.circular(24),
       sigmaX: 16,
       sigmaY: 16,
@@ -154,6 +169,8 @@ class TopHud extends StatelessWidget {
             ? _buildPortrait(phaseColor, underOver, bidderName, context)
             : _buildLandscape(phaseColor, underOver, bidderName, context),
       ),
+    );
+      },
     );
   }
 
@@ -287,6 +304,70 @@ class TopHud extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildTabletSplit({
+    required Color phaseColor,
+    required _UnderOverData? underOver,
+    required String? bidderName,
+    required GameLayoutMetrics layout,
+  }) {
+    final isFixedRound = state.isFixedTrumpRound;
+    final iconGap = layout.screenSize == GameScreenSize.largeTablet ? 8.0 : 6.0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SplitHudPanel(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ExitButton(onTap: onExitTap),
+              SizedBox(width: iconGap),
+              _ScoresButton(state: state),
+              SizedBox(width: iconGap),
+              const _GuideButton(),
+              SizedBox(width: iconGap),
+              const _SettingsButton(),
+            ],
+          ),
+        ),
+        const Expanded(child: SizedBox.shrink()),
+        SplitHudPanel(
+          glowColor: phaseColor,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _RoundPhaseCenter(
+                state: state,
+                phaseColor: phaseColor,
+                phaseText: _phaseArabic(),
+                isFixedRound: isFixedRound,
+                enlarged: true,
+              ),
+              if (state.trump != null) ...[
+                const SizedBox(height: 8),
+                _TrumpBadge(state: state, isFixedRound: isFixedRound),
+              ],
+              if (bidderName != null || underOver != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    if (bidderName != null) _BidderBadge(name: bidderName),
+                    if (underOver != null) _UnderOverBadge(data: underOver),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ── Supporting Badges ──────────────────────────────────────────────────────
@@ -372,16 +453,23 @@ class _RoundPhaseCenter extends StatelessWidget {
   final Color phaseColor;
   final String phaseText;
   final bool isFixedRound;
+  final bool enlarged;
 
   const _RoundPhaseCenter({
     required this.state,
     required this.phaseColor,
     required this.phaseText,
     this.isFixedRound = false,
+    this.enlarged = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final roundSize = enlarged ? 16.0 : 13.5;
+    final phaseSize = enlarged ? 12.0 : 10.5;
+    final phasePadH = enlarged ? 10.0 : 8.0;
+    final phasePadV = enlarged ? 4.0 : 3.0;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -389,18 +477,18 @@ class _RoundPhaseCenter extends StatelessWidget {
           'الجولة ${state.roundNumber}',
           style: GoogleFonts.cairo(
             color: AppTheme.goldLight,
-            fontSize: 13.5,
+            fontSize: roundSize,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.2,
           ),
         ),
         if (state.isDoubleRound) ...[
-          const SizedBox(width: 5),
+          SizedBox(width: enlarged ? 7 : 5),
           const _DoubleRoundBadge(),
         ],
-        const SizedBox(width: 6),
+        SizedBox(width: enlarged ? 8 : 6),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: EdgeInsets.symmetric(horizontal: phasePadH, vertical: phasePadV),
           decoration: BoxDecoration(
             color: phaseColor.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(999),
@@ -410,7 +498,7 @@ class _RoundPhaseCenter extends StatelessWidget {
             phaseText,
             style: GoogleFonts.cairo(
               color: phaseColor,
-              fontSize: 10.5,
+              fontSize: phaseSize,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -9,6 +9,9 @@ const String kDefaultPlayerName = 'لاعب سهرة ورق';
 /// Asset path for the app logo and launcher artwork.
 const String kAppLogoAsset = 'assets/logo.png';
 
+/// Transparent login-hero artwork (same mark, no wallpaper).
+const String kAppLoginArtAsset = 'assets/login.png';
+
 /// Suit priority (higher index = higher priority in bids and sorting)
 /// Spade > Heart > Diamond > Club
 enum Suit {
@@ -38,11 +41,36 @@ enum SuitColor { red, black, gold }
 /// Trump contract chosen in auction or fixed in last 5 rounds
 /// Sans (No Trump) > Spade > Heart > Diamond > Club
 enum Trump {
-  club(label: '♣', arabicName: 'تريفل', priority: 0, color: SuitColor.black, suit: Suit.club),
-  diamond(label: '♦', arabicName: 'كارو', priority: 1, color: SuitColor.red, suit: Suit.diamond),
-  heart(label: '♥', arabicName: 'هارت', priority: 2, color: SuitColor.red, suit: Suit.heart),
-  spade(label: '♠', arabicName: 'سبيد', priority: 3, color: SuitColor.black, suit: Suit.spade),
-  sans(label: 'NT', arabicName: 'سانز', priority: 4, color: SuitColor.gold, suit: null);
+  club(
+      label: '♣',
+      arabicName: 'تريفل',
+      priority: 0,
+      color: SuitColor.black,
+      suit: Suit.club),
+  diamond(
+      label: '♦',
+      arabicName: 'كارو',
+      priority: 1,
+      color: SuitColor.red,
+      suit: Suit.diamond),
+  heart(
+      label: '♥',
+      arabicName: 'هارت',
+      priority: 2,
+      color: SuitColor.red,
+      suit: Suit.heart),
+  spade(
+      label: '♠',
+      arabicName: 'سبيد',
+      priority: 3,
+      color: SuitColor.black,
+      suit: Suit.spade),
+  sans(
+      label: 'NT',
+      arabicName: 'سانز',
+      priority: 4,
+      color: SuitColor.gold,
+      suit: null);
 
   const Trump({
     required this.label,
@@ -63,8 +91,7 @@ enum Trump {
   static Trump fromString(String s) =>
       Trump.values.firstWhere((e) => e.name == s, orElse: () => Trump.sans);
 
-  static Trump fromSuit(Suit s) =>
-      Trump.values.firstWhere((e) => e.suit == s);
+  static Trump fromSuit(Suit s) => Trump.values.firstWhere((e) => e.suit == s);
 }
 
 /// Card rank (higher index = higher rank)
@@ -119,7 +146,8 @@ bool isRoundBasedBoula(int totalRounds) =>
 
 /// Fixed trump for the last 5 rounds: Sans → Spade → Heart → Diamond → Club.
 /// Classic: rounds 14–18. Mini: rounds 6–10.
-Trump? fixedTrumpForRound(int roundNumber, [int totalRounds = kBoulaTotalRounds]) {
+Trump? fixedTrumpForRound(int roundNumber,
+    [int totalRounds = kBoulaTotalRounds]) {
   if (!isRoundBasedBoula(totalRounds)) return null;
   final firstFixed = totalRounds - kFixedTrumpRoundCount + 1;
   if (roundNumber < firstFixed || roundNumber > totalRounds) return null;
@@ -157,3 +185,12 @@ const Duration kDeclarationTurnTimeout = Duration(seconds: 60);
 const Duration kTrickTurnTimeout = Duration(seconds: 60);
 const Duration kDashCallTurnTimeout = Duration(seconds: 60);
 const int kTurnWarningThresholdSeconds = 5;
+
+/// Bot plays for an absent human after this delay (seat still reclaimable).
+const Duration kBotTakeoverDelay = Duration(seconds: 30);
+
+/// Max absence before the player is detached and may not reclaim the same seat.
+const Duration kAbsentPlayerDetachTimeout = Duration(minutes: 5);
+
+/// Cooldown before a detached player may enter a new online matchmaking queue.
+const Duration kOnlineGameBanDuration = Duration(minutes: 5);

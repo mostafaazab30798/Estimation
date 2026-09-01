@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
+import '../utils/home_layout_metrics.dart';
+import '../utils/wallpaper_precache.dart';
 import 'app_buttons.dart';
 import 'player_avatar.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -68,13 +70,25 @@ class _ModeHomeBackgroundState extends State<ModeHomeBackground>
 
   @override
   Widget build(BuildContext context) {
+    final wallpaper = WallpaperPrecache.wallpaperProvider(
+      widget.wallpaperAsset,
+      context,
+    );
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          widget.wallpaperAsset,
+        Image(
+          image: wallpaper,
           fit: BoxFit.cover,
           gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return child;
+            return Container(
+              decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
+            );
+          },
           errorBuilder: (_, __, ___) => Container(
             decoration: const BoxDecoration(gradient: AppTheme.bgGradient),
           ),
@@ -245,11 +259,14 @@ class ModeHomeSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final fontSize = metrics.isLargeTablet ? 14.5 : (metrics.isTablet ? 14.0 : 13.0);
+
     return Row(
       children: [
         Container(
           width: 3,
-          height: 14,
+          height: metrics.isTablet ? 16 : 14,
           decoration: BoxDecoration(
             color: accent,
             borderRadius: BorderRadius.circular(2),
@@ -259,7 +276,7 @@ class ModeHomeSectionLabel extends StatelessWidget {
         Text(
           text,
           style: GoogleFonts.cairo(
-            fontSize: 13,
+            fontSize: fontSize,
             fontWeight: FontWeight.bold,
             color: AppTheme.cream.withValues(alpha: 0.85),
           ),
@@ -312,6 +329,222 @@ class ModeHomeLandscapeDivider extends StatelessWidget {
             Colors.transparent,
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Responsive body for Basra / 99 / Estimation mode home screens.
+class ModeHomeScreenLayout extends StatelessWidget {
+  const ModeHomeScreenLayout({
+    super.key,
+    required this.topBar,
+    required this.hero,
+    required this.primaryAction,
+    required this.multiplayerSection,
+    this.extraSection,
+    this.accent = AppTheme.gold,
+  });
+
+  final Widget topBar;
+  final Widget hero;
+  final Widget primaryAction;
+  final Widget multiplayerSection;
+  final Widget? extraSection;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final isPhoneLandscape = metrics.isLandscape && !metrics.isTablet;
+
+    return Column(
+      children: [
+        topBar,
+        Expanded(
+          child: metrics.useTabletHomeLayout
+              ? (metrics.isLandscape
+                  ? _buildTabletLandscape(context, metrics)
+                  : _buildTabletPortrait(context, metrics))
+              : (isPhoneLandscape
+                  ? _buildPhoneLandscape(context)
+                  : _buildPhonePortrait(context)),
+        ),
+        const ModeHomeSuitFooter(),
+      ],
+    );
+  }
+
+  Widget _buildPhonePortrait(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          hero,
+          const SizedBox(height: 22),
+          primaryAction,
+          const SizedBox(height: 18),
+          multiplayerSection,
+          if (extraSection != null) ...[
+            const SizedBox(height: 22),
+            extraSection!,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhoneLandscape(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                hero,
+                const SizedBox(height: 20),
+                primaryAction,
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          ModeHomeLandscapeDivider(accent: accent),
+          const SizedBox(width: 20),
+          Expanded(
+            flex: 6,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  multiplayerSection,
+                  if (extraSection != null) ...[
+                    const SizedBox(height: 16),
+                    extraSection!,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletPortrait(BuildContext context, HomeLayoutMetrics metrics) {
+    return Center(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          metrics.modeHomeHorizontalPadding(),
+          metrics.isLargeTablet ? 12 : 8,
+          metrics.modeHomeHorizontalPadding(),
+          16,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: metrics.modeHomeContentMaxWidth()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              hero,
+              SizedBox(height: metrics.modeHomeSectionSpacing() + 6),
+              ModeHomeActionsPanel(
+                accent: accent,
+                primaryAction: primaryAction,
+                multiplayerSection: multiplayerSection,
+                extraSection: extraSection,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLandscape(BuildContext context, HomeLayoutMetrics metrics) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          metrics.modeHomeHorizontalPadding(),
+          0,
+          metrics.modeHomeHorizontalPadding(),
+          metrics.isLargeTablet ? 12 : 8,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: metrics.modeHomeContentMaxWidth()),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: metrics.isLargeTablet ? 5 : 4,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [hero],
+                ),
+              ),
+              SizedBox(width: metrics.isLargeTablet ? 36 : 28),
+              Expanded(
+                flex: metrics.isLargeTablet ? 6 : 5,
+                child: ModeHomeActionsPanel(
+                  accent: accent,
+                  primaryAction: primaryAction,
+                  multiplayerSection: multiplayerSection,
+                  extraSection: extraSection,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Glass panel grouping solo + multiplayer actions on tablets.
+class ModeHomeActionsPanel extends StatelessWidget {
+  const ModeHomeActionsPanel({
+    super.key,
+    required this.accent,
+    required this.primaryAction,
+    required this.multiplayerSection,
+    this.extraSection,
+  });
+
+  final Color accent;
+  final Widget primaryAction;
+  final Widget multiplayerSection;
+  final Widget? extraSection;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final radius = metrics.isLargeTablet ? 28.0 : 24.0;
+    final padding = metrics.isLargeTablet ? 28.0 : 22.0;
+
+    return Container(
+      padding: EdgeInsets.all(padding),
+      decoration: AppTheme.glassDecoration(
+        borderRadius: radius,
+        borderColor: accent.withValues(alpha: 0.34),
+        fillColor: AppTheme.navyMid.withValues(alpha: 0.74),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          primaryAction,
+          SizedBox(height: metrics.modeHomeSectionSpacing()),
+          multiplayerSection,
+          if (extraSection != null) ...[
+            SizedBox(height: metrics.modeHomeSectionSpacing()),
+            extraSection!,
+          ],
+        ],
       ),
     );
   }
@@ -388,6 +621,8 @@ class ModeHomeHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = HomeLayoutMetrics.of(context);
+
     return Column(
       children: [
         Stack(
@@ -417,11 +652,11 @@ class ModeHomeHero extends StatelessWidget {
             emblem,
           ],
         ),
-        SizedBox(height: compact ? 10 : 14),
+        SizedBox(height: metrics.modeHomeHeroVerticalSpacing(compact: compact)),
         Text(
           title,
           style: GoogleFonts.cairo(
-            fontSize: compact ? 26 : 32,
+            fontSize: metrics.modeHomeHeroTitleSize(compact: compact),
             fontWeight: FontWeight.w900,
             color: AppTheme.white,
             letterSpacing: 0.5,
@@ -432,14 +667,14 @@ class ModeHomeHero extends StatelessWidget {
         Text(
           subtitle,
           style: GoogleFonts.cairo(
-            fontSize: compact ? 11 : 12.5,
+            fontSize: metrics.modeHomeHeroSubtitleSize(compact: compact),
             color: AppTheme.steelBlue,
             fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
         ),
         if (footer != null) ...[
-          SizedBox(height: compact ? 12 : 16),
+          SizedBox(height: compact ? 12 : (metrics.isTablet ? 18 : 16)),
           footer!,
         ],
       ],
@@ -462,42 +697,69 @@ class ModeHomeArtEmblem extends StatelessWidget {
     this.overflows = false,
   });
 
+  /// Derives emblem size from the current screen bucket.
+  factory ModeHomeArtEmblem.responsive(
+    BuildContext context, {
+    required String asset,
+    required Color accent,
+    bool compact = false,
+    bool overflows = false,
+  }) {
+    final metrics = HomeLayoutMetrics.of(context);
+    return ModeHomeArtEmblem(
+      asset: asset,
+      accent: accent,
+      size: metrics.modeEmblemSize(compact: compact),
+      overflows: overflows,
+    );
+  }
+
+  /// Art mark for mode-selection cards.
+  factory ModeHomeArtEmblem.forModeCard(
+    BuildContext context, {
+    required String asset,
+    required Color accent,
+    bool tall = false,
+    bool overflows = false,
+  }) {
+    final metrics = HomeLayoutMetrics.of(context);
+    return ModeHomeArtEmblem(
+      asset: asset,
+      accent: accent,
+      size: metrics.modeCardArtSize(tall: tall),
+      overflows: overflows,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!overflows) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFF07070C),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.5),
-            width: 1.6,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: accent.withValues(alpha: 0.28),
-              blurRadius: 22,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: Padding(
-            padding: EdgeInsets.all(size * 0.04),
-            child: Image.asset(
-              asset,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-            ),
-          ),
-        ),
-      );
-    }
+    return _ModeBrandEmblemFrame(
+      asset: asset,
+      accent: accent,
+      size: size,
+      overflows: overflows,
+    );
+  }
+}
 
-    final disc = size * 0.78;
-    final artSize = size * 1.18;
+class _ModeBrandEmblemFrame extends StatelessWidget {
+  const _ModeBrandEmblemFrame({
+    required this.asset,
+    required this.accent,
+    required this.size,
+    required this.overflows,
+  });
+
+  final String asset;
+  final Color accent;
+  final double size;
+  final bool overflows;
+
+  @override
+  Widget build(BuildContext context) {
+    final glowSize = size * 1.22;
+    final frameSize = overflows ? size * 0.82 : size;
+    final artSize = overflows ? size * 1.14 : size * 0.88;
 
     return SizedBox(
       width: size,
@@ -507,20 +769,47 @@ class ModeHomeArtEmblem extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Container(
-            width: disc,
-            height: disc,
+            width: glowSize,
+            height: glowSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF07070C),
+              gradient: RadialGradient(
+                colors: [
+                  accent.withValues(alpha: 0.20),
+                  accent.withValues(alpha: 0.06),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+          ),
+          Container(
+            width: frameSize,
+            height: frameSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.surface2.withValues(alpha: 0.92),
+                  const Color(0xFF07070C),
+                ],
+              ),
               border: Border.all(
-                color: accent.withValues(alpha: 0.5),
-                width: 1.6,
+                color: accent.withValues(alpha: 0.52),
+                width: 1.8,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: accent.withValues(alpha: 0.28),
-                  blurRadius: 22,
+                  color: accent.withValues(alpha: 0.26),
+                  blurRadius: 20,
                   spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.38),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
@@ -547,8 +836,9 @@ class ModeHomeActionButton extends StatefulWidget {
   final String? subtitle;
   final AppIconData icon;
   final List<Color> gradient;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isLarge;
+  final bool enabled;
 
   const ModeHomeActionButton({
     super.key,
@@ -556,8 +846,9 @@ class ModeHomeActionButton extends StatefulWidget {
     this.subtitle,
     required this.icon,
     required this.gradient,
-    required this.onTap,
+    this.onTap,
     this.isLarge = false,
+    this.enabled = true,
   });
 
   @override
@@ -569,24 +860,37 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
 
   @override
   Widget build(BuildContext context) {
+    final canTap = widget.enabled && widget.onTap != null;
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? (widget.isLarge ? 0.98 : 0.96) : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: widget.isLarge ? _buildLarge() : _buildCompact(),
+      onTapDown: canTap ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: canTap
+          ? (_) {
+              setState(() => _pressed = false);
+              widget.onTap!();
+            }
+          : null,
+      onTapCancel: canTap ? () => setState(() => _pressed = false) : null,
+      child: AnimatedOpacity(
+        opacity: canTap ? 1 : 0.55,
+        duration: const Duration(milliseconds: 200),
+        child: AnimatedScale(
+          scale: _pressed ? (widget.isLarge ? 0.98 : 0.96) : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: widget.isLarge ? _buildLarge() : _buildCompact(),
+        ),
       ),
     );
   }
 
   Widget _buildLarge() {
+    final metrics = HomeLayoutMetrics.of(context);
+    final iconWellSize = metrics.isLargeTablet ? 56.0 : (metrics.isTablet ? 52.0 : 48.0);
+    final iconSize = metrics.isLargeTablet ? 28.0 : AppIconTokens.sizeHero;
+    final titleSize = metrics.isLargeTablet ? 19.0 : (metrics.isTablet ? 18.0 : 17.0);
+    final verticalPadding = metrics.isTablet ? 18.0 : 16.0;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: 18, vertical: verticalPadding),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: LinearGradient(
@@ -611,8 +915,8 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
         children: [
           AppIconWell(
             icon: widget.icon,
-            size: 48,
-            iconSize: AppIconTokens.sizeHero,
+            size: iconWellSize,
+            iconSize: iconSize,
             color: Colors.white,
             fill: Colors.white.withValues(alpha: 0.16),
             borderColor: Colors.white.withValues(alpha: 0.28),
@@ -628,7 +932,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
                   widget.label,
                   style: GoogleFonts.cairo(
                     color: Colors.white,
-                    fontSize: 17,
+                    fontSize: titleSize,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
                   ),

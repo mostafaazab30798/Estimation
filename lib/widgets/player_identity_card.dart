@@ -11,6 +11,7 @@ import '../models/estimation_statistics.dart';
 import '../models/rank_tier.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../core/constants.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/widgets/app_buttons.dart';
 import '../core/utils/snackbar_helper.dart';
@@ -253,350 +254,351 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     final tier = RankTier.fromLevel(level);
     final archetype = widget.profile.primaryArchetype;
     final name =
-        widget.playerName.isNotEmpty ? widget.playerName : 'لاعب كوتشينة';
+        widget.playerName.isNotEmpty ? widget.playerName : kDefaultPlayerName;
 
     return SizedBox(
       height: _cardFaceHeight,
       width: double.infinity,
       child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          colors: [
-            theme.gradientColors.first,
-            theme.gradientColors.length > 1
-                ? theme.gradientColors[1]
-                : theme.gradientColors.first,
-            theme.gradientColors.last,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          gradient: LinearGradient(
+            colors: [
+              theme.gradientColors.first,
+              theme.gradientColors.length > 1
+                  ? theme.gradientColors[1]
+                  : theme.gradientColors.first,
+              theme.gradientColors.last,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: theme.borderColor.withValues(alpha: 0.45),
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.accentGlow.withValues(alpha: 0.22),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
-        border: Border.all(
-          color: theme.borderColor.withValues(alpha: 0.45),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.accentGlow.withValues(alpha: 0.22),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26.5),
-        child: Stack(
-          children: [
-            // Soft ambient orbs
-            Positioned(
-              top: -60,
-              right: -40,
-              child: Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.accentGlow.withValues(alpha: 0.22),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -50,
-              left: -30,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      theme.borderColor.withValues(alpha: 0.10),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Suit watermark
-            Positioned(
-              right: 12,
-              top: 8,
-              child: Text(
-                '♠',
-                style: TextStyle(
-                  fontSize: 92,
-                  height: 1,
-                  color: Colors.white.withValues(alpha: 0.04),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Top meta row
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: theme.borderColor.withValues(alpha: 0.35),
-                          ),
-                        ),
-                        child: Text(
-                          '♠️ بطاقة اللاعب',
-                          style: GoogleFonts.cairo(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: theme.borderColor,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: tier.primaryColor.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: tier.primaryColor.withValues(alpha: 0.55),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(tier.badgeEmoji,
-                                style: const TextStyle(fontSize: 12)),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Lv $level',
-                              style: GoogleFonts.cairo(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Hero identity
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              theme.borderColor,
-                              theme.accentGlow.withValues(alpha: 0.7),
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.accentGlow.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.gradientColors.first,
-                          ),
-                          child: PlayerAvatar(
-                            photoData: widget.avatarUrl,
-                            size: 72,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.cairo(
-                                fontSize: 21,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                height: 1.15,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              widget.config.selectedTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.cairo(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: theme.borderColor.withValues(alpha: 0.95),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: archetype.primaryColor
-                                    .withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(99),
-                                border: Border.all(
-                                  color: archetype.primaryColor
-                                      .withValues(alpha: 0.45),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    archetype.emoji,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    archetype.titleAr,
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  // Stats grid 2×2
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.28),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.07),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildShowcaseStatItem(
-                                title: 'دقة الكول',
-                                value:
-                                    '${widget.stats.declarationAccuracy.toStringAsFixed(0)}%',
-                                icon: AppIcons.trackChanges,
-                                color: const Color(0xFF38BDF8),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildShowcaseStatItem(
-                                title: 'الانتصارات',
-                                value: '${widget.stats.gamesWon}',
-                                icon: AppIcons.emojiEvents,
-                                color: AppTheme.gold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildShowcaseStatItem(
-                                title: 'كول مثالي',
-                                value: '${widget.stats.perfectEstimates}',
-                                icon: AppIcons.autoAwesome,
-                                color: const Color(0xFF10B981),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildShowcaseStatItem(
-                                title: 'أطول سلسلة',
-                                value: '${widget.stats.longestWinningStreak}',
-                                icon: AppIcons.localFireDepartment,
-                                color: const Color(0xFFFF7043),
-                              ),
-                            ),
-                          ],
-                        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(26.5),
+          child: Stack(
+            children: [
+              // Soft ambient orbs
+              Positioned(
+                top: -60,
+                right: -40,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        theme.accentGlow.withValues(alpha: 0.22),
+                        Colors.transparent,
                       ],
                     ),
                   ),
+                ),
+              ),
+              Positioned(
+                bottom: -50,
+                left: -30,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        theme.borderColor.withValues(alpha: 0.10),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Suit watermark
+              Positioned(
+                right: 12,
+                top: 8,
+                child: Text(
+                  '♠',
+                  style: TextStyle(
+                    fontSize: 92,
+                    height: 1,
+                    color: Colors.white.withValues(alpha: 0.04),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
 
-                  const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Top meta row
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.28),
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: theme.borderColor.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            '♠️ بطاقة اللاعب',
+                            style: GoogleFonts.cairo(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: theme.borderColor,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tier.primaryColor.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: tier.primaryColor.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(tier.badgeEmoji,
+                                  style: const TextStyle(fontSize: 12)),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Lv $level',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      AppIcon(
-                        AppIcons.swipe,
-                        size: 13,
-                        color: Colors.white.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'اضغط لقلب البطاقة',
-                        style: GoogleFonts.cairo(
-                          fontSize: 10.5,
-                          color: Colors.white.withValues(alpha: 0.45),
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 20),
+
+                    // Hero identity
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.borderColor,
+                                theme.accentGlow.withValues(alpha: 0.7),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.accentGlow.withValues(alpha: 0.35),
+                                blurRadius: 16,
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: theme.gradientColors.first,
+                            ),
+                            child: PlayerAvatar(
+                              photoData: widget.avatarUrl,
+                              size: 72,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1.15,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                widget.config.selectedTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      theme.borderColor.withValues(alpha: 0.95),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: archetype.primaryColor
+                                      .withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(
+                                    color: archetype.primaryColor
+                                        .withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      archetype.emoji,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      archetype.titleAr,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(),
+
+                    // Stats grid 2×2
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.07),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildShowcaseStatItem(
+                                  title: 'دقة الكول',
+                                  value:
+                                      '${widget.stats.declarationAccuracy.toStringAsFixed(0)}%',
+                                  icon: AppIcons.trackChanges,
+                                  color: const Color(0xFF38BDF8),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildShowcaseStatItem(
+                                  title: 'الانتصارات',
+                                  value: '${widget.stats.gamesWon}',
+                                  icon: AppIcons.emojiEvents,
+                                  color: AppTheme.gold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildShowcaseStatItem(
+                                  title: 'كول مثالي',
+                                  value: '${widget.stats.perfectEstimates}',
+                                  icon: AppIcons.autoAwesome,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildShowcaseStatItem(
+                                  title: 'أطول سلسلة',
+                                  value: '${widget.stats.longestWinningStreak}',
+                                  icon: AppIcons.localFireDepartment,
+                                  color: const Color(0xFFFF7043),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AppIcon(
+                          AppIcons.swipe,
+                          size: 13,
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'اضغط لقلب البطاقة',
+                          style: GoogleFonts.cairo(
+                            fontSize: 10.5,
+                            color: Colors.white.withValues(alpha: 0.45),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -611,9 +613,21 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
     final accent = archetype.primaryColor;
 
     final metricBars = <({String label, double value, Color color})>[
-      (label: 'الدقة', value: metrics.precision, color: const Color(0xFF38BDF8)),
-      (label: 'الهجوم', value: metrics.aggression, color: const Color(0xFFF87171)),
-      (label: 'الانضباط', value: metrics.bidDiscipline, color: const Color(0xFF34D399)),
+      (
+        label: 'الدقة',
+        value: metrics.precision,
+        color: const Color(0xFF38BDF8)
+      ),
+      (
+        label: 'الهجوم',
+        value: metrics.aggression,
+        color: const Color(0xFFF87171)
+      ),
+      (
+        label: 'الانضباط',
+        value: metrics.bidDiscipline,
+        color: const Color(0xFF34D399)
+      ),
     ];
 
     final tip = profile.recommendation.isNotEmpty
@@ -646,11 +660,13 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(99),
-                        border: Border.all(color: accent.withValues(alpha: 0.4)),
+                        border:
+                            Border.all(color: accent.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         'تحليل تكتيكي',
@@ -682,9 +698,11 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: accent.withValues(alpha: 0.4)),
+                        border:
+                            Border.all(color: accent.withValues(alpha: 0.4)),
                       ),
-                      child: Text(archetype.emoji, style: const TextStyle(fontSize: 24)),
+                      child: Text(archetype.emoji,
+                          style: const TextStyle(fontSize: 24)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -716,11 +734,13 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: theme.borderColor.withValues(alpha: 0.35)),
+                        border: Border.all(
+                            color: theme.borderColor.withValues(alpha: 0.35)),
                       ),
                       child: Text(
                         '${secondary.emoji} ${secondary.titleAr}',
@@ -736,11 +756,13 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                 if (profile.signatureBehavior.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border(right: BorderSide(color: accent, width: 3)),
+                      border:
+                          Border(right: BorderSide(color: accent, width: 3)),
                     ),
                     child: Text(
                       '«${profile.signatureBehavior}»',
@@ -759,7 +781,8 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                 ...metricBars.map(
                   (m) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
-                    child: _metricBar(label: m.label, value: m.value, color: m.color),
+                    child: _metricBar(
+                        label: m.label, value: m.value, color: m.color),
                   ),
                 ),
                 if (profile.strengths.isNotEmpty) ...[
@@ -769,11 +792,13 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     runSpacing: 6,
                     children: profile.strengths.take(3).map((s) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
                           color: accent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(99),
-                          border: Border.all(color: accent.withValues(alpha: 0.28)),
+                          border:
+                              Border.all(color: accent.withValues(alpha: 0.28)),
                         ),
                         child: Text(
                           s,
@@ -789,15 +814,18 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                 ],
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppTheme.gold.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.gold.withValues(alpha: 0.25)),
+                    border: Border.all(
+                        color: AppTheme.gold.withValues(alpha: 0.25)),
                   ),
                   child: Row(
                     children: [
-                      const AppIcon(AppIcons.lightbulb, size: 14, color: AppTheme.goldLight),
+                      const AppIcon(AppIcons.lightbulb,
+                          size: 14, color: AppTheme.goldLight),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -818,7 +846,8 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    AppIcon(AppIcons.flip, size: 12, color: Colors.white.withValues(alpha: 0.35)),
+                    AppIcon(AppIcons.flip,
+                        size: 12, color: Colors.white.withValues(alpha: 0.35)),
                     const SizedBox(width: 5),
                     Text(
                       'اضغط للعودة',
@@ -1070,7 +1099,6 @@ class _IdentityCardCustomizerSheetState
             ],
           ),
           const SizedBox(height: 20),
-
           Text(
             'مظهر البطاقة',
             style: GoogleFonts.cairo(
@@ -1136,9 +1164,7 @@ class _IdentityCardCustomizerSheetState
               },
             ),
           ),
-
           const SizedBox(height: 20),
-
           Text(
             'اللقب على البطاقة',
             style: GoogleFonts.cairo(
@@ -1193,9 +1219,7 @@ class _IdentityCardCustomizerSheetState
               );
             }).toList(),
           ),
-
           const SizedBox(height: 20),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -1209,17 +1233,13 @@ class _IdentityCardCustomizerSheetState
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: (_isPublic
-                            ? const Color(0xFF10B981)
-                            : Colors.white)
+                    color: (_isPublic ? const Color(0xFF10B981) : Colors.white)
                         .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: AppIcon(
                     _isPublic ? AppIcons.public : AppIcons.lock,
-                    color: _isPublic
-                        ? const Color(0xFF10B981)
-                        : Colors.white60,
+                    color: _isPublic ? const Color(0xFF10B981) : Colors.white60,
                     size: 18,
                   ),
                 ),

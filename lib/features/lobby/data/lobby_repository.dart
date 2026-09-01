@@ -3,43 +3,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/models/game_room.dart';
+import '../domain/models/online_play_status.dart';
 import '../domain/models/room_player.dart';
 import '../../../core/models/card.dart';
+import '../../../core/utils/google_online_auth.dart';
 
 class LobbyRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<void> _ensureAuth() async {
-    final session = _client.auth.currentSession;
-    if (session != null) {
-      final expiresAt = session.expiresAt;
-      if (expiresAt != null) {
-        final expirationDate =
-            DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
-        if (DateTime.now()
-            .isAfter(expirationDate.subtract(const Duration(seconds: 30)))) {
-          debugPrint(
-              '[LobbyRepo] Session expired. Signing out to refresh anonymously.');
-          try {
-            await _client.auth.signOut().timeout(const Duration(seconds: 2));
-          } catch (_) {}
-        }
-      }
-    }
-
-    if (_client.auth.currentUser == null) {
-      try {
-        await _client.auth
-            .signInAnonymously()
-            .timeout(const Duration(seconds: 8));
-      } catch (e) {
-        debugPrint('[LobbyRepo] signInAnonymously failed: $e');
-      }
-    }
-    if (_client.auth.currentUser == null) {
-      throw Exception(
-          'تعذّر تسجيل الدخول. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجدداً.');
-    }
+    requireGoogleSession(_client);
   }
 
   Future<GameRoom> createRoom({
@@ -180,18 +153,57 @@ class LobbyRepository {
     }
   }
 
+  /// Returns whether [playerId] is still seated in [roomId].
+  Future<bool> isPlayerInRoom(String roomId, String playerId) async {
+    try {
+      final row = await _client
+          .from('room_players')
+          .select('id')
+          .eq('room_id', roomId)
+          .eq('player_id', playerId)
+          .maybeSingle();
+      return row != null;
+    } catch (e) {
+      debugPrint('[Lobby] isPlayerInRoom failed: $e');
+      return true;
+    }
+  }
+
+  /// Server-side gate for online matchmaking (grace, ban, active membership).
+  Future<OnlinePlayStatus> getOnlinePlayStatus() async {
+    try {
+      final raw = await _client.rpc('get_online_play_status');
+      if (raw is Map<String, dynamic>) {
+        return OnlinePlayStatus.fromJson(raw);
+      }
+    } catch (e) {
+      debugPrint('[Lobby] getOnlinePlayStatus failed: $e');
+    }
+    return const OnlinePlayStatus(canJoinNewOnline: true);
+  }
+
+  /// Sweep absent players for a room (no-op when not a member).
+  Future<void> processRoomAbsences(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
+    try {
+      await _client.rpc('process_room_absences', params: {'p_room_id': roomId});
+    } catch (e) {
+      debugPrint('[Lobby] processRoomAbsences failed: $e');
+    }
+  }
+
   // ── State snapshot ────────────────────────────────────────────────────
 
-  /// Fetch the latest persisted GameState JSONB snapshot for a room.
-  /// Returns null if no snapshot has been saved yet.
+  /// Fetch the latest persisted **public** GameState snapshot for a room.
+  /// Hands are masked server-side; merge your hand via [getMyHandCards].
   Future<Map<String, dynamic>?> getGameStateSnapshot(String roomId) async {
     try {
-      final response = await _client
-          .from('game_rooms')
-          .select('game_state')
-          .eq('id', roomId)
-          .single();
-      return response['game_state'] as Map<String, dynamic>?;
+      final state = await _client.rpc(
+        'get_room_public_state',
+        params: {'p_room_id': roomId},
+      );
+      if (state == null) return null;
+      return Map<String, dynamic>.from(state as Map);
     } catch (e) {
       debugPrint('[Lobby] getGameStateSnapshot failed: $e');
       return null;

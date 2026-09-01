@@ -1,6 +1,7 @@
 // lib/widgets/user_safety_sheet.dart
 
 import 'package:flutter/material.dart';
+import '../core/widgets/app_dialog.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -134,12 +135,7 @@ Future<void> _submitReport(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: AppTheme.navyDark,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Colors.white12),
-            ),
+          return AppAlertDialog(
             title: Text(
               'إبلاغ عن $displayName',
               style: GoogleFonts.cairo(

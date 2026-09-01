@@ -7,20 +7,16 @@ import 'package:estimation/core/models/bid.dart';
 import 'package:estimation/core/models/player.dart';
 import 'package:estimation/core/models/game_state.dart';
 import 'package:estimation/providers/game_provider.dart';
+import 'package:estimation/services/game_action_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'support/supabase_test_init.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
-    try {
-      await Supabase.initialize(
-        url: 'https://eqmkbfxerxqihforsgvx.supabase.co',
-        publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
-      );
-    } catch (_) {}
+    await initTestSupabase();
   });
 
   List<Player> createFourPlayers() {
@@ -38,11 +34,14 @@ void main() {
       final state = GameEngine.createInitialState(players);
 
       expect(state.roundNumber, equals(1));
-      expect(state.dealerSeatIndex, equals(3)); // Left player dealt to host first
+      expect(
+          state.dealerSeatIndex, equals(3)); // Left player dealt to host first
       expect(state.auctionTurnSeatIndex, equals(0)); // Host bids first
     });
 
-    test('Bidding priority order follows Host (0) -> Right (1) -> Top (2) -> Left (3) -> Host (0)', () {
+    test(
+        'Bidding priority order follows Host (0) -> Right (1) -> Top (2) -> Left (3) -> Host (0)',
+        () {
       final players = createFourPlayers();
       final state = GameState(
         players: players,
@@ -133,7 +132,9 @@ void main() {
   });
 
   group('Direct Deal to DashCall or VoidCheck', () {
-    test('Starting test game deal enters dashCall, or voidCheck if a hand is void', () async {
+    test(
+        'Starting test game deal enters dashCall, or voidCheck if a hand is void',
+        () async {
       final provider = GameProvider();
       await provider.startTestGame('Host Player');
       provider.startGame();
@@ -153,6 +154,26 @@ void main() {
         expect(state.currentPlayerSeatIndex, equals(0));
       }
       expect(state.auctionTurnSeatIndex, equals(0));
+
+      await provider.reset();
+    });
+
+    test('Bot test game starts locally even when SERVER_AUTHORITY is on',
+        () async {
+      GameActionService.useServerAuthority = true;
+      addTearDown(() => GameActionService.useServerAuthority = false);
+
+      final provider = GameProvider();
+      await provider.startTestGame('Host Player');
+      expect(provider.isTestMode, isTrue);
+      expect(provider.usesServerAuthorityOnline, isFalse);
+
+      await provider.startGame();
+
+      final state = provider.state!;
+      expect(state.phase, isNot(GamePhase.lobby));
+      expect(state.players.length, equals(4));
+      expect(provider.myHand.length, equals(13));
 
       await provider.reset();
     });

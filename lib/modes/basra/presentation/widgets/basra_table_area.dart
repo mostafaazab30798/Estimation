@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:estimation/core/models/card.dart';
+import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/modes/basra/presentation/providers/basra_game_provider.dart';
 import 'package:estimation/services/audio_service.dart';
 import 'package:estimation/theme/app_theme.dart';
@@ -276,11 +277,17 @@ class _BasraTableAreaState extends State<BasraTableArea>
     ];
   }
 
-  double _cardWidthFor(int count, double tableW, double tableH, bool portrait) {
+  double _cardWidthFor(
+    int count,
+    double tableW,
+    double tableH,
+    bool portrait,
+    GameLayoutMetrics layout,
+  ) {
     final n = math.max(count, 1);
     final size = math.min(tableW, tableH);
     if (n <= 4) {
-      return (size * (portrait ? 0.27 : 0.31)).clamp(48.0, 68.0);
+      return layout.basraTableCardWidth(size);
     }
     const jitter = 10.0;
     const gap = 8.0;
@@ -289,7 +296,12 @@ class _BasraTableAreaState extends State<BasraTableArea>
     final maxFromW = tableW / cols - gap - jitter * 2;
     final maxFromH =
         (tableH / rows - gap - jitter * 2) * playingCardAspectRatio;
-    return math.min(maxFromW, maxFromH).clamp(34.0, 58.0);
+    final maxClamp = switch (layout.screenSize) {
+      GameScreenSize.phone => 58.0,
+      GameScreenSize.tablet => 64.0,
+      GameScreenSize.largeTablet => 70.0,
+    };
+    return math.min(maxFromW, maxFromH).clamp(34.0, maxClamp);
   }
 
   _Pose _pilePose(PlayingCard card, {required bool isTaker}) {
@@ -309,9 +321,10 @@ class _BasraTableAreaState extends State<BasraTableArea>
         final h = constraints.maxHeight;
         final isPortrait =
             MediaQuery.of(context).orientation == Orientation.portrait;
+        final layout = GameLayoutMetrics.of(context);
         final poseCards =
             _anim == _TableAnim.idle ? widget.game.tableCards : _snapshot;
-        final cardW = _cardWidthFor(poseCards.length, w, h, isPortrait);
+        final cardW = _cardWidthFor(poseCards.length, w, h, isPortrait, layout);
         final cardH = cardW / playingCardAspectRatio;
         final groundPoses = _posesFor(poseCards, w, h, cardW, cardH);
 

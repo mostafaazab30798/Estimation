@@ -14,23 +14,45 @@ class ScoreTable extends StatelessWidget {
   final List<Player> players;
   final Map<String, int> lastRoundDeltas;
   final String? bidderPlayerId;
+  final bool largeScreen;
+  final bool compact;
 
   const ScoreTable({
     super.key,
     required this.players,
     required this.lastRoundDeltas,
     this.bidderPlayerId,
+    this.largeScreen = false,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final headerSize = largeScreen ? (compact ? 13.0 : 14.5) : (compact ? 11.5 : 13.0);
+    final rowPadding = largeScreen
+        ? EdgeInsets.symmetric(
+            horizontal: compact ? 14 : 18,
+            vertical: compact ? 10 : 14,
+          )
+        : EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 14,
+            vertical: compact ? 8 : 12,
+          );
+    final rowGap = largeScreen
+        ? (compact ? 6.0 : 12.0)
+        : (compact ? 5.0 : 10.0);
+    final headerPadV = largeScreen ? (compact ? 6.0 : 10.0) : (compact ? 4.0 : 8.0);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Column Headers (floating directly above cards, no container box)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: largeScreen ? (compact ? 14 : 18) : (compact ? 10 : 14),
+            vertical: headerPadV,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -40,20 +62,20 @@ class ScoreTable extends StatelessWidget {
                   textAlign: TextAlign.right,
                   style: GoogleFonts.cairo(
                     color: AppTheme.gold,
-                    fontSize: 13,
+                    fontSize: headerSize,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-              Expanded(flex: 2, child: _header('صرّح')),
-              Expanded(flex: 2, child: _header('ربح')),
-              Expanded(flex: 2, child: _header('الجولة')),
-              Expanded(flex: 3, child: _header('المجموع')),
+              Expanded(flex: 2, child: _header('صرّح', headerSize)),
+              Expanded(flex: 2, child: _header('ربح', headerSize)),
+              Expanded(flex: 2, child: _header('الجولة', headerSize)),
+              Expanded(flex: 3, child: _header('المجموع', headerSize)),
             ],
           ),
         ),
 
-        const SizedBox(height: 4),
+        SizedBox(height: largeScreen ? (compact ? 4 : 8) : (compact ? 2 : 4)),
 
         // Floating Individual Player Cards
         ...players.asMap().entries.map((e) {
@@ -64,13 +86,15 @@ class ScoreTable extends StatelessWidget {
           final positive = delta >= 0;
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: rowGap),
             child: _buildPlayerCard(
               rankIndex: rankIndex,
               player: p,
               delta: delta,
               isBidder: isBidder,
               positive: positive,
+              rowPadding: rowPadding,
+              compact: compact,
             ),
           );
         }),
@@ -84,15 +108,32 @@ class ScoreTable extends StatelessWidget {
     required int delta,
     required bool isBidder,
     required bool positive,
+    required EdgeInsets rowPadding,
+    required bool compact,
   }) {
     final matchRank = MatchRank.fromIndex(rankIndex);
     final borderColor = matchRank?.accentColor ?? AppTheme.steelBlue;
+    final avatarSize = largeScreen
+        ? (compact ? 34.0 : 42.0)
+        : (compact ? 28.0 : 36.0);
+    final nameSize = largeScreen
+        ? (compact ? 14.0 : 16.0)
+        : (compact ? 12.5 : 14.5);
+    final cellSize = largeScreen
+        ? (compact ? 13.0 : 15.0)
+        : (compact ? 12.0 : 14.0);
+    final deltaSize = largeScreen
+        ? (compact ? 12.0 : 14.0)
+        : (compact ? 11.0 : 13.0);
+    final totalSize = largeScreen
+        ? (compact ? 15.0 : 18.0)
+        : (compact ? 13.5 : 16.0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: rowPadding,
       decoration: BoxDecoration(
         color: AppTheme.navyDark.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(largeScreen ? (compact ? 16 : 20) : (compact ? 14 : 18)),
         border: Border.all(
           color: borderColor.withValues(alpha: rankIndex == 0 ? 0.8 : 0.5),
           width: rankIndex == 0 ? 1.6 : 1.2,
@@ -119,10 +160,10 @@ class ScoreTable extends StatelessWidget {
               children: [
                 PlayerAvatar(
                   photoData: player.photo ?? '',
-                  size: 36,
+                  size: avatarSize,
                   borderWidth: 1.5,
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: compact ? 8 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,7 +194,7 @@ class ScoreTable extends StatelessWidget {
                                 player.name,
                                 style: GoogleFonts.cairo(
                                   color: rankIndex == 0 ? AppTheme.gold : AppTheme.cream,
-                                  fontSize: 14.5,
+                                  fontSize: nameSize,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -161,9 +202,9 @@ class ScoreTable extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (matchRank != null)
+                      if (matchRank != null && !compact)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: compact ? 2 : 4),
                           child: Align(
                             alignment: AlignmentDirectional.centerStart,
                             child: MatchRankChip(
@@ -182,7 +223,7 @@ class ScoreTable extends StatelessWidget {
           // Declared (Flex 2)
           Expanded(
             flex: 2,
-            child: _cell('${player.declared ?? '-'}'),
+            child: _cell('${player.declared ?? '-'}', cellSize),
           ),
 
           // Won / Actual (Flex 2)
@@ -193,6 +234,7 @@ class ScoreTable extends StatelessWidget {
               children: [
                 _cell(
                   '${player.actual}',
+                  cellSize,
                   color: (player.declared != null && player.declared == player.actual)
                       ? const Color(0xFF00E676)
                       : null,
@@ -227,7 +269,7 @@ class ScoreTable extends StatelessWidget {
                   style: GoogleFonts.cairo(
                     color: positive ? const Color(0xFF00E676) : AppTheme.errorRed,
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: deltaSize,
                   ),
                 ),
               ),
@@ -243,7 +285,7 @@ class ScoreTable extends StatelessWidget {
               style: GoogleFonts.cairo(
                 color: AppTheme.gold,
                 fontWeight: FontWeight.w900,
-                fontSize: 16,
+                fontSize: totalSize,
               ),
             ),
           ),
@@ -252,22 +294,22 @@ class ScoreTable extends StatelessWidget {
     );
   }
 
-  Widget _header(String text) => Text(
+  Widget _header(String text, double fontSize) => Text(
         text,
         textAlign: TextAlign.center,
         style: GoogleFonts.cairo(
           color: AppTheme.gold,
           fontWeight: FontWeight.bold,
-          fontSize: 13,
+          fontSize: fontSize,
         ),
       );
 
-  Widget _cell(String text, {Color? color}) => Text(
+  Widget _cell(String text, double fontSize, {Color? color}) => Text(
         text,
         textAlign: TextAlign.center,
         style: GoogleFonts.cairo(
           color: color ?? AppTheme.cream.withValues(alpha: 0.9),
-          fontSize: 14,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
       );

@@ -3,8 +3,6 @@
 // In-game scoreboard — baize-ledger aesthetic: clear total points hero
 // numbers, labeled current-round stats, and a readable round history.
 
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -63,41 +61,10 @@ class RoundScoresDialog extends StatelessWidget {
           width: dialogWidth,
           constraints: BoxConstraints(maxHeight: maxHeight),
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: AppTheme.gold.withValues(alpha: 0.38),
-              width: 1.4,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 32,
-                offset: const Offset(0, 14),
-              ),
-              BoxShadow(
-                color: AppTheme.gold.withValues(alpha: 0.10),
-                blurRadius: 28,
-                spreadRadius: -4,
-              ),
-            ],
-          ),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppTheme.surface2.withValues(alpha: 0.94),
-                      AppTheme.deepNavy.withValues(alpha: 0.96),
-                    ],
-                  ),
-                ),
-                child: Column(
+            borderRadius: BorderRadius.circular(AppTheme.dialogRadius),
+            child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildHeader(context),
@@ -138,8 +105,6 @@ class RoundScoresDialog extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
     );
   }
 

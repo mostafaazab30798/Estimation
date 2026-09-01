@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/utils/game_layout_metrics.dart';
+import '../../../../core/widgets/app_buttons.dart';
 import '../../../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
@@ -18,45 +20,53 @@ class BasraGameGuideDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet ? 620.0 : 560.0;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: layout.isTablet ? 24 : 16,
+          vertical: layout.isTablet ? 28 : 24,
+        ),
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 640),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1C2A22), Color(0xFF0E1612)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
           ),
+          padding: EdgeInsets.all(layout.isTablet ? 24 : 20),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
           child: Column(
             children: [
               Row(
                 children: [
-                  const AppIcon(AppIcons.helpOutline, color: AppTheme.gold, size: 22),
-                  const SizedBox(width: 8),
+                  AppIconWell(
+                    icon: AppIcons.helpOutline,
+                    size: layout.isTablet ? 44 : 40,
+                    iconSize: layout.isTablet ? 20 : 18,
+                    color: AppTheme.gold,
+                    fill: AppTheme.gold.withValues(alpha: 0.12),
+                    borderColor: AppTheme.gold.withValues(alpha: 0.32),
+                  ),
+                  SizedBox(width: layout.isTablet ? 12 : 8),
                   Text(
                     'دليل الباصرة',
                     style: GoogleFonts.cairo(
                       color: AppTheme.cream,
-                      fontSize: 18,
+                      fontSize: layout.isTablet ? 20 : 18,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const AppIcon(AppIcons.close, color: Colors.white70, size: 20),
+                    icon: const AppIcon(AppIcons.close, color: AppTheme.steelBlue, size: 20),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: layout.isTablet ? 12 : 8),
               Expanded(
                 child: ListView(
                   children: const [

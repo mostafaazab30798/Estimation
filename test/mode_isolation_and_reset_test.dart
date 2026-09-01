@@ -2,19 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:estimation/providers/game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'support/supabase_test_init.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
-    try {
-      await Supabase.initialize(
-        url: 'https://eqmkbfxerxqihforsgvx.supabase.co',
-        publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
-      );
-    } catch (_) {}
+    await initTestSupabase();
   });
 
   group('Mode Isolation & State Reset Tests', () {

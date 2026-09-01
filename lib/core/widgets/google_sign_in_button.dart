@@ -200,8 +200,10 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton>
           ),
         );
 
+        final trackRadius = _trackHeight / 2;
+
         return ClipRRect(
-          borderRadius: BorderRadius.circular(widget.compact ? 14 : 18),
+          borderRadius: BorderRadius.circular(trackRadius),
           child: BackdropFilter(
             filter: ImageFilter.blur(
               sigmaX: _isLogin ? 10 : 12,
@@ -212,7 +214,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton>
               width: _trackWidth,
               decoration: BoxDecoration(
                 color: _trackColor,
-                borderRadius: BorderRadius.circular(widget.compact ? 14 : 18),
+                borderRadius: BorderRadius.circular(trackRadius),
                 border: Border.all(color: _trackBorder, width: 1.2),
                 boxShadow: _isLogin
                     ? [
@@ -311,10 +313,8 @@ class _Thumb extends StatelessWidget {
         height: size,
         width: size,
         decoration: BoxDecoration(
+          shape: BoxShape.circle,
           color: enabled ? color : Colors.grey.shade400,
-          borderRadius: BorderRadius.circular(
-            isLogin ? (compact ? 12 : 16) : 14,
-          ),
           border: isLogin
               ? Border.all(
                   color: _LoginSliderStyle.periwinkle.withValues(alpha: 0.35),

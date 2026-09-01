@@ -9,7 +9,10 @@ import '../models/estimation_statistics.dart';
 import '../models/rank_tier.dart';
 import '../services/auth_service.dart';
 import '../services/share_card_service.dart';
+import '../core/widgets/app_buttons.dart';
 import '../theme/app_theme.dart';
+import '../core/constants.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/utils/snackbar_helper.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -85,7 +88,8 @@ class ShareMyEstimationDialog extends StatefulWidget {
   }
 
   @override
-  State<ShareMyEstimationDialog> createState() => _ShareMyEstimationDialogState();
+  State<ShareMyEstimationDialog> createState() =>
+      _ShareMyEstimationDialogState();
 }
 
 class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
@@ -134,21 +138,25 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
   void _copyCaptionText() {
     HapticFeedback.selectionClick();
 
-    final displayName = widget.playerName.trim().isNotEmpty ? widget.playerName.trim() : 'لاعب كوتشينة';
+    final displayName = widget.playerName.trim().isNotEmpty
+        ? widget.playerName.trim()
+        : kDefaultPlayerName;
     String textToCopy = '';
 
     if (widget.type == ShareCardType.matchVictory) {
       textToCopy =
-          '🏆 انتصار جديد في إستميشن!\n👑 البطل: $displayName (${widget.matchRankTitle ?? "الكينج 👑"})\n🎯 السكور النهائي: ${widget.matchFinalScore ?? 0} نقطة\n🎯 كول مثالي: ${widget.matchPerfectEstimates ?? 0} جولات\n🔥 ريمونتادا: ${widget.matchComebacks ?? 0}\n#Estimation #كوتشينة';
+          '🏆 انتصار جديد في إستميشن!\n👑 البطل: $displayName (${widget.matchRankTitle ?? "الكينج 👑"})\n🎯 السكور النهائي: ${widget.matchFinalScore ?? 0} نقطة\n🎯 كول مثالي: ${widget.matchPerfectEstimates ?? 0} جولات\n🔥 ريمونتادا: ${widget.matchComebacks ?? 0}\n#Estimation #سهرة_ورق';
     } else {
-      final archetype = widget.profile?.primaryArchetype ?? PlaystyleArchetype.calculator;
-      final accuracy = widget.stats?.declarationAccuracy.toStringAsFixed(1) ?? '0.0';
+      final archetype =
+          widget.profile?.primaryArchetype ?? PlaystyleArchetype.calculator;
+      final accuracy =
+          widget.stats?.declarationAccuracy.toStringAsFixed(1) ?? '0.0';
       final wins = widget.stats?.gamesWon ?? 0;
       final perfects = widget.stats?.perfectEstimates ?? 0;
       final streak = widget.stats?.longestWinningStreak ?? 0;
 
       textToCopy =
-          '♠️ بطاقة لاعب إستميشن\n👑 اللاعب: $displayName\n📜 اللقب: ${widget.config?.selectedTitle ?? "أستاذ الإستميشن"}\n🧠 الشخصية: ${archetype.titleAr} ${archetype.emoji}\n🎯 دقة الكول: $accuracy%\n🏆 الانتصارات: $wins\n🎯 كول مثالي: $perfects\n🔥 أطول سلسلة: $streak\n#Estimation #كوتشينة';
+          '♠️ بطاقة لاعب إستميشن\n👑 اللاعب: $displayName\n📜 اللقب: ${widget.config?.selectedTitle ?? "أستاذ الإستميشن"}\n🧠 الشخصية: ${archetype.titleAr} ${archetype.emoji}\n🎯 دقة الكول: $accuracy%\n🏆 الانتصارات: $wins\n🎯 كول مثالي: $perfects\n🔥 أطول سلسلة: $streak\n#Estimation #سهرة_ورق';
     }
 
     Clipboard.setData(ClipboardData(text: textToCopy));
@@ -161,34 +169,50 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 480.0 : 420.0);
+
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: layout.isTablet ? 24 : 16,
+        vertical: layout.isTablet ? 28 : 24,
+      ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ── Top Dialog Header ─────────────────────────────────────────
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Container(
+            padding: EdgeInsets.all(layout.isTablet ? 24 : 20),
+            decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.only(bottom: layout.isTablet ? 14 : 12),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        Text(
-                          widget.type == ShareCardType.matchVictory ? '🏆' : '📤',
-                          style: const TextStyle(fontSize: 20),
+                        AppIconWell(
+                          icon: widget.type == ShareCardType.matchVictory
+                              ? AppIcons.emojiEvents
+                              : AppIcons.share,
+                          size: layout.isTablet ? 44 : 40,
+                          iconSize: layout.isTablet ? 20 : 18,
+                          color: AppTheme.gold,
+                          fill: AppTheme.gold.withValues(alpha: 0.12),
+                          borderColor: AppTheme.gold.withValues(alpha: 0.32),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: layout.isTablet ? 12 : 10),
                         Text(
                           widget.type == ShareCardType.matchVictory
                               ? 'مشاركة بطاقة الانتصار'
                               : 'مشاركة بطاقة إستميشن',
                           style: GoogleFonts.cairo(
-                            fontSize: 16,
+                            fontSize: layout.isTablet ? 17 : 16,
                             fontWeight: FontWeight.w900,
                             color: AppTheme.cream,
                           ),
@@ -197,7 +221,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const AppIcon(AppIcons.close, color: Colors.white70),
+                      icon: const AppIcon(AppIcons.close, color: AppTheme.steelBlue),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -266,7 +290,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      icon: const AppIcon(AppIcons.copy, size: 16, color: AppTheme.goldLight),
+                      icon: const AppIcon(AppIcons.copy,
+                          size: 16, color: AppTheme.goldLight),
                       label: Text(
                         'نسخ',
                         style: GoogleFonts.cairo(
@@ -278,7 +303,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   ),
                 ],
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -291,8 +317,10 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
     final theme = widget.config?.theme ?? CardSkinTheme.royalGold;
     final level = AuthService.instance.currentProfile?.level ?? 1;
     final tier = RankTier.fromLevel(level);
-    final archetype = widget.profile?.primaryArchetype ?? PlaystyleArchetype.calculator;
-    final accuracy = widget.stats?.declarationAccuracy.toStringAsFixed(1) ?? '0.0';
+    final archetype =
+        widget.profile?.primaryArchetype ?? PlaystyleArchetype.calculator;
+    final accuracy =
+        widget.stats?.declarationAccuracy.toStringAsFixed(1) ?? '0.0';
     final wins = widget.stats?.gamesWon ?? 0;
     final perfects = widget.stats?.perfectEstimates ?? 0;
     final streak = widget.stats?.longestWinningStreak ?? 0;
@@ -354,7 +382,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: tier.primaryColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
@@ -395,7 +424,9 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   const SizedBox(height: 10),
 
                   Text(
-                    widget.playerName.isNotEmpty ? widget.playerName : 'لاعب كوتشينة',
+                    widget.playerName.isNotEmpty
+                        ? widget.playerName
+                        : kDefaultPlayerName,
                     style: GoogleFonts.cairo(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -415,7 +446,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
                   // Archetype Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
                       color: archetype.primaryColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
@@ -424,7 +456,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(archetype.emoji, style: const TextStyle(fontSize: 13)),
+                        Text(archetype.emoji,
+                            style: const TextStyle(fontSize: 13)),
                         const SizedBox(width: 6),
                         Text(
                           archetype.titleAr,
@@ -442,7 +475,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
                   // Stats Grid
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(14),
@@ -451,10 +485,13 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildPosterStat('دقة الكول', '$accuracy%', const Color(0xFF38BDF8)),
+                        _buildPosterStat(
+                            'دقة الكول', '$accuracy%', const Color(0xFF38BDF8)),
                         _buildPosterStat('الانتصارات', '$wins', AppTheme.gold),
-                        _buildPosterStat('كول مثالي', '$perfects', const Color(0xFF10B981)),
-                        _buildPosterStat('أطول سلسلة', '🔥 $streak', const Color(0xFFFF7043)),
+                        _buildPosterStat(
+                            'كول مثالي', '$perfects', const Color(0xFF10B981)),
+                        _buildPosterStat('أطول سلسلة', '🔥 $streak',
+                            const Color(0xFFFF7043)),
                       ],
                     ),
                   ),
@@ -462,7 +499,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   const SizedBox(height: 12),
 
                   Text(
-                    'كوتشينة مالتيبلاير • لعبة الذكاء والتكتيك ♠️',
+                    '$kAppName • لعبة الذكاء والتكتيك ♠️',
                     style: GoogleFonts.cairo(
                       fontSize: 10,
                       color: Colors.white54,
@@ -521,7 +558,8 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const AppIcon(AppIcons.emojiEvents, color: AppTheme.gold, size: 24),
+                  const AppIcon(AppIcons.emojiEvents,
+                      color: AppTheme.gold, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     'انتصار ساحق • ESTIMATION VICTORY',
@@ -545,7 +583,9 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
               const SizedBox(height: 8),
 
               Text(
-                widget.playerName.isNotEmpty ? widget.playerName : 'لاعب كوتشينة',
+                widget.playerName.isNotEmpty
+                    ? widget.playerName
+                    : kDefaultPlayerName,
                 style: GoogleFonts.cairo(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -565,11 +605,13 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
               // Final Score Hero Card
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
+                  border:
+                      Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
                 ),
                 child: Column(
                   children: [
@@ -598,16 +640,21 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildPosterStat('كول مثالي', '$perfects', const Color(0xFF10B981)),
-                  _buildPosterStat('ريمونتادا', '$comebacks', const Color(0xFFFF5722)),
-                  _buildPosterStat('أفضل جولة', bestRound > 0 ? '+$bestRound' : '$bestRound', const Color(0xFF38BDF8)),
+                  _buildPosterStat(
+                      'كول مثالي', '$perfects', const Color(0xFF10B981)),
+                  _buildPosterStat(
+                      'ريمونتادا', '$comebacks', const Color(0xFFFF5722)),
+                  _buildPosterStat(
+                      'أفضل جولة',
+                      bestRound > 0 ? '+$bestRound' : '$bestRound',
+                      const Color(0xFF38BDF8)),
                 ],
               ),
 
               const SizedBox(height: 12),
 
               Text(
-                'كوتشينة مالتيبلاير • بطل البولة ♠️',
+                '$kAppName • بطل البولة ♠️',
                 style: GoogleFonts.cairo(
                   fontSize: 10,
                   color: Colors.white54,

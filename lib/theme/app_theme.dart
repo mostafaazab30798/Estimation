@@ -13,6 +13,48 @@ class AppTheme {
   // ── Extended surface ──────────────────────────────────────────
   static const Color surface2  = Color(0xFF2A4560); // slightly lighter than deepNavy
 
+  // ── Dialog system ─────────────────────────────────────────────────
+  // Calm, opaque surfaces keep dense Arabic copy and game controls legible.
+  static const Color dialogSurface = Color(0xFF263E54);
+  static const Color dialogSurfaceHigh = Color(0xFF2D4962);
+  static const double dialogRadius = 28;
+  static const EdgeInsets dialogInset = EdgeInsets.symmetric(
+    horizontal: 20,
+    vertical: 24,
+  );
+  static const EdgeInsets dialogContentPadding = EdgeInsets.fromLTRB(
+    24,
+    8,
+    24,
+    20,
+  );
+
+  static BoxDecoration dialogDecoration({
+    Color accent = steelBlue,
+    double borderRadius = dialogRadius,
+  }) =>
+      BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [dialogSurfaceHigh, dialogSurface],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.42),
+            blurRadius: 32,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: accent.withValues(alpha: 0.08),
+            blurRadius: 24,
+            spreadRadius: -8,
+          ),
+        ],
+      );
+
   // ── Semantic aliases (backward compatibility) ─────────────────
   static const Color navyDeep    = deepNavy;
   static const Color navyMid     = surface2;

@@ -3,12 +3,14 @@
 // Post-auction declaration dialog for non-Bidder & Bidder players.
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/events/estimation_event_dispatcher.dart';
 import '../theme/app_theme.dart';
+import 'hud/gameplay_dialog_shell.dart';
 import 'hud/turn_timer_badge.dart';
 
 class DeclarationDialog extends StatefulWidget {
@@ -60,9 +62,6 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.94 : 0.70);
-
     final state = widget.state;
     final me = widget.me;
 
@@ -82,55 +81,45 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
       leftPlayer = state.playerBySeat((mySeat + 3) % 4);
     }
 
-    return Dialog(
-      alignment: isPortrait ? const Alignment(0, -0.42) : const Alignment(0, -0.25),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: dialogWidth,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.navyDark,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
-          boxShadow: AppTheme.neumorphicTurnGlow(AppTheme.navyDeep),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return GameplayDialogShell(
+      maxWidth: GameplayDialogShell.widthFor(context),
+      scrollable: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header Title with Timer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'كم لمة تتوقع؟',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                  ),
-                  TurnTimerBadge(
-                    customPhaseLabel: 'DECLARATION',
-                    isMyTurn: true,
-                    compact: true,
-                    explicitDurationSeconds: state?.turnDurationSeconds ?? 15,
-                    explicitDeadlineEpochMs: state?.turnDeadlineEpochMs,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'حدد عدد اللمات التي ستربحها هذه الجولة',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: AppTheme.textSecondary, fontSize: 11),
+              Text(
+                'كم لمة تتوقع؟',
+                style: GoogleFonts.cairo(
+                  color: AppTheme.cream,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
+              TurnTimerBadge(
+                customPhaseLabel: 'DECLARATION',
+                isMyTurn: true,
+                compact: true,
+                explicitDurationSeconds: state?.turnDurationSeconds ?? 15,
+                explicitDeadlineEpochMs: state?.turnDeadlineEpochMs,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'حدد عدد اللمات التي ستربحها هذه الجولة',
+              style: GoogleFonts.cairo(
+                color: AppTheme.steelBlue,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
               if (state != null) _buildCompactBidderBanner(state, me),
               if (state?.isDoubleRound == true) ...[
                 const SizedBox(height: 6),
@@ -354,13 +343,13 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                       // Submit Button
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             backgroundColor: AppTheme.gold,
                             foregroundColor: AppTheme.navyDark,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
                           ),
                           onPressed: () {
                             Navigator.of(context).pop();
@@ -368,7 +357,10 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                           },
                           child: Text(
                             'تأكيد: $declared لمة',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            style: GoogleFonts.cairo(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ),
@@ -376,9 +368,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                   );
                 },
               ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }

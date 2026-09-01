@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/google_online_auth.dart';
 import '../../lobby/domain/models/game_room.dart';
 import '../domain/models/bot_fill_vote_result.dart';
 import '../domain/models/matchmaking_join_result.dart';
@@ -9,14 +10,7 @@ class MatchmakingRepository {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<void> _ensureAuth() async {
-    if (_client.auth.currentUser == null) {
-      await _client.auth
-          .signInAnonymously()
-          .timeout(const Duration(seconds: 8));
-    }
-    if (_client.auth.currentUser == null) {
-      throw Exception('MATCHMAKING_NOT_AUTHENTICATED');
-    }
+    requireGoogleSession(_client);
   }
 
   Future<MatchmakingJoinResult> enterMatchmaking({
@@ -86,8 +80,8 @@ class MatchmakingRepository {
   String translateError(Object error) {
     final raw = error.toString();
     debugPrint('[Matchmaking] $raw');
-    if (raw.contains('MATCHMAKING_NOT_AUTHENTICATED')) {
-      return 'تعذر بدء البحث. حاول تسجيل الدخول مرة أخرى.';
+    if (isGoogleOnlineAuthError(error)) {
+      return kGoogleOnlineRequiredMessage;
     }
     if (raw.contains('MATCHMAKING_ROOM_INVALID')) {
       return 'انتهت جلسة البحث. سنعيدك للصفحة الرئيسية.';

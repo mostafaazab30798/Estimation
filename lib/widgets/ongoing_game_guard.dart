@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/game_provider.dart';
+import '../core/widgets/app_dialog.dart';
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
 
@@ -14,13 +15,12 @@ Future<bool> guardAgainstOngoingGame(BuildContext context) async {
   final returnNow = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: AppTheme.navyDark,
+        builder: (dialogContext) => AppAlertDialog(
           title: Text('لديك مباراة جارية',
               style: GoogleFonts.cairo(
                   color: AppTheme.gold, fontWeight: FontWeight.w800)),
           content: Text(
-            'لا يمكنك إنشاء غرفة، الانضمام إلى غرفة، أو بدء طابور جديد حتى تنتهي مباراتك الحالية. عد إلى مقعدك لمتابعة اللعب؛ وإذا انتهت مهلة 60 ثانية فسيترك البوت المقعد فور عودتك.',
+            'لا يمكنك إنشاء غرفة، الانضمام إلى غرفة، أو بدء طابور جديد حتى تنتهي مباراتك الحالية. البوت يلعب بعد 30 ثانية؛ لديك 5 دقائق للعودة واستعادة مقعدك.',
             style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
           ),
           actions: [

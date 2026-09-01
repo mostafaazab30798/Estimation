@@ -27,11 +27,15 @@ import 'features/matchmaking/presentation/screens/matchmaking_screen.dart';
 
 import 'services/audio_service.dart';
 import 'services/reconnection_manager.dart';
+import 'services/online_play_gate.dart';
 import 'services/device_performance_service.dart';
 import 'services/auth_service.dart';
 import 'services/settings_service.dart';
+import 'services/game_action_service.dart';
 import 'theme/app_theme.dart';
 import 'core/constants.dart';
+import 'core/utils/wallpaper_precache.dart';
+import 'core/config/app_config.dart';
 import 'core/widgets/app_logo.dart';
 
 void main() async {
@@ -56,6 +60,10 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+
+  const serverAuthority =
+      bool.fromEnvironment('SERVER_AUTHORITY', defaultValue: false);
+  GameActionService.useServerAuthority = serverAuthority;
 
   runApp(const AppBootstrap());
 }
@@ -86,10 +94,10 @@ class _AppBootstrapState extends State<AppBootstrap> {
     });
 
     try {
+      AppConfig.validateConfiguration();
       await Supabase.initialize(
-        url: 'https://eqmkbfxerxqihforsgvx.supabase.co',
-        publishableKey:
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbWtiZnhlcnhxaWhmb3JzZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwNjQ0NTUsImV4cCI6MjA5OTY0MDQ1NX0.3F_n2TUVGTucW2DUWpv5YxqOtFkBQZaQJZKngL7gOx0',
+        url: AppConfig.supabaseUrl,
+        publishableKey: AppConfig.supabaseAnonKey,
       );
 
       await Future.wait([
@@ -105,16 +113,20 @@ class _AppBootstrapState extends State<AppBootstrap> {
       });
 
       unawaited(AudioService.instance.initialize());
+      // Best-effort byte warm-up before any route context exists. Full decode
+      // happens via [WallpaperPrecache] on the mode selection / home screens.
       unawaited(Future.wait([
-        _preloadAsset('assets/wallpapers/w1.jpg'),
-        _preloadAsset('assets/wallpapers/w2.jpg'),
+        _preloadAssetBytes(WallpaperPrecache.modeSelection),
+        _preloadAssetBytes(WallpaperPrecache.modeHome),
       ]));
 
       final auth = Supabase.instance.client.auth;
       if (auth.currentUser == null) {
         unawaited(
           auth.signInAnonymously().catchError((Object error) {
-            debugPrint('[Auth] signInAnonymously failed (offline?): $error');
+            debugPrint(
+              '[Auth] signInAnonymously skipped (disabled or offline): $error',
+            );
             return AuthResponse();
           }),
         );
@@ -139,14 +151,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
       home: Scaffold(
         body: Center(
           child: _error == null
-              ? const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppLogo(size: 112),
-                    SizedBox(height: 24),
-                    CircularProgressIndicator(color: AppTheme.gold),
-                  ],
-                )
+              ? const Center(child: AppLogo(pulsing: true))
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -171,27 +176,13 @@ class _AppBootstrapState extends State<AppBootstrap> {
   }
 }
 
-/// Preloads an asset image into Flutter's [PaintingBinding.imageCache].
-Future<void> _preloadAsset(String assetPath) async {
-  final provider = AssetImage(assetPath);
-  final stream = provider.resolve(ImageConfiguration.empty);
-
-  final completer = Completer<void>();
-  late ImageStreamListener listener;
-  listener = ImageStreamListener(
-    (ImageInfo info, bool sync) {
-      info.dispose();
-      if (!completer.isCompleted) completer.complete();
-    },
-    onError: (Object error, StackTrace? stack) {
-      debugPrint('[Preload] $assetPath failed: $error');
-      if (!completer.isCompleted) completer.complete();
-    },
-  );
-
-  stream.addListener(listener);
-  await completer.future;
-  stream.removeListener(listener);
+/// Loads asset bytes into the asset bundle cache (no [ImageCache] decode yet).
+Future<void> _preloadAssetBytes(String assetPath) async {
+  try {
+    await rootBundle.load(assetPath);
+  } catch (error) {
+    debugPrint('[Preload] $assetPath bytes failed: $error');
+  }
 }
 
 class KotshinaApp extends StatelessWidget {
@@ -231,6 +222,9 @@ class KotshinaApp extends StatelessWidget {
             return rm;
           },
           update: (ctx, gameProvider, previous) => previous!,
+        ),
+        ChangeNotifierProvider<OnlinePlayGate>(
+          create: (_) => OnlinePlayGate(),
         ),
       ],
       child: MaterialApp(

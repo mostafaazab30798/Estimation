@@ -1,19 +1,23 @@
 // lib/widgets/perfect_estimate_overlay.dart
-//
-// Short, satisfying celebration overlay when Declared == Actual.
 
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_theme.dart';
-import 'package:estimation/core/icons/app_icons.dart';
 
+import '../core/icons/app_icons.dart';
+import '../core/utils/game_layout_metrics.dart';
+import '../core/widgets/app_buttons.dart';
+import '../theme/app_theme.dart';
+
+/// A focused celebration for an exact call or a successful blind Dash Call.
 class PerfectEstimateOverlay extends StatefulWidget {
   final int declared;
   final int won;
   final int? xpBonus;
+  final bool isDashCall;
   final VoidCallback? onDismissed;
   final Duration displayDuration;
 
@@ -22,389 +26,345 @@ class PerfectEstimateOverlay extends StatefulWidget {
     required this.declared,
     required this.won,
     this.xpBonus = 20,
+    this.isDashCall = false,
     this.onDismissed,
-    this.displayDuration = const Duration(milliseconds: 2600),
+    this.displayDuration = const Duration(milliseconds: 2800),
   });
 
   @override
-  State<PerfectEstimateOverlay> createState() => _PerfectEstimateOverlayState();
+  State<PerfectEstimateOverlay> createState() =>
+      _PerfectEstimateOverlayState();
 }
 
 class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
     with TickerProviderStateMixin {
-  late final AnimationController _mainController;
+  late final AnimationController _entranceController;
   late final AnimationController _particleController;
-  late final AnimationController _pulseController;
-
-  late final Animation<double> _scaleAnim;
-  late final Animation<double> _fadeAnim;
-  late final Animation<double> _iconScaleAnim;
-  late final Animation<double> _glowAnim;
+  late final Animation<double> _fade;
+  late final Animation<double> _scale;
+  late final Animation<Offset> _slide;
+  late final List<_ParticleData> _particles;
 
   Timer? _autoDismissTimer;
   bool _dismissing = false;
 
-  static final List<({String titleEn, String titleAr})> _variants = [
-    (titleEn: 'PERFECT ESTIMATE!', titleAr: 'تقدير مثالي!'),
-    (titleEn: 'PERFECT BID!', titleAr: 'مزايدة دقيقة!'),
-    (titleEn: 'DEAD-ON!', titleAr: 'بالضبط!'),
-    (titleEn: 'NAILED IT!', titleAr: 'في الصميم!'),
-  ];
-
-  late final ({String titleEn, String titleAr}) _chosenVariant;
-  late final List<_ParticleData> _particles;
+  Color get _accent =>
+      widget.isDashCall ? AppTheme.playerOrange : AppTheme.playerGreen;
 
   @override
   void initState() {
     super.initState();
-
-    final rng = math.Random();
-    _chosenVariant = _variants[rng.nextInt(_variants.length)];
-
-    // Generate random celebration particles
-    _particles = List.generate(24, (index) {
-      final angle = (index / 24) * 2 * math.pi + (rng.nextDouble() * 0.2 - 0.1);
-      final distance = 70.0 + rng.nextDouble() * 110.0;
-      final size = 4.0 + rng.nextDouble() * 6.0;
-      final isGold = rng.nextBool();
+    final random = math.Random(
+      widget.declared * 31 + widget.won * 17 + (widget.isDashCall ? 1 : 0),
+    );
+    _particles = List.generate(14, (index) {
       return _ParticleData(
-        angle: angle,
-        distance: distance,
-        size: size,
-        color: isGold ? AppTheme.gold : const Color(0xFF00E676),
+        angle: (index / 14) * math.pi * 2,
+        distance: 58 + random.nextDouble() * 76,
+        size: 2.5 + random.nextDouble() * 3.5,
+        color: index.isEven ? AppTheme.gold : _accent,
       );
     });
 
-    _mainController = AnimationController(
+    _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 650),
+      duration: const Duration(milliseconds: 460),
+      reverseDuration: const Duration(milliseconds: 220),
     );
-
     _particleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..forward();
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-
-    _scaleAnim = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.0, 0.8, curve: Curves.elasticOut),
-      ),
+      duration: const Duration(milliseconds: 1050),
     );
 
-    _fadeAnim = CurvedAnimation(
-      parent: _mainController,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+    final curve = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
+    _fade = curve;
+    _scale = Tween<double>(begin: 0.94, end: 1).animate(curve);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.04),
+      end: Offset.zero,
+    ).animate(curve);
 
-    _iconScaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.2, 0.9, curve: Curves.elasticOut),
-      ),
-    );
-
-    _glowAnim = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _mainController.forward();
-
-    try {
-      HapticFeedback.heavyImpact();
-    } catch (_) {}
-
-    _autoDismissTimer = Timer(widget.displayDuration, () {
-      _dismiss();
-    });
+    _entranceController.forward();
+    _particleController.forward();
+    HapticFeedback.mediumImpact();
+    _autoDismissTimer = Timer(widget.displayDuration, _dismiss);
   }
 
   void _dismiss() {
     if (_dismissing || !mounted) return;
     _dismissing = true;
     _autoDismissTimer?.cancel();
-    _mainController.reverse().then((_) {
-      if (mounted) {
-        widget.onDismissed?.call();
-      }
+    _entranceController.reverse().then((_) {
+      if (mounted) widget.onDismissed?.call();
     });
   }
 
   @override
   void dispose() {
     _autoDismissTimer?.cancel();
-    _mainController.dispose();
+    _entranceController.dispose();
     _particleController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _dismiss,
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Dark vignette backdrop
-            FadeTransition(
-              opacity: _fadeAnim,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.45),
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 460.0 : 390.0);
+    final horizontalInset = layout.isTablet ? 28.0 : 22.0;
+    final isDash = widget.isDashCall;
+    final title = isDash ? 'داش كول مثالي' : 'كول في الصميم';
+    final eyebrow = isDash ? 'PERFECT DASH CALL' : 'PERFECT CALL';
+    final description = isDash
+        ? 'صفر لمّات. مخاطرة محسوبة وتنفيذ نظيف.'
+        : 'توقعت ${widget.declared} وحققتها بالضبط.';
+
+    return Semantics(
+      namesRoute: true,
+      label: '$title. $description',
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _dismiss,
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              FadeTransition(
+                opacity: _fade,
+                child: ColoredBox(
+                  color: AppTheme.deepNavy.withValues(alpha: 0.76),
+                ),
               ),
-            ),
-
-            // Particle Burts
-            AnimatedBuilder(
-              animation: _particleController,
-              builder: (context, _) {
-                final t = _particleController.value;
-                final particleOpacity = (1.0 - t).clamp(0.0, 1.0);
-                return CustomPaint(
-                  painter: _ParticlePainter(
-                    particles: _particles,
-                    progress: t,
-                    opacity: particleOpacity,
-                  ),
-                );
-              },
-            ),
-
-            // Central Card
-            FadeTransition(
-              opacity: _fadeAnim,
-              child: ScaleTransition(
-                scale: _scaleAnim,
+              IgnorePointer(
                 child: AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    final glow = _glowAnim.value;
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xF0182C40),
-                            Color(0xF00D1B2A),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: AppTheme.gold.withValues(alpha: 0.7 * glow),
-                          width: 2.0,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.gold.withValues(alpha: 0.35 * glow),
-                            blurRadius: 36 * glow,
-                            spreadRadius: 4 * glow,
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFF00E676).withValues(alpha: 0.2 * glow),
-                            blurRadius: 24,
-                            spreadRadius: 2,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: child,
-                    );
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Target Icon with animation
-                      ScaleTransition(
-                        scale: _iconScaleAnim,
-                        child: Container(
-                          width: 68,
-                          height: 68,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.gold.withValues(alpha: 0.6),
-                                blurRadius: 20,
-                                spreadRadius: 3,
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '🎯',
-                              style: TextStyle(fontSize: 36),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Variant Title
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [
-                            Color(0xFFFFE082),
-                            Color(0xFFFFD54F),
-                            Color(0xFFFFFFFF),
-                            Color(0xFFFFB300),
-                          ],
-                        ).createShader(bounds),
-                        child: Text(
-                          _chosenVariant.titleEn,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.cinzel(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-
-                      // Arabic Subtitle
-                      Text(
-                        _chosenVariant.titleAr,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.goldLight.withValues(alpha: 0.9),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Stats Row: 7 declared | 7 won
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.15),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildStatItem(
-                              value: '${widget.declared}',
-                              labelEn: 'declared',
-                              labelAr: 'صرّح',
-                              color: AppTheme.gold,
-                            ),
-                            Container(
-                              height: 32,
-                              width: 1.2,
-                              margin: const EdgeInsets.symmetric(horizontal: 18),
-                              color: Colors.white.withValues(alpha: 0.2),
-                            ),
-                            _buildStatItem(
-                              value: '${widget.won}',
-                              labelEn: 'won',
-                              labelAr: 'ربح',
-                              color: const Color(0xFF00E676),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // +XP Bonus Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00E676), Color(0xFF00B0FF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF00E676).withValues(alpha: 0.4),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const AppIcon(
-                              AppIcons.stars,
-                              size: 18,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '+${widget.xpBonus ?? 20} XP BONUS',
-                              style: GoogleFonts.cairo(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  animation: _particleController,
+                  builder: (context, _) => CustomPaint(
+                    size: MediaQuery.sizeOf(context),
+                    painter: _ParticlePainter(
+                      particles: _particles,
+                      progress: _particleController.value,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              SafeArea(
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: SlideTransition(
+                    position: _slide,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      child: Container(
+                        width: double.infinity,
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        margin: EdgeInsets.symmetric(horizontal: horizontalInset),
+                        padding: EdgeInsets.fromLTRB(
+                          layout.isTablet ? 28 : 24,
+                          layout.isTablet ? 24 : 20,
+                          layout.isTablet ? 28 : 24,
+                          layout.isTablet ? 24 : 22,
+                        ),
+                        decoration: AppTheme.dialogDecoration(accent: _accent),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                AppIconWell(
+                                  icon: isDash
+                                      ? AppIcons.bolt
+                                      : AppIcons.emojiEvents,
+                                  size: layout.isTablet ? 52 : 48,
+                                  iconSize: layout.isTablet ? 24 : 21,
+                                  color: _accent,
+                                  fill: _accent.withValues(alpha: 0.14),
+                                  borderColor: _accent.withValues(alpha: 0.32),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _accent.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: _accent.withValues(alpha: 0.28),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    eyebrow,
+                                    style: GoogleFonts.cairo(
+                                      color: _accent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: layout.isTablet ? 24 : 22),
+                            Text(
+                              title,
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.cairo(
+                                color: AppTheme.cream,
+                                fontSize: layout.isTablet ? 27 : 25,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                              ),
+                            ),
+                            SizedBox(height: layout.isTablet ? 8 : 6),
+                            Text(
+                              description,
+                              textAlign: TextAlign.right,
+                              style: GoogleFonts.cairo(
+                                color: AppTheme.steelBlue,
+                                fontSize: layout.isTablet ? 14.5 : 13.5,
+                                fontWeight: FontWeight.w500,
+                                height: 1.55,
+                              ),
+                            ),
+                            SizedBox(height: layout.isTablet ? 22 : 20),
+                            Container(
+                              padding: EdgeInsets.all(layout.isTablet ? 16 : 14),
+                              decoration: BoxDecoration(
+                                color: AppTheme.deepNavy.withValues(alpha: 0.46),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: AppTheme.steelBlue.withValues(
+                                    alpha: 0.13,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _Stat(
+                                      value: '${widget.declared}',
+                                      label: 'declared • صرّح',
+                                      color: AppTheme.goldLight,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 34,
+                                    color: AppTheme.steelBlue.withValues(
+                                      alpha: 0.16,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: _Stat(
+                                      value: '${widget.won}',
+                                      label: 'won • ربح',
+                                      color: _accent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: layout.isTablet ? 16 : 14),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.gold.withValues(alpha: 0.13),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: AppTheme.gold.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const AppIcon(
+                                        AppIcons.stars,
+                                        size: 16,
+                                        color: AppTheme.goldLight,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '+${widget.xpBonus ?? 20} XP BONUS',
+                                        style: GoogleFonts.cairo(
+                                          color: AppTheme.goldLight,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  'اضغط للمتابعة',
+                                  style: GoogleFonts.cairo(
+                                    color: AppTheme.steelBlue.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildStatItem({
-    required String value,
-    required String labelEn,
-    required String labelAr,
-    required Color color,
-  }) {
+class _Stat extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+
+  const _Stat({required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           value,
           style: GoogleFonts.cairo(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
             color: color,
-            height: 1.1,
+            fontSize: 23,
+            fontWeight: FontWeight.w900,
+            height: 1,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
-          '$labelEn • $labelAr',
+          label,
           style: GoogleFonts.cairo(
-            fontSize: 11,
+            color: AppTheme.steelBlue,
+            fontSize: 10.5,
             fontWeight: FontWeight.w600,
-            color: Colors.white70,
-            height: 1.1,
           ),
         ),
       ],
@@ -418,7 +378,7 @@ class _ParticleData {
   final double size;
   final Color color;
 
-  _ParticleData({
+  const _ParticleData({
     required this.angle,
     required this.distance,
     required this.size,
@@ -429,33 +389,29 @@ class _ParticleData {
 class _ParticlePainter extends CustomPainter {
   final List<_ParticleData> particles;
   final double progress;
-  final double opacity;
 
-  _ParticlePainter({
-    required this.particles,
-    required this.progress,
-    required this.opacity,
-  });
+  const _ParticlePainter({required this.particles, required this.progress});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (opacity <= 0.0) return;
-
+    final opacity = (1 - progress).clamp(0.0, 1.0);
+    if (opacity == 0) return;
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()..style = PaintingStyle.fill;
+    final eased = Curves.easeOutCubic.transform(progress);
 
-    for (final p in particles) {
-      final currentDist = p.distance * Curves.easeOutCubic.transform(progress);
-      final dx = center.dx + currentDist * math.cos(p.angle);
-      final dy = center.dy + currentDist * math.sin(p.angle);
-
-      paint.color = p.color.withValues(alpha: opacity);
-      canvas.drawCircle(Offset(dx, dy), p.size * (1.0 - progress * 0.3), paint);
+    for (final particle in particles) {
+      final distance = particle.distance * eased;
+      final position = Offset(
+        center.dx + distance * math.cos(particle.angle),
+        center.dy + distance * math.sin(particle.angle),
+      );
+      paint.color = particle.color.withValues(alpha: opacity * 0.75);
+      canvas.drawCircle(position, particle.size * (1 - progress * 0.25), paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ParticlePainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
-  }
+  bool shouldRepaint(covariant _ParticlePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

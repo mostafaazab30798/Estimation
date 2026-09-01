@@ -3,7 +3,6 @@
 // Premium HUD card for each player position.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/models/player.dart';
 import '../core/models/game_state.dart';
@@ -95,6 +94,36 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
   bool get _showTrumpOnBidder =>
       widget.isBidder && widget.state.trump != null;
 
+  List<Widget> _buildBidderIndicators({required bool compact}) {
+    if (!_showTrumpOnBidder) return const [];
+
+    return [
+      SizedBox(width: compact ? 4 : 6),
+      _BidderTrumpChip(trump: widget.state.trump!, compact: compact),
+    ];
+  }
+
+  List<Widget> _buildDealerIndicator({
+    required bool isDealer,
+    required bool compact,
+  }) {
+    if (!isDealer) return const [];
+
+    final iconSize = compact ? 10.0 : 12.0;
+
+    return [
+      SizedBox(width: compact ? 4 : 6),
+      Tooltip(
+        message: 'الموزع',
+        child: AppIcon(
+          AppIcons.style,
+          color: AppTheme.steelBlue,
+          size: iconSize,
+        ),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
@@ -160,13 +189,11 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               compact: false,
             ),
           ],
+          ..._buildDealerIndicator(isDealer: isDealer, compact: false),
+          ..._buildBidderIndicators(compact: false),
           if (rankIndex >= 0 && rankIndex <= 3) ...[
             const SizedBox(width: 8),
             RankRibbon(rankIndex: rankIndex, compact: false),
-          ],
-          if (_showTrumpOnBidder) ...[
-            const SizedBox(width: 6),
-            _BidderTrumpChip(trump: widget.state.trump!, compact: false),
           ],
         ],
       );
@@ -191,7 +218,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildNameRow(rankIndex, isDealer, compact: false),
+            _buildNameRow(rankIndex, compact: false),
             const SizedBox(height: 5),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -208,6 +235,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                     compact: false,
                   ),
                 ],
+                ..._buildDealerIndicator(isDealer: isDealer, compact: false),
+                ..._buildBidderIndicators(compact: false),
               ],
             ),
             const SizedBox(height: 5),
@@ -254,13 +283,11 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
               compact: true,
             ),
           ],
+          ..._buildDealerIndicator(isDealer: isDealer, compact: true),
+          ..._buildBidderIndicators(compact: true),
           if (rankIndex >= 0 && rankIndex <= 3) ...[
             const SizedBox(width: 4),
             RankRibbon(rankIndex: rankIndex, compact: true),
-          ],
-          if (_showTrumpOnBidder) ...[
-            const SizedBox(width: 3),
-            _BidderTrumpChip(trump: widget.state.trump!, compact: true),
           ],
         ],
       );
@@ -297,7 +324,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCompactNameRow(isDealer),
+              _buildCompactNameRow(),
               const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -315,10 +342,8 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
                       ),
                     ),
                   ],
-                  if (_showTrumpOnBidder) ...[
-                    const SizedBox(width: 3),
-                    _BidderTrumpChip(trump: widget.state.trump!, compact: true),
-                  ],
+                  ..._buildDealerIndicator(isDealer: isDealer, compact: true),
+                  ..._buildBidderIndicators(compact: true),
                 ],
               ),
               const SizedBox(height: 2),
@@ -340,7 +365,7 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
     );
   }
 
-  Widget _buildCompactNameRow(bool isDealer) {
+  Widget _buildCompactNameRow() {
     final displayName = widget.isMe ? 'أنا' : widget.player.name;
 
     return Row(
@@ -359,35 +384,14 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (isDealer)
-          const Padding(
-            padding: EdgeInsets.only(left: 2),
-            child: Tooltip(
-              message: 'الموزع',
-              child: AppIcon(AppIcons.style, color: AppTheme.steelBlue, size: 10),
-            ),
-          ),
-        if (widget.isBidder)
-          const Padding(
-            padding: EdgeInsets.only(left: 2),
-            child: Tooltip(
-              message: 'الكار الكبير',
-              child: AppIcon(
-                AppIcons.emojiEvents,
-                color: AppTheme.playerGold,
-                size: 10,
-              ),
-            ),
-          ),
       ],
     );
   }
 
-  // ── Full name row: name · rank · dealer · bidder+trump ────────────────────
+  // ── Full name row ─────────────────────────────────────────────────────────
 
-  Widget _buildNameRow(int rankIndex, bool isDealer, {required bool compact}) {
+  Widget _buildNameRow(int rankIndex, {required bool compact}) {
     final fontSize = compact ? 10.0 : 12.5;
-    final iconSize = compact ? 10.0 : 12.0;
     final displayName = widget.isMe ? 'أنا' : widget.player.name;
 
     return Row(
@@ -410,33 +414,6 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
           SizedBox(width: compact ? 4 : 6),
           RankRibbon(rankIndex: rankIndex, compact: compact),
         ],
-        if (isDealer)
-          Padding(
-            padding: EdgeInsets.only(left: compact ? 3 : 4),
-            child: Tooltip(
-              message: 'الموزع',
-              child: AppIcon(
-                AppIcons.style,
-                color: AppTheme.steelBlue,
-                size: iconSize,
-              ),
-            ),
-          ),
-        if (widget.isBidder) ...[
-          SizedBox(width: compact ? 3 : 4),
-          Tooltip(
-            message: 'الكار الكبير',
-            child: AppIcon(
-              AppIcons.emojiEvents,
-              color: AppTheme.playerGold,
-              size: iconSize,
-            ),
-          ),
-          if (_showTrumpOnBidder) ...[
-            SizedBox(width: compact ? 3 : 4),
-            _BidderTrumpChip(trump: widget.state.trump!, compact: compact),
-          ],
-        ],
       ],
     );
   }
@@ -454,69 +431,34 @@ class _BidderTrumpChip extends StatelessWidget {
     final isSans = trump == Trump.sans;
     final Color accent;
     final String symbol;
-    final String label;
 
     if (isSans) {
       accent = const Color(0xFFA78BFA);
       symbol = '🚫';
-      label = 'سانز';
     } else {
       final isRed = trump.color == SuitColor.red;
       accent = isRed ? AppTheme.suitRed : AppTheme.steelBlue;
       symbol = trump.label;
-      label = trump.arabicName;
-    }
-
-    if (compact) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: accent.withValues(alpha: 0.45)),
-        ),
-        child: Text(
-          symbol,
-          style: TextStyle(
-            fontSize: 11,
-            color: accent,
-            fontWeight: FontWeight.bold,
-            height: 1,
-          ),
-        ),
-      );
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 4 : 5,
+        vertical: compact ? 1.5 : 2,
+      ),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(compact ? 7 : 8),
         border: Border.all(color: accent.withValues(alpha: 0.45)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            symbol,
-            style: TextStyle(
-              fontSize: 12,
-              color: accent,
-              fontWeight: FontWeight.bold,
-              height: 1,
-            ),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: GoogleFonts.cairo(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.cream,
-              height: 1,
-            ),
-          ),
-        ],
+      child: Text(
+        symbol,
+        style: TextStyle(
+          fontSize: compact ? 11 : 12,
+          color: accent,
+          fontWeight: FontWeight.bold,
+          height: 1,
+        ),
       ),
     );
   }

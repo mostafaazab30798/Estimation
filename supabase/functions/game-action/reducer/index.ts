@@ -1,6 +1,8 @@
-// Reducer router — Estimation first; 99 / Basra stubbed for follow-up PRs.
+// Reducer router — Estimation, 99, and Basra.
 
+import { reduceBasra } from "./basra.ts";
 import { reduceEstimation } from "./estimation.ts";
+import { reduceNinetyNine } from "./ninety_nine.ts";
 import { ReduceInput, ReduceResult, errResult } from "./types.ts";
 
 const ESTIMATION_TYPES = new Set(["kotchina", "estimation"]);
@@ -13,11 +15,11 @@ export function reduceGameAction(input: ReduceInput): ReduceResult {
   }
 
   if (gameType === "ninety_nine" || gameType === "99") {
-    return errResult("MODE_NOT_IMPLEMENTED: ninety_nine");
+    return reduceNinetyNine(input);
   }
 
   if (gameType === "basra") {
-    return errResult("MODE_NOT_IMPLEMENTED: basra");
+    return reduceBasra(input);
   }
 
   return errResult(`UNKNOWN_GAME_TYPE: ${gameType}`);

@@ -61,6 +61,7 @@ flutter:
     - assets/p1.png
     - assets/google.png
     - assets/logo.png
+    - assets/login.png
 
 flutter_launcher_icons:
   android: "launcher_icon"

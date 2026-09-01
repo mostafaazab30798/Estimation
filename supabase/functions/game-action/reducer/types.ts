@@ -66,6 +66,7 @@ export interface GameState {
   turnDurationSeconds: number;
   turnDeadlineEpochMs?: number | null;
   cardTheme: string;
+  botPlayerIds?: string[];
 }
 
 export interface AuthorityContext {
@@ -73,6 +74,7 @@ export interface AuthorityContext {
   gameType: string;
   hostId: string;
   actionSeq: number;
+  maxPlayers: number;
   state: GameState;
 }
 

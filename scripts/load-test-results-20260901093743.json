@@ -1,0 +1,265 @@
+{
+  "runId": "20260901093743",
+  "supabaseUrl": "https://zbimzlyleruaqbdilrqb.supabase.co",
+  "usersRequested": 50,
+  "usersActive": 48,
+  "rooms": 12,
+  "durationSec": 90,
+  "setupMs": 122485,
+  "playMs": 91997,
+  "totalRequests": 4634,
+  "overallSuccessRate": 99.8489425981873,
+  "edgeFunction": {
+    "op": "edge:game-action:*",
+    "total": 30,
+    "success": 23,
+    "failed": 7,
+    "successRate": 76.66666666666667,
+    "latencyMs": {
+      "min": 1736.2755999999936,
+      "p50": 2780.005200000014,
+      "p95": 4696.949800000002,
+      "p99": 6358.524000000005,
+      "max": 6358.524000000005,
+      "avg": 3059.450486956522
+    }
+  },
+  "rpc": {
+    "op": "rpc:*",
+    "total": 4488,
+    "success": 4488,
+    "failed": 0,
+    "successRate": 100,
+    "latencyMs": {
+      "min": 325.87859999999637,
+      "p50": 376.2676999999967,
+      "p95": 512.5192999999854,
+      "p99": 942.8110000000015,
+      "max": 1256.696499999991,
+      "avg": 397.48459048573966
+    }
+  },
+  "byOperation": [
+    {
+      "op": "admin:create_private_room",
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 346.820000000007,
+        "p50": 364.14289999999164,
+        "p95": 1376.0589000000036,
+        "p99": 1376.0589000000036,
+        "max": 1376.0589000000036,
+        "avg": 487.9495874999975
+      }
+    },
+    {
+      "op": "admin:create_user",
+      "total": 50,
+      "success": 50,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 453.2728999999963,
+        "p50": 483.85310000000027,
+        "p95": 593.7321000000011,
+        "p99": 918.1739000000016,
+        "max": 918.1739000000016,
+        "avg": 505.5541619999997
+      }
+    },
+    {
+      "op": "admin:insert_room_players",
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 341.417300000001,
+        "p50": 360.19439999999304,
+        "p95": 429.5255000000034,
+        "p99": 429.5255000000034,
+        "max": 429.5255000000034,
+        "avg": 372.4404000000013
+      }
+    },
+    {
+      "op": "auth:sign_in",
+      "total": 50,
+      "success": 50,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 456.94979999999487,
+        "p50": 482.65209999999934,
+        "p95": 593.3184999999976,
+        "p99": 653.2903000000006,
+        "max": 653.2903000000006,
+        "avg": 498.6406400000001
+      }
+    },
+    {
+      "op": "edge:game-action:confirmNoVoid",
+      "total": 10,
+      "success": 5,
+      "failed": 5,
+      "successRate": 50,
+      "latencyMs": {
+        "min": 2530.751199999999,
+        "p50": 4138.9084,
+        "p95": 6358.524000000005,
+        "p99": 6358.524000000005,
+        "max": 6358.524000000005,
+        "avg": 4119.634820000001
+      }
+    },
+    {
+      "op": "edge:game-action:passBid",
+      "total": 4,
+      "success": 3,
+      "failed": 1,
+      "successRate": 75,
+      "latencyMs": {
+        "min": 2780.005200000014,
+        "p50": 3301.1622999999963,
+        "p95": 3859.669900000008,
+        "p99": 3859.669900000008,
+        "max": 3859.669900000008,
+        "avg": 3313.612466666673
+      }
+    },
+    {
+      "op": "edge:game-action:startGame",
+      "total": 12,
+      "success": 12,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 1736.2755999999936,
+        "p50": 2226.005999999994,
+        "p95": 4402.209200000005,
+        "p99": 4402.209200000005,
+        "max": 4402.209200000005,
+        "avg": 2456.042891666666
+      }
+    },
+    {
+      "op": "edge:game-action:submitDashCall",
+      "total": 4,
+      "success": 3,
+      "failed": 1,
+      "successRate": 75,
+      "latencyMs": {
+        "min": 2900.4447999999975,
+        "p50": 3536.9960999999894,
+        "p95": 3918.394100000005,
+        "p99": 3918.394100000005,
+        "max": 3918.394100000005,
+        "avg": 3451.9449999999974
+      }
+    },
+    {
+      "op": "rpc:enter_matchmaking",
+      "total": 16,
+      "success": 16,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 371.96040000001085,
+        "p50": 398.66799999999057,
+        "p95": 528.5794000000024,
+        "p99": 528.5794000000024,
+        "max": 528.5794000000024,
+        "avg": 417.71779999999944
+      }
+    },
+    {
+      "op": "rpc:get_room_public_state",
+      "total": 2206,
+      "success": 2206,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 325.87859999999637,
+        "p50": 375.91770000002,
+        "p95": 483.5264999999781,
+        "p99": 591.3530000000028,
+        "max": 768.5743000000075,
+        "avg": 388.83429728014465
+      }
+    },
+    {
+      "op": "rpc:player_heartbeat",
+      "total": 2254,
+      "success": 2254,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 329.4664000000048,
+        "p50": 376.40359999999055,
+        "p95": 540.5169999999925,
+        "p99": 1186.2505000000092,
+        "max": 1256.696499999991,
+        "avg": 405.96848158828806
+      }
+    },
+    {
+      "op": "rpc:start_game_room",
+      "total": 8,
+      "success": 8,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 336.4051000000036,
+        "p50": 348.44450000001234,
+        "p95": 413.8784000000014,
+        "p99": 413.8784000000014,
+        "max": 413.8784000000014,
+        "avg": 359.5092375000022
+      }
+    },
+    {
+      "op": "rpc:start_matchmaking_room",
+      "total": 4,
+      "success": 4,
+      "failed": 0,
+      "successRate": 100,
+      "latencyMs": {
+        "min": 360.77060000000347,
+        "p50": 376.63439999999537,
+        "p95": 402.0442000000039,
+        "p99": 402.0442000000039,
+        "max": 402.0442000000039,
+        "avg": 382.4665249999998
+      }
+    }
+  ],
+  "topErrors": [
+    {
+      "error": "edge:game-action:confirmNoVoid:confirmNoVoid 409 SEQ_MISMATCH body={\"error\":\"SEQ_MISMATCH\",\"detail\":\"SEQ_MISMAT",
+      "count": 4
+    },
+    {
+      "error": "player:confirmNoVoid 409 SEQ_MISMATCH body={\"error\":\"SEQ_MISMATCH\",\"detail\":\"SEQ_MISMAT",
+      "count": 4
+    },
+    {
+      "error": "edge:game-action:confirmNoVoid:confirmNoVoid 422 WRONG_PHASE body={\"error\":\"WRONG_PHASE\"}",
+      "count": 1
+    },
+    {
+      "error": "edge:game-action:submitDashCall:submitDashCall 422 WRONG_PHASE body={\"error\":\"WRONG_PHASE\"}",
+      "count": 1
+    },
+    {
+      "error": "edge:game-action:passBid:passBid 409 SEQ_MISMATCH body={\"error\":\"SEQ_MISMATCH\",\"detail\":\"SEQ_MISMATCH\"}",
+      "count": 1
+    },
+    {
+      "error": "player:passBid 409 SEQ_MISMATCH body={\"error\":\"SEQ_MISMATCH\",\"detail\":\"SEQ_MISMATCH\"}",
+      "count": 1
+    }
+  ]
+}

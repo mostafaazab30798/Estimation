@@ -3,9 +3,11 @@
 // Arabic bidding dialog shown during the auction phase.
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/models/bid.dart';
 import '../theme/app_theme.dart';
+import 'hud/gameplay_dialog_shell.dart';
 import 'hud/turn_timer_badge.dart';
 
 class BidDialog extends StatefulWidget {
@@ -99,7 +101,6 @@ class _BidDialogState extends State<BidDialog> {
   @override
   Widget build(BuildContext context) {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final dialogWidth = MediaQuery.of(context).size.width * (isPortrait ? 0.92 : 0.68);
 
     return ValueListenableBuilder<int>(
       valueListenable: _trickCount,
@@ -109,67 +110,59 @@ class _BidDialogState extends State<BidDialog> {
           builder: (context, trump, _) {
             final isValid = _isValidFor(count, trump);
 
-            return Dialog(
-              alignment: isPortrait ? const Alignment(0, -0.42) : const Alignment(0, -0.25),
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              child: Container(
-                width: dialogWidth,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppTheme.navyDark,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4), width: 1.5),
-                  boxShadow: AppTheme.neumorphicTurnGlow(AppTheme.navyDeep),
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+            return GameplayDialogShell(
+              maxWidth: GameplayDialogShell.widthFor(context),
+              scrollable: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Header Row
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'المزاد',
-                                style: Theme.of(context).textTheme.headlineMedium,
-                              ),
-                              const SizedBox(width: 10),
-                              TurnTimerBadge(
-                                customPhaseLabel: 'AUCTION',
-                                explicitDurationSeconds: widget.durationSeconds ?? 15,
-                                explicitDeadlineEpochMs: widget.deadlineEpochMs,
-                                isMyTurn: true,
-                                compact: true,
-                              ),
-                            ],
-                          ),
-                          if (widget.currentHighBid != null)
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.gold.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
-                                ),
-                                child: Text(
-                                  'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                          Text(
+                            'المزاد',
+                            style: GoogleFonts.cairo(
+                              color: AppTheme.cream,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                             ),
+                          ),
+                          const SizedBox(width: 10),
+                          TurnTimerBadge(
+                            customPhaseLabel: 'AUCTION',
+                            explicitDurationSeconds: widget.durationSeconds ?? 15,
+                            explicitDeadlineEpochMs: widget.deadlineEpochMs,
+                            isMyTurn: true,
+                            compact: true,
+                          ),
                         ],
                       ),
+                      if (widget.currentHighBid != null)
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppTheme.gold.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.38)),
+                            ),
+                            child: Text(
+                              'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
+                              style: GoogleFonts.cairo(
+                                color: AppTheme.gold,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                       if (widget.isDoubleRound) ...[
                         const SizedBox(height: 8),
                         Container(
@@ -276,16 +269,28 @@ class _BidDialogState extends State<BidDialog> {
 
                       // Content Layout
                       if (isPortrait) ...[
-                        Text('عدد اللمات',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                        Text(
+                          'عدد اللمات',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.steelBlue,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         _TrickCountSelector(
                           value: count,
                           onChanged: (v) => _trickCount.value = v,
                         ),
                         const SizedBox(height: 14),
-                        Text('نوع الحكم / القطوع',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                        Text(
+                          'نوع الحكم / القطوع',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.steelBlue,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         _TrumpSelector(
                           selected: trump,
@@ -302,8 +307,14 @@ class _BidDialogState extends State<BidDialog> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('عدد اللمات',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                                  Text(
+                                    'عدد اللمات',
+                                    style: GoogleFonts.cairo(
+                                      color: AppTheme.steelBlue,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                   const SizedBox(height: 8),
                                   _TrickCountSelector(
                                     value: count,
@@ -323,8 +334,14 @@ class _BidDialogState extends State<BidDialog> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('نوع الحكم / القطوع',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary)),
+                                  Text(
+                                    'نوع الحكم / القطوع',
+                                    style: GoogleFonts.cairo(
+                                      color: AppTheme.steelBlue,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                   const SizedBox(height: 8),
                                   _TrumpSelector(
                                     selected: trump,
@@ -346,10 +363,10 @@ class _BidDialogState extends State<BidDialog> {
                           Expanded(
                             child: OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.5), width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 13),
+                                side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.45), width: 1.5),
                                 foregroundColor: AppTheme.errorRed,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                               onPressed: () {
                                 Navigator.of(context).pop();
@@ -360,13 +377,14 @@ class _BidDialogState extends State<BidDialog> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 13),
                                 backgroundColor: AppTheme.gold,
                                 foregroundColor: AppTheme.navyDark,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                elevation: isValid ? 4 : 0,
+                                disabledBackgroundColor: AppTheme.gold.withValues(alpha: 0.35),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 0,
                               ),
                               onPressed: isValid
                                   ? () {
@@ -381,8 +399,6 @@ class _BidDialogState extends State<BidDialog> {
                       ),
                     ],
                   ),
-                ),
-              ),
             );
           },
         );

@@ -8,6 +8,7 @@ import '../models/rank_tier.dart';
 import '../models/match_rank.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
+import 'game_action_service.dart';
 import 'ugc_service.dart';
 
 enum LeaderboardSort {
@@ -257,6 +258,104 @@ class RankingService {
       rankIndex: won ? 0 : 2,
       won: won,
     );
+  }
+
+  /// Awards XP for a completed match. Uses server awards when authority mode is on.
+  Future<MatchXpResult?> awardOnlineMatchXp({
+    required XpRewardBreakdown breakdown,
+    String? roomId,
+  }) async {
+    if (GameActionService.useServerAuthority &&
+        roomId != null &&
+        !roomId.startsWith('test_') &&
+        !roomId.startsWith('local_')) {
+      return processAuthorityMatchReward(
+        roomId: roomId,
+        fallbackBreakdown: breakdown,
+      );
+    }
+    return processMatchReward(breakdown);
+  }
+
+  /// Reads server-recorded XP for an authority match and refreshes the profile.
+  Future<MatchXpResult?> processAuthorityMatchReward({
+    required String roomId,
+    XpRewardBreakdown? fallbackBreakdown,
+  }) async {
+    final auth = AuthService.instance;
+    final profile = auth.currentProfile;
+    if (profile == null || !auth.isAuthenticated) return null;
+
+    final oldXp = profile.xp;
+    final oldLevel = profile.level;
+    final oldTier = profile.rankTier;
+
+    Map<String, dynamic>? award;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      award = await _fetchServerMatchXpAward(roomId);
+      if (award != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+
+    if (award == null) {
+      debugPrint('[RankingService] No server match XP award for room $roomId');
+      return null;
+    }
+
+    await auth.refreshProfile();
+    final updatedProfile = auth.currentProfile;
+    final newXp = updatedProfile?.xp ?? oldXp;
+    final newLevel =
+        updatedProfile?.level ?? UserProfile.calculateLevel(newXp);
+    final newTier = RankTier.fromLevel(newLevel);
+
+    final rankIndex = (award['rank_index'] as num?)?.toInt() ?? 0;
+    final rankTitles = MatchRank.all.map((r) => r.titleAr).toList();
+    final breakdown = XpRewardBreakdown(
+      placementXp: (award['placement_xp'] as num?)?.toInt() ??
+          fallbackBreakdown?.placementXp ??
+          0,
+      winBonus: (award['win_bonus'] as num?)?.toInt() ??
+          fallbackBreakdown?.winBonus ??
+          0,
+      accuracyBonus: (award['accuracy_bonus'] as num?)?.toInt() ??
+          fallbackBreakdown?.accuracyBonus ??
+          0,
+      dashBonus: fallbackBreakdown?.dashBonus ?? 0,
+      highScorerBonus: fallbackBreakdown?.highScorerBonus ?? 0,
+      comebackBonus: fallbackBreakdown?.comebackBonus ?? 0,
+      rankTitle: rankIndex < rankTitles.length
+          ? rankTitles[rankIndex]
+          : (fallbackBreakdown?.rankTitle ?? 'لاعب'),
+      rankIndex: rankIndex,
+      won: award['won'] as bool? ?? fallbackBreakdown?.won ?? false,
+    );
+
+    return MatchXpResult(
+      breakdown: breakdown,
+      oldXp: oldXp,
+      newXp: newXp,
+      oldLevel: oldLevel,
+      newLevel: newLevel,
+      didLevelUp: newLevel > oldLevel,
+      oldTier: oldTier,
+      newTier: newTier,
+      didTierUp: newTier.type != oldTier.type,
+    );
+  }
+
+  Future<Map<String, dynamic>?> _fetchServerMatchXpAward(String roomId) async {
+    try {
+      final raw = await Supabase.instance.client.rpc(
+        'get_my_match_xp_award',
+        params: {'p_room_id': roomId},
+      );
+      if (raw is Map<String, dynamic>) return raw;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+    } catch (e) {
+      debugPrint('[RankingService] get_my_match_xp_award failed: $e');
+    }
+    return null;
   }
 
   /// Awards the XP and updates Supabase, returning Level-Up / Tier-Up details

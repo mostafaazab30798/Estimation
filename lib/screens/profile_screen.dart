@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,6 +24,7 @@ import '../widgets/player_identity_card.dart';
 import '../widgets/playstyle_radar_view.dart';
 import 'leaderboard_screen.dart';
 import '../theme/app_theme.dart';
+import '../core/constants.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/utils/string_utils.dart';
 import '../core/widgets/player_avatar.dart';
@@ -405,8 +407,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<bool> _ensureTermsAccepted({bool forGalleryUpload = false}) async {
+    if (await UgcService.instance.hasAcceptedCurrentTerms()) {
+      return true;
+    }
     final profile = AuthService.instance.currentProfile;
     if (profile != null && profile.hasAcceptedCurrentTerms) {
+      await UgcService.instance.rememberAcceptedTerms(
+        version: profile.termsVersion ?? kCurrentTermsVersion,
+      );
       return true;
     }
 
@@ -414,12 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: AppTheme.navyDark,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.white12),
-          ),
+        return AppAlertDialog(
           title: Text(
             'إرشادات المجتمع',
             style: GoogleFonts.cairo(
@@ -460,6 +463,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (accepted != true || !mounted) return false;
     final ok = await UgcService.instance.acceptTerms();
+    if (!ok && mounted) {
+      SnackbarHelper.showError(
+        context,
+        'تعذر حفظ الموافقة. حاول مرة أخرى.',
+        title: 'خطأ',
+      );
+      return false;
+    }
     if (ok) {
       await AuthService.instance.refreshProfile();
     }
@@ -573,12 +584,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final step1 = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.navyDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Colors.white12),
-        ),
+      builder: (ctx) => AppAlertDialog(
         title: Text('حذف الحساب نهائياً',
             style: GoogleFonts.cairo(
                 fontWeight: FontWeight.bold, color: AppTheme.errorRed)),
@@ -589,8 +595,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('إلغاء',
-                style: GoogleFonts.cairo(color: Colors.white60)),
+            child:
+                Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white60)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -610,12 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) {
         final controller = TextEditingController();
-        return AlertDialog(
-          backgroundColor: AppTheme.navyDark,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.white12),
-          ),
+        return AppAlertDialog(
           title: Text('تأكيد الحذف',
               style: GoogleFonts.cairo(
                   fontWeight: FontWeight.bold, color: AppTheme.cream)),
@@ -661,7 +662,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (confirmText != 'DELETE' || !mounted) return;
 
     try {
-      await AuthService.instance.signInWithGoogle();
+      final reauth = await AuthService.instance.signInWithGoogle();
+      if (reauth == null) {
+        if (mounted) {
+          SnackbarHelper.showError(
+            context,
+            'يجب تأكيد حساب Google لحذف الحساب.',
+            title: 'تم الإلغاء',
+          );
+        }
+        return;
+      }
       await AuthService.instance.deleteAccount();
       await ProfileService.saveProfileName('');
       if (!mounted) return;
@@ -686,12 +697,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleGoogleSignOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.navyDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Colors.white12),
-        ),
+      builder: (ctx) => AppAlertDialog(
         title: Text(
           'تسجيل الخروج',
           style: GoogleFonts.cairo(
@@ -833,7 +839,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         Navigator.pop(ctx);
-                        if (!await _ensureTermsAccepted(forGalleryUpload: true)) {
+                        if (!await _ensureTermsAccepted(
+                            forGalleryUpload: true)) {
                           return;
                         }
                         final picker = ImagePicker();
@@ -1413,8 +1420,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Sub-Tab 0: Identity Card ───────────────────────────────────────────────
 
   Widget _buildIdentityCardSubTab(_ProfileViewModel vm) {
-    final playerName =
-        _nameController.text.isNotEmpty ? _nameController.text : 'لاعب كوتشينة';
+    final playerName = _nameController.text.isNotEmpty
+        ? _nameController.text
+        : kDefaultPlayerName;
     final estStats = vm.stats.estimationStats;
 
     return SingleChildScrollView(
@@ -1924,7 +1932,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text(
                         _nameController.text.isNotEmpty
                             ? _nameController.text
-                            : 'لاعب كوتشينة',
+                            : kDefaultPlayerName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.cairo(
@@ -3354,6 +3362,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isDestructive: true,
                     onTap: _handleDeleteAccount,
                   ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Divider(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      height: 1,
+                    ),
+                  ),
+                  _buildSettingsLink(
+                    title: 'التراخيص المفتوحة',
+                    subtitle: 'مكتبات مفتوحة المصدر المستخدمة في التطبيق',
+                    icon: AppIcons.infoOutline,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => Theme(
+                            data: ThemeData.dark().copyWith(
+                              scaffoldBackgroundColor: AppTheme.navyDark,
+                            ),
+                            child: LicensePage(
+                              applicationName: kAppName,
+                              applicationVersion: '1.11.0',
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -3388,7 +3423,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'كوتشينة مالتيبلاير',
+                            kAppName,
                             style: GoogleFonts.cairo(
                               color: AppTheme.cream,
                               fontWeight: FontWeight.w800,

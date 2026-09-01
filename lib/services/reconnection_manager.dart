@@ -126,10 +126,9 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _onAppPaused() async {
     _stopHeartbeat();
-    if (_gameProvider.isTestMode) {
-      debugPrint(
-          '[Reconnection] Test mode game detected on pause — stopping game server & resetting');
-      await _gameProvider.reset();
+    // Bot/local games are in-memory only — keep them alive when the app is
+    // briefly backgrounded. Explicit leave + process detach still call reset().
+    if (_gameProvider.isTestMode || _gameProvider.isLocal) {
       return;
     }
     final roomId = _gameProvider.currentRoom?.id;
@@ -188,10 +187,17 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
         await _sessionService.clearSession();
         return null;
       }
+      final stillMember =
+          await _lobbyRepo.isPlayerInRoom(session.roomId, session.playerId);
+      if (!stillMember) {
+        await _sessionService.clearSession();
+        return null;
+      }
       return session;
     } catch (error) {
       debugPrint('[Reconnection] Pending-session check failed: $error');
-      return session;
+      await _sessionService.clearSession();
+      return null;
     }
   }
 

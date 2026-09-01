@@ -7,12 +7,14 @@ import 'package:provider/provider.dart';
 
 // Removed unused import
 import 'package:estimation/core/models/game_state.dart';
+import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/theme/app_theme.dart';
 import 'package:estimation/widgets/playing_card_widget.dart';
 import 'package:estimation/widgets/hud/game_background.dart';
 import 'package:estimation/widgets/hud/casino_table.dart';
 import 'package:estimation/screens/game_screen.dart' show HiddenCardFan;
 
+import 'package:estimation/core/widgets/leave_game_dialog.dart';
 import 'package:estimation/providers/game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_top_hud.dart';
@@ -26,6 +28,7 @@ import 'package:estimation/widgets/rank_tier_badge.dart';
 import 'package:estimation/widgets/hud/reaction_bubble_widget.dart';
 import 'package:estimation/widgets/hud/reaction_picker_sheet.dart';
 import 'package:estimation/core/icons/app_icons.dart';
+import 'package:estimation/core/widgets/app_buttons.dart';
 
 class NinetyNineGameScreen extends StatefulWidget {
   const NinetyNineGameScreen({super.key});
@@ -77,9 +80,10 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     final isMatchFinished = game.phase == NinetyNinePhase.finished;
 
     final gamePhase = _mapNinetyNinePhaseToGamePhase(game.phase);
-    final tableGlowColor = gamePhase == GamePhase.trickTaking 
-      ? AppTheme.phasePlay 
-      : AppTheme.deepNavy;
+    final tableGlowColor = gamePhase == GamePhase.trickTaking
+        ? AppTheme.phasePlay
+        : AppTheme.deepNavy;
+    final layout = GameLayoutMetrics.of(context);
 
     return PopScope(
       canPop: false,
@@ -113,9 +117,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                 children: [
                   // ── Top HUD ──────────────────────────────────────
                   Positioned(
-                    top: 10,
-                    left: 10,
-                    right: 10,
+                    top: layout.topHudInset,
+                    left: layout.topHudHorizontalInset,
+                    right: layout.topHudHorizontalInset,
                     child: NinetyNineTopHud(
                       game: game,
                       onExitTap: () => _confirmExit(context),
@@ -136,9 +140,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
 
                   // ── Local Player ─────────────────────────────────
                   Positioned(
-                    bottom: 4,
-                    left: 0,
-                    right: 0,
+                    bottom: layout.isPortrait ? 10 : 8,
+                    left: 10,
+                    right: 10,
                     child: _buildLocalPlayerHand(context, game),
                   ),
                 ],
@@ -159,16 +163,16 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
   }
 
   // ── Dynamic Opponents Positioning ───────────────────────────────────────
-  List<Widget> _buildOpponents(BuildContext context, NinetyNineGameProvider game) {
+  List<Widget> _buildOpponents(
+      BuildContext context, NinetyNineGameProvider game) {
     final players = game.players;
     if (players.length < 2) return [];
 
     final total = players.length;
     final List<Widget> widgets = [];
 
-    final media = MediaQuery.of(context);
-    final isPortrait = media.orientation == Orientation.portrait;
-    final edgePadding = isPortrait ? 4.0 : 14.0;
+    final layout = GameLayoutMetrics.of(context);
+    final edgePadding = layout.sideInset;
 
     // Map relative indices (1 to total - 1) to table anchor positions
     for (int i = 1; i < total; i++) {
@@ -180,12 +184,19 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
 
       if (total == 2) {
         positionedWidget = Positioned(
-          top: 140,
+          top: layout.topOpponentTop,
           left: 0,
           right: 0,
           child: Align(
             alignment: Alignment.topCenter,
-            child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true),
+            child: _buildOpponentWidget(
+              context,
+              game,
+              player,
+              isTurn,
+              losses,
+              compact: layout.topOpponentCompact,
+            ),
           ),
         );
       } else if (total == 3) {
@@ -196,7 +207,15 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             bottom: 0,
             child: Align(
               alignment: const Alignment(-1.0, 0.0),
-              child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true, isLeft: true),
+              child: _buildOpponentWidget(
+                context,
+                game,
+                player,
+                isTurn,
+                losses,
+                compact: layout.sideOpponentCompact,
+                isLeft: true,
+              ),
             ),
           );
         } else {
@@ -206,7 +225,15 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             bottom: 0,
             child: Align(
               alignment: const Alignment(1.0, 0.0),
-              child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true, isRight: true),
+              child: _buildOpponentWidget(
+                context,
+                game,
+                player,
+                isTurn,
+                losses,
+                compact: layout.sideOpponentCompact,
+                isRight: true,
+              ),
             ),
           );
         }
@@ -218,17 +245,32 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             bottom: 0,
             child: Align(
               alignment: const Alignment(-1.0, 0.15),
-              child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true, isLeft: true),
+              child: _buildOpponentWidget(
+                context,
+                game,
+                player,
+                isTurn,
+                losses,
+                compact: layout.sideOpponentCompact,
+                isLeft: true,
+              ),
             ),
           );
         } else if (i == 2) {
           positionedWidget = Positioned(
-            top: 100,
+            top: layout.topOpponentTop,
             left: 0,
             right: 0,
             child: Align(
               alignment: Alignment.topCenter,
-              child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true),
+              child: _buildOpponentWidget(
+                context,
+                game,
+                player,
+                isTurn,
+                losses,
+                compact: layout.topOpponentCompact,
+              ),
             ),
           );
         } else {
@@ -238,7 +280,15 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             bottom: 0,
             child: Align(
               alignment: const Alignment(1.0, 0.15),
-              child: _buildOpponentWidget(context, game, player, isTurn, losses, compact: true, isRight: true),
+              child: _buildOpponentWidget(
+                context,
+                game,
+                player,
+                isTurn,
+                losses,
+                compact: layout.sideOpponentCompact,
+                isRight: true,
+              ),
             ),
           );
         }
@@ -248,12 +298,11 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
         final double angleStep = pi / (opponentCount + 1);
         final double angle = pi + (i * angleStep);
 
-        final radiusX = isPortrait ? media.size.width * 0.44 : media.size.width * 0.42;
-        final radiusY = isPortrait ? media.size.height * 0.35 : media.size.height * 0.40;
+        final ellipse = layout.ellipseLayout();
 
         // Offset center up a bit
-        final centerY = isPortrait ? media.size.height * 0.48 : media.size.height * 0.54;
-        final centerX = media.size.width / 2;
+        final centerY = ellipse.centerY;
+        final centerX = layout.width / 2;
 
         // Use a custom cubic polynomial to push the middle players outwards (near x=0.5)
         // without pushing the bottom players outwards (near x=0.866).
@@ -266,20 +315,28 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
         double origY = sin(angle);
         double normalizedY = origY.sign * pow(origY.abs(), 2.5);
 
-        final double dx = centerX + radiusX * normalizedX;
-        final double dy = centerY + radiusY * normalizedY;
+        final double dx = centerX + ellipse.radiusX * normalizedX;
+        final double dy = centerY + ellipse.radiusY * normalizedY;
+        final isLeftSide = cos(angle) < -0.3;
+        final isRightSide = cos(angle) > 0.3;
 
         positionedWidget = Positioned(
-          left: dx - 100,
-          width: 200,
+          left: dx - ellipse.widgetWidth / 2,
+          width: ellipse.widgetWidth,
           top: dy,
           child: Align(
             alignment: Alignment.topCenter,
             child: _buildOpponentWidget(
-              context, game, player, isTurn, losses,
-              compact: true,
-              isLeft: cos(angle) < -0.3,
-              isRight: cos(angle) > 0.3,
+              context,
+              game,
+              player,
+              isTurn,
+              losses,
+              compact: isLeftSide || isRightSide
+                  ? layout.sideOpponentCompact
+                  : layout.topOpponentCompact,
+              isLeft: isLeftSide,
+              isRight: isRightSide,
             ),
           ),
         );
@@ -291,7 +348,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     return widgets;
   }
 
-  Widget _buildOpponentWidget(BuildContext context, NinetyNineGameProvider game, NinetyNinePlayer player, bool isTurn, int losses, {bool compact = true, bool isLeft = false, bool isRight = false}) {
+  Widget _buildOpponentWidget(BuildContext context, NinetyNineGameProvider game,
+      NinetyNinePlayer player, bool isTurn, int losses,
+      {bool compact = true, bool isLeft = false, bool isRight = false}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -310,7 +369,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
           isRight: isRight,
         ),
         const SizedBox(height: 10),
-        if (isRight || (game.players.length == 2 && player == game.players.last))
+        if (isRight ||
+            (game.players.length == 2 && player == game.players.last))
           _buildReactionTriggerButton(context, game)
         else if (isLeft)
           Visibility(
@@ -327,9 +387,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
   // ── Central Play Area & Messy Card Stack ────────────────────────────────
   Widget _buildCenterHud(NinetyNineGameProvider game) {
     final moves = game.moveHistory;
-    final visibleMoves = moves.length > 10
-        ? moves.sublist(moves.length - 10)
-        : moves;
+    final visibleMoves =
+        moves.length > 10 ? moves.sublist(moves.length - 10) : moves;
 
     final total = game.groundTotal;
     Color totalColor;
@@ -341,6 +400,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
       totalColor = const Color(0xFF10B981);
     }
 
+    final layout = GameLayoutMetrics.of(context);
+    final pile = layout.centerPileSize;
+
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Column(
@@ -348,16 +410,16 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
         children: [
           // 1. Messy Card Pile Container
           SizedBox(
-            width: 170,
-            height: 120,
+            width: pile.width,
+            height: pile.height,
             child: Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
                 if (visibleMoves.isEmpty)
                   Container(
-                    width: 58,
-                    height: 82,
+                    width: pile.cardWidth,
+                    height: pile.cardWidth / playingCardAspectRatio,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(9),
                       border: Border.all(
@@ -377,7 +439,6 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                       ),
                     ),
                   ),
-
                 for (int i = 0; i < visibleMoves.length; i++) ...[
                   Builder(
                     builder: (context) {
@@ -399,7 +460,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.5),
                                   blurRadius: isTopCard ? 12 : 6,
-                                  offset: Offset(isTopCard ? 2 : 1, isTopCard ? 4 : 2),
+                                  offset: Offset(
+                                      isTopCard ? 2 : 1, isTopCard ? 4 : 2),
                                 ),
                                 if (isTopCard)
                                   BoxShadow(
@@ -411,7 +473,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                             ),
                             child: PlayingCardWidget(
                               card: move.card,
-                              width: 56,
+                              width: pile.cardWidth - 2,
                               playable: false,
                             ),
                           ),
@@ -434,7 +496,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
               return Transform.scale(
                 scale: scale,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(18),
@@ -444,54 +507,55 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: totalColor.withValues(alpha: total >= 90 ? 0.4 : 0.15),
+                        color: totalColor.withValues(
+                            alpha: total >= 90 ? 0.4 : 0.15),
                         blurRadius: total >= 90 ? 20 : 10,
                         spreadRadius: total >= 90 ? 2 : 1,
                       ),
                     ],
                   ),
                   child: Column(
-                     mainAxisSize: MainAxisSize.min,
-                     children: [
-                       Row(
-                         mainAxisSize: MainAxisSize.min,
-                         children: [
-                           Text(
-                             'مجموع الأرض: ',
-                             style: GoogleFonts.cairo(
-                               color: Colors.white70,
-                               fontSize: 11,
-                               fontWeight: FontWeight.bold,
-                             ),
-                           ),
-                           Text(
-                             '$total',
-                             style: GoogleFonts.cairo(
-                               color: totalColor,
-                               fontSize: 22,
-                               fontWeight: FontWeight.w900,
-                             ),
-                           ),
-                           Text(
-                             ' / 99',
-                             style: GoogleFonts.cairo(
-                               color: Colors.white54,
-                               fontSize: 13,
-                               fontWeight: FontWeight.bold,
-                             ),
-                           ),
-                         ],
-                       ),
-                       if (game.lastPlayedCard != null)
-                         Text(
-                           '${game.lastPlayedPlayerName ?? ''}: ${game.lastPlayedCard!.rank.label}',
-                           style: GoogleFonts.cairo(
-                             color: AppTheme.goldLight,
-                             fontSize: 10,
-                             fontWeight: FontWeight.bold,
-                           ),
-                         ),
-                     ],
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'مجموع الأرض: ',
+                            style: GoogleFonts.cairo(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '$total',
+                            style: GoogleFonts.cairo(
+                              color: totalColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            ' / 99',
+                            style: GoogleFonts.cairo(
+                              color: Colors.white54,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (game.lastPlayedCard != null)
+                        Text(
+                          '${game.lastPlayedPlayerName ?? ''}: ${game.lastPlayedCard!.rank.label}',
+                          style: GoogleFonts.cairo(
+                            color: AppTheme.goldLight,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               );
@@ -513,8 +577,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     final isMyTurn = game.isLocalPlayerTurn;
     final hand = localP.hand;
     final losses = game.getPlayerLosses(localP.id);
-    final media = MediaQuery.of(context);
-    final isPortrait = media.orientation == Orientation.portrait;
+    final layout = GameLayoutMetrics.of(context);
+    final isPortrait = layout.isPortrait;
 
     final playerInfoCard = NinetyNinePlayerInfoWidget(
       player: localP,
@@ -522,7 +586,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
       phase: game.phase,
       isCurrentTurn: isMyTurn,
       isMe: true,
-      compact: !isPortrait,
+      compact: layout.localPlayerCompact,
     );
 
     final handWidget = NinetyNinePlayerHand(
@@ -541,22 +605,23 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           handWidget,
-          const SizedBox(height: 4),
-          playerInfoCard,
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: playerInfoCard,
+          ),
         ],
       );
     }
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 6.0),
+          padding: const EdgeInsets.fromLTRB(4, 0, 12, 8),
           child: playerInfoCard,
         ),
-        const SizedBox(width: 14),
-        handWidget,
+        Expanded(child: handWidget),
       ],
     );
   }
@@ -580,7 +645,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6), width: 1.5),
+          border: Border.all(
+              color: const Color(0xFFEF4444).withValues(alpha: 0.6),
+              width: 1.5),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFFEF4444).withValues(alpha: 0.2),
@@ -638,7 +705,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                       Text(
                         '💔 $losses / 5 جولات خسرها',
                         style: GoogleFonts.cairo(
-                          color: losses >= 4 ? const Color(0xFFEF4444) : AppTheme.gold,
+                          color: losses >= 4
+                              ? const Color(0xFFEF4444)
+                              : AppTheme.gold,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -663,10 +732,12 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.steelBlue.withValues(alpha: 0.4),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: AppTheme.steelBlue.withValues(alpha: 0.6)),
+                  side: BorderSide(
+                      color: AppTheme.steelBlue.withValues(alpha: 0.6)),
                 ),
               ),
             ),
@@ -714,7 +785,10 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     HistoryService.saveMatchRecordDirect(record);
 
     // Process XP & Level Up
-    RankingService.instance.processMatchReward(breakdown).then((result) {
+    final roomId = context.read<GameProvider>().currentRoom?.id;
+    RankingService.instance
+        .awardOnlineMatchXp(breakdown: breakdown, roomId: roomId)
+        .then((result) {
       if (mounted && result != null && result.didLevelUp) {
         Future.delayed(const Duration(milliseconds: 800), () {
           if (mounted) {
@@ -743,108 +817,129 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     final auth = AuthService.instance;
     final profile = auth.currentProfile;
 
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 460.0 : 390.0);
+
     return Container(
-      color: Colors.black.withValues(alpha: 0.92),
+      color: AppTheme.deepNavy.withValues(alpha: 0.88),
       alignment: Alignment.center,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(layout.isTablet ? 32 : 24),
       child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xCC2A4560), Color(0xCC1D3348)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.6), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.gold.withValues(alpha: 0.3),
-              blurRadius: 35,
-            ),
-          ],
-        ),
+        width: double.infinity,
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        padding: EdgeInsets.all(layout.isTablet ? 28 : 24),
+        decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🏆', style: TextStyle(fontSize: 54)),
-            const SizedBox(height: 12),
+            AppIconWell(
+              icon: AppIcons.emojiEvents,
+              size: layout.isTablet ? 64 : 56,
+              iconSize: layout.isTablet ? 30 : 26,
+              color: AppTheme.gold,
+              fill: AppTheme.gold.withValues(alpha: 0.14),
+              borderColor: AppTheme.gold.withValues(alpha: 0.34),
+            ),
+            SizedBox(height: layout.isTablet ? 18 : 14),
             Text(
               'نهاية المباراة!',
               style: GoogleFonts.cairo(
                 color: AppTheme.gold,
-                fontSize: 24,
+                fontSize: layout.isTablet ? 26 : 24,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: layout.isTablet ? 12 : 8),
             Text(
-              'الفائز البطل: ${winner.name} 🎉',
+              'الفائز البطل: ${winner.name}',
               style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 18,
+                color: AppTheme.cream,
+                fontSize: layout.isTablet ? 19 : 18,
                 fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
             ),
             Text(
-              'استبعد بخسارة 5 جولات: ${loser.name} 💔',
+              'استبعد بخسارة 5 جولات: ${loser.name}',
               style: GoogleFonts.cairo(
-                color: const Color(0xFFEF4444),
-                fontSize: 14,
+                color: AppTheme.playerRed,
+                fontSize: layout.isTablet ? 15 : 14,
               ),
+              textAlign: TextAlign.center,
             ),
             if (_ninetyNineXp != null) ...[
-              const SizedBox(height: 14),
+              SizedBox(height: layout.isTablet ? 16 : 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                  horizontal: layout.isTablet ? 18 : 16,
+                  vertical: layout.isTablet ? 10 : 8,
+                ),
                 decoration: BoxDecoration(
-                  color: AppTheme.gold.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
+                  color: AppTheme.deepNavy.withValues(alpha: 0.46),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.gold.withValues(alpha: 0.32),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const AppIcon(AppIcons.autoAwesome, color: AppTheme.gold, size: 18),
-                    const SizedBox(width: 6),
+                    const AppIcon(
+                      AppIcons.autoAwesome,
+                      color: AppTheme.gold,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       '+${_ninetyNineXp!.totalXp} XP مكافأة 99',
                       style: GoogleFonts.cairo(
                         color: AppTheme.gold,
-                        fontSize: 14,
+                        fontSize: layout.isTablet ? 15 : 14,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     if (profile != null) ...[
                       const SizedBox(width: 10),
-                      RankTierBadge(tier: profile.rankTier, level: profile.level, compact: true),
+                      RankTierBadge(
+                        tier: profile.rankTier,
+                        level: profile.level,
+                        compact: true,
+                      ),
                     ],
                   ],
                 ),
               ),
             ],
-            const SizedBox(height: 18),
-            ElevatedButton(
-              onPressed: () {
-                context.read<NinetyNineGameProvider>().reset();
-                context.read<GameProvider>().reset();
-                Navigator.of(context, rootNavigator: true)
-                    .pushNamedAndRemoveUntil('/', (route) => false);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.gold.withValues(alpha: 0.2),
-                foregroundColor: AppTheme.gold,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: AppTheme.gold.withValues(alpha: 0.5)),
+            SizedBox(height: layout.isTablet ? 22 : 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  context.read<NinetyNineGameProvider>().reset();
+                  context.read<GameProvider>().reset();
+                  Navigator.of(context, rootNavigator: true)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.navyDark,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.isTablet ? 28 : 24,
+                    vertical: layout.isTablet ? 14 : 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
                 ),
-              ),
-              child: Text(
-                'العودة للرئيسية 🏠',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                child: Text(
+                  'العودة للرئيسية',
+                  style: GoogleFonts.cairo(
+                    fontSize: layout.isTablet ? 17 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -855,144 +950,25 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
   }
 
   void _confirmExit(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xF02A4560), Color(0xF01D3348)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.steelBlue.withValues(alpha: 0.2),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 32,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.playerRed.withValues(alpha: 0.15),
-                  border: Border.all(
-                      color: AppTheme.playerRed.withValues(alpha: 0.3)),
-                ),
-                child: const AppIcon(AppIcons.exitToApp,
-                    color: AppTheme.playerRed, size: 28),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'مغادرة اللعبة',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.cream,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.steelBlue,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.steelBlue.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppTheme.steelBlue.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          'إلغاء',
-                          style: GoogleFonts.cairo(
-                            color: AppTheme.cream,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        context.read<NinetyNineGameProvider>().reset();
-                        context.read<GameProvider>().reset();
-                        Navigator.of(context, rootNavigator: true)
-                            .pushNamedAndRemoveUntil('/', (route) => false);
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.playerRed, Color(0xFFB03050)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.playerRed.withValues(alpha: 0.35),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'مغادرة',
-                          style: GoogleFonts.cairo(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    LeaveGameDialog.show(
+      context,
+      onLeave: () async {
+        final gameProvider = context.read<GameProvider>();
+        await gameProvider.temporarilyLeaveOngoingGame();
+        if (!context.mounted) return;
+        context.read<NinetyNineGameProvider>().reset();
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (route) => false);
+      },
     );
   }
 
-  Widget _buildReactionsOverlay(BuildContext context, NinetyNineGameProvider game) {
+  Widget _buildReactionsOverlay(
+      BuildContext context, NinetyNineGameProvider game) {
     if (game.activeReactions.isEmpty) return const SizedBox.shrink();
 
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
     final players = game.players;
     final localP = game.localPlayer;
 
@@ -1097,7 +1073,8 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     return Stack(children: bubbles);
   }
 
-  Widget _buildReactionTriggerButton(BuildContext context, NinetyNineGameProvider game) {
+  Widget _buildReactionTriggerButton(
+      BuildContext context, NinetyNineGameProvider game) {
     return GestureDetector(
       onTap: () {
         ReactionPickerSheet.show(

@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../core/models/card.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
@@ -65,8 +66,7 @@ class _PlayerHandState extends State<PlayerHand>
   Timer? _hapticTimer;
 
   bool get canUseEarthquake =>
-      widget.state != null &&
-      _lastEarthquakeRound != widget.state!.roundNumber;
+      widget.state != null && _lastEarthquakeRound != widget.state!.roundNumber;
 
   @override
   void initState() {
@@ -341,8 +341,7 @@ class _PlayerHandState extends State<PlayerHand>
     final n = cards.length;
     final center = (n - 1) / 2.0;
 
-    final fitted =
-        n <= 1 ? cardWidth : (availableWidth - cardWidth) / (n - 1);
+    final fitted = n <= 1 ? cardWidth : (availableWidth - cardWidth) / (n - 1);
     final step = fitted.clamp(cardWidth * 0.78, cardWidth + 2.0);
 
     final halfAngle = (isPortrait ? 0.028 : 0.018) * (n - 1);
@@ -578,111 +577,115 @@ class _PlayerHandState extends State<PlayerHand>
 
         if (cards.isEmpty) return const SizedBox(height: 96);
 
-        final media = MediaQuery.of(context);
-        final screenWidth = media.size.width;
-        final screenHeight = media.size.height;
-        final isPortrait = media.orientation == Orientation.portrait;
-        final isTablet = screenWidth >= 600;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final media = MediaQuery.of(context);
+            final screenWidth = media.size.width;
+            final screenHeight = media.size.height;
+            final layout = GameLayoutMetrics.of(context);
+            final isPortrait = layout.isPortrait;
 
-        final availableWidth = isPortrait
-            ? (screenWidth - 20).clamp(280.0, screenWidth * 0.97)
-            : (screenWidth - 180).clamp(300.0, screenWidth * 0.80);
+            final maxParentWidth = constraints.maxWidth;
+            final availableWidth = maxParentWidth.isFinite
+                ? (maxParentWidth - 8).clamp(120.0, maxParentWidth)
+                : layout.handAvailableWidth(screenWidth);
 
-        final useTwoRows = cards.length > 7;
-        final widestRow = useTwoRows ? (cards.length + 1) ~/ 2 : cards.length;
+            final useTwoRows = cards.length > 7;
+            final widestRow =
+                useTwoRows ? (cards.length + 1) ~/ 2 : cards.length;
 
-        double cardWidth = widestRow <= 1
-            ? availableWidth * 0.22
-            : (availableWidth - 2.0 * (widestRow - 1)) / widestRow;
+            double cardWidth = widestRow <= 1
+                ? availableWidth * 0.22
+                : (availableWidth - 2.0 * (widestRow - 1)) / widestRow;
 
-        final maxW = isPortrait
-            ? (isTablet ? 86.0 : 66.0)
-            : (isTablet ? 78.0 : 58.0);
-        final minW = isPortrait ? 48.0 : 44.0;
-        cardWidth = cardWidth.clamp(minW, maxW);
+            final maxW = layout.handMaxCardWidth;
+            final minW = layout.handMinCardWidth;
+            cardWidth = cardWidth.clamp(minW, maxW);
 
-        final nestFraction = 0.32;
-        final maxHandHeight = screenHeight * (isPortrait ? 0.28 : 0.36);
-        final rowsVisual = useTwoRows ? (2.0 - nestFraction) : 1.0;
-        final maxCardHeight = (maxHandHeight - 8) / rowsVisual;
-        final maxWidthFromHeight = maxCardHeight * playingCardAspectRatio;
-        if (maxWidthFromHeight > 0 && cardWidth > maxWidthFromHeight) {
-          cardWidth = maxWidthFromHeight.clamp(minW, maxW);
-        }
+            final nestFraction = 0.32;
+            final maxHandHeight = screenHeight * (isPortrait ? 0.28 : 0.36);
+            final rowsVisual = useTwoRows ? (2.0 - nestFraction) : 1.0;
+            final maxCardHeight = (maxHandHeight - 8) / rowsVisual;
+            final maxWidthFromHeight = maxCardHeight * playingCardAspectRatio;
+            if (maxWidthFromHeight > 0 && cardWidth > maxWidthFromHeight) {
+              cardWidth = maxWidthFromHeight.clamp(minW, maxW);
+            }
 
-        final cardHeight = cardWidth / playingCardAspectRatio;
+            final cardHeight = cardWidth / playingCardAspectRatio;
 
-        final isTrickTurn =
-            widget.isMyTurn && widget.state?.phase == GamePhase.trickTaking;
-        final playable = List<bool>.generate(
-          cards.length,
-          (i) => _isPlayable(cards[i]),
-        );
+            final isTrickTurn =
+                widget.isMyTurn && widget.state?.phase == GamePhase.trickTaking;
+            final playable = List<bool>.generate(
+              cards.length,
+              (i) => _isPlayable(cards[i]),
+            );
 
-        if (!useTwoRows) {
-          return _buildFanRow(
-            cards: cards,
-            originalIndices: List<int>.generate(cards.length, (i) => i),
-            cardWidth: cardWidth,
-            cardHeight: cardHeight,
-            selected: selected,
-            playable: playable,
-            isTrickTurn: isTrickTurn,
-            availableWidth: availableWidth,
-            isPortrait: isPortrait,
-          );
-        }
+            if (!useTwoRows) {
+              return _buildFanRow(
+                cards: cards,
+                originalIndices: List<int>.generate(cards.length, (i) => i),
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                selected: selected,
+                playable: playable,
+                isTrickTurn: isTrickTurn,
+                availableWidth: availableWidth,
+                isPortrait: isPortrait,
+              );
+            }
 
-        final splitIndex = (cards.length + 1) ~/ 2;
-        final row1 = cards.sublist(0, splitIndex);
-        final row2 = cards.sublist(splitIndex);
-        final row1Idx = List<int>.generate(row1.length, (i) => i);
-        final row2Idx =
-            List<int>.generate(row2.length, (i) => splitIndex + i);
+            final splitIndex = (cards.length + 1) ~/ 2;
+            final row1 = cards.sublist(0, splitIndex);
+            final row2 = cards.sublist(splitIndex);
+            final row1Idx = List<int>.generate(row1.length, (i) => i);
+            final row2Idx =
+                List<int>.generate(row2.length, (i) => splitIndex + i);
 
-        final nestPx = cardHeight * nestFraction;
-        final topRow = _buildFanRow(
-          cards: row1,
-          originalIndices: row1Idx,
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
-          selected: selected,
-          playable: playable,
-          isTrickTurn: isTrickTurn,
-          availableWidth: availableWidth,
-          isPortrait: isPortrait,
-        );
-        final bottomRow = _buildFanRow(
-          cards: row2,
-          originalIndices: row2Idx,
-          cardWidth: cardWidth,
-          cardHeight: cardHeight,
-          selected: selected,
-          playable: playable,
-          isTrickTurn: isTrickTurn,
-          availableWidth: availableWidth,
-          isPortrait: isPortrait,
-        );
+            final nestPx = cardHeight * nestFraction;
+            final topRow = _buildFanRow(
+              cards: row1,
+              originalIndices: row1Idx,
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+              selected: selected,
+              playable: playable,
+              isTrickTurn: isTrickTurn,
+              availableWidth: availableWidth,
+              isPortrait: isPortrait,
+            );
+            final bottomRow = _buildFanRow(
+              cards: row2,
+              originalIndices: row2Idx,
+              cardWidth: cardWidth,
+              cardHeight: cardHeight,
+              selected: selected,
+              playable: playable,
+              isTrickTurn: isTrickTurn,
+              availableWidth: availableWidth,
+              isPortrait: isPortrait,
+            );
 
-        final totalH = cardHeight * 2 - nestPx;
+            final totalH = cardHeight * 2 - nestPx;
 
-        return SizedBox(
-          width: availableWidth,
-          height: totalH,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
-            children: [
-              Positioned(
-                top: 0,
-                child: topRow,
+            return SizedBox(
+              width: availableWidth,
+              height: totalH,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topCenter,
+                children: [
+                  Positioned(
+                    top: 0,
+                    child: topRow,
+                  ),
+                  Positioned(
+                    top: cardHeight - nestPx,
+                    child: bottomRow,
+                  ),
+                ],
               ),
-              Positioned(
-                top: cardHeight - nestPx,
-                child: bottomRow,
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

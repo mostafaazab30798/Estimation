@@ -22,7 +22,9 @@ typedef StateUpdateCallback = void Function(GameState state);
 
 class GameServer {
   static final Random _rng = Random();
-  static const disconnectedPlayerGracePeriod = Duration(seconds: 60);
+  static const botTakeoverDelay = kBotTakeoverDelay;
+  static const seatReclaimWindow = kAbsentPlayerDetachTimeout;
+  static const disconnectedPlayerGracePeriod = kBotTakeoverDelay;
 
   final StateUpdateCallback onStateUpdate;
   final void Function(Map<String, dynamic> reactionData)? onReaction;
@@ -48,9 +50,14 @@ class GameServer {
 
   // ── Bot support ──────────────────────────────────────────────
   final Set<String> _botPlayerIds = {};
+  Set<String> get botPlayerIds => Set<String>.unmodifiable(_botPlayerIds);
   final Set<String> _temporaryBotPlayerIds = {};
   final Map<String, Timer> _disconnectedPlayerTimers = {};
   bool _botProcessing = false;
+
+  /// When true, in-game actions are handled by the server authority (Edge
+  /// Function). Host keeps lobby join/leave only; bots are disabled.
+  bool serverAuthorityMode = false;
 
   GameServer({required this.onStateUpdate, this.onReaction, this.onEarthquake});
 
@@ -76,7 +83,7 @@ class GameServer {
       id: hostPlayerId,
       name: hostName,
       seatIndex: 0,
-      photo: hostPhoto,
+      photo: ProfileService.publicAvatarRef(hostPhoto),
     );
     _state =
         GameEngine.createInitialState([hostPlayer], totalRounds: totalRounds);
@@ -172,6 +179,7 @@ class GameServer {
         id: botId,
         name: 'لاعب $next 🤖',
         seatIndex: seatIndex,
+        photo: ProfileService.presetForPlayerId(botId),
       ));
     }
     onStateUpdate(_state);
@@ -186,10 +194,18 @@ class GameServer {
 
     // Add new players
     for (final p in players) {
-      final alreadyIn = _state.players.any((sp) => sp.id == p.id);
-      if (!alreadyIn) {
+      final existingIndex = _state.players.indexWhere((sp) => sp.id == p.id);
+      if (existingIndex == -1) {
         final seat = _state.players.length;
-        _state.players.add(Player(id: p.id, name: p.name, seatIndex: seat));
+        _state.players.add(Player(
+          id: p.id,
+          name: p.name,
+          seatIndex: seat,
+          photo: ProfileService.presetForPlayerId(p.id),
+        ));
+      } else {
+        _state.players[existingIndex] = _state.players[existingIndex]
+            .copyWith(name: p.name);
       }
     }
 
@@ -283,9 +299,9 @@ class GameServer {
         _disconnectedPlayerTimers.containsKey(playerId)) {
       return;
     }
-    debugPrint('[Reconnection] Reserving seat for $playerId for 60 seconds');
+    debugPrint('[Reconnection] Reserving seat for $playerId; bot in 30s');
     _disconnectedPlayerTimers[playerId] = Timer(
-      disconnectedPlayerGracePeriod,
+      botTakeoverDelay,
       () {
         _disconnectedPlayerTimers.remove(playerId);
         if (_isStopped ||
@@ -312,6 +328,28 @@ class GameServer {
     if (id != null) _reclaimHumanSeat(id);
   }
 
+  /// Permanently hand a detached human seat to the bot after the grace window.
+  void markPlayerPermanentlyAbsent(String playerId) {
+    _disconnectedPlayerTimers.remove(playerId)?.cancel();
+    _temporaryBotPlayerIds.remove(playerId);
+    if (!_state.players.any((player) => player.id == playerId)) return;
+    _botPlayerIds.add(playerId);
+    debugPrint('[Reconnection] Player $playerId permanently replaced by bot');
+    _broadcastState();
+  }
+
+  /// Merge bot seats persisted in server-authority snapshots.
+  void applyBotPlayerIdsFromSnapshot(Map<String, dynamic>? snapshot) {
+    if (snapshot == null) return;
+    final raw = snapshot['botPlayerIds'];
+    if (raw is! List) return;
+    for (final id in raw) {
+      if (id is String && id.isNotEmpty) {
+        _botPlayerIds.add(id);
+      }
+    }
+  }
+
   void _reclaimHumanSeat(String playerId) {
     _disconnectedPlayerTimers.remove(playerId)?.cancel();
     if (_temporaryBotPlayerIds.remove(playerId)) {
@@ -328,6 +366,7 @@ class GameServer {
 
   void _handlePlayerAction(Map<String, dynamic> payload) {
     if (_isStopped) return;
+    if (serverAuthorityMode && _state.phase != GamePhase.lobby) return;
     final action = payload['action'] as String;
     final playerId = payload['playerId'] as String;
 
@@ -588,6 +627,7 @@ class GameServer {
 
   void _broadcastState() {
     if (_isStopped) return;
+    if (serverAuthorityMode && _state.phase != GamePhase.lobby) return;
     _prepareTurnTimer();
 
     // Online Realtime broadcast is room-wide — never send real opponent hands.
@@ -831,6 +871,7 @@ class GameServer {
         _botPlayerIds.add(p.id);
       }
     }
+    applyBotPlayerIdsFromSnapshot(state.toJson());
 
     _channel = Supabase.instance.client.channel('room_$roomId');
 
@@ -865,6 +906,7 @@ class GameServer {
   // ── Bot AI ───────────────────────────────────────────────────
 
   void _scheduleBotTurn() {
+    if (serverAuthorityMode) return;
     if (_isStopped || _botProcessing || _botPlayerIds.isEmpty) return;
     if (!_isBotTurnNeeded()) return;
 
@@ -880,141 +922,126 @@ class GameServer {
 
   bool _isBotTurnNeeded() {
     if (_isStopped) return false;
-    switch (_state.phase) {
-      case GamePhase.voidCheck:
-        if (_state.voidDeclaringPlayerId != null) {
-          return _botPlayerIds
-              .any((id) => !_state.voidRedealRejections.contains(id));
-        }
-        return _botPlayerIds.any((id) => !_state.voidCheckPassed.contains(id));
-
-      case GamePhase.dashCall:
-        final seat = _state.currentPlayerSeatIndex;
-        final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
-
-      case GamePhase.auction:
-        final seat = _state.auctionTurnSeatIndex;
-        final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
-
-      case GamePhase.declarations:
-        final seat = _state.currentPlayerSeatIndex;
-        final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
-
-      case GamePhase.trickTaking:
-        if (_state.currentTrick.length == 4) {
-          return false; // Waiting to clear trick
-        }
-        final seat = _state.currentPlayerSeatIndex;
-        final players = _state.players.where((p) => p.seatIndex == seat);
-        return players.isNotEmpty && _botPlayerIds.contains(players.first.id);
-
-      default:
-        return false;
-    }
+    return GameServer.isBotTurnNeeded(_state, _botPlayerIds);
   }
 
   void _executeBotAction() {
     if (_isStopped) return;
-    switch (_state.phase) {
+    final plan = planBotAction(_state, _botPlayerIds);
+    if (plan != null) {
+      _handlePlayerAction(plan);
+    }
+  }
+
+  /// Next bot action for server-authority host proxy (no local side effects).
+  static Map<String, dynamic>? planBotAction(
+    GameState state,
+    Set<String> botPlayerIds,
+  ) {
+    if (botPlayerIds.isEmpty) return null;
+    switch (state.phase) {
       case GamePhase.voidCheck:
-        if (_state.voidDeclaringPlayerId != null) {
-          for (final id in _botPlayerIds) {
-            if (!_state.voidRedealRejections.contains(id)) {
-              final bot = _state.players.where((p) => p.id == id).firstOrNull;
+        if (state.voidDeclaringPlayerId != null) {
+          for (final id in botPlayerIds) {
+            if (!state.voidRedealRejections.contains(id)) {
+              final bot = state.players.where((p) => p.id == id).firstOrNull;
               if (bot == null) continue;
-              // Void holders lean toward redeal; others use hand-strength heuristic.
-              final approve = id == _state.voidDeclaringPlayerId ||
+              final approve = id == state.voidDeclaringPlayerId ||
                   GameEngine.hasVoidSuit(bot) ||
-                  EstimationBotAi.shouldApproveRedeal(bot, _state);
-              _handlePlayerAction({
+                  EstimationBotAi.shouldApproveRedeal(bot, state);
+              return {
                 'action': approve
                     ? ActionType.approveRedeal
                     : ActionType.rejectRedeal,
                 'playerId': id,
-              });
-              return;
+              };
             }
           }
         } else {
-          for (final id in _botPlayerIds) {
-            if (!_state.voidCheckPassed.contains(id)) {
-              _handlePlayerAction(
-                  {'action': ActionType.confirmNoVoid, 'playerId': id});
-              return;
+          for (final id in botPlayerIds) {
+            if (!state.voidCheckPassed.contains(id)) {
+              return {
+                'action': ActionType.confirmNoVoid,
+                'playerId': id,
+              };
             }
           }
         }
+        return null;
 
       case GamePhase.dashCall:
-        final seat = _state.currentPlayerSeatIndex;
+        final seat = state.currentPlayerSeatIndex;
         final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
-        if (playerList.isEmpty) return;
+            state.players.where((p) => p.seatIndex == seat).toList();
+        if (playerList.isEmpty) return null;
         final bot = playerList.first;
-        if (!_botPlayerIds.contains(bot.id)) return;
+        if (!botPlayerIds.contains(bot.id)) return null;
 
-        final wantsDash = EstimationBotAi.shouldCallDash(bot);
-        _handlePlayerAction({
+        return {
           'action': ActionType.submitDashCall,
           'playerId': bot.id,
-          'wantsDashCall': wantsDash,
-        });
+          'wantsDashCall': EstimationBotAi.shouldCallDash(bot),
+        };
 
       case GamePhase.auction:
-        final seat = _state.auctionTurnSeatIndex;
+        final seat = state.auctionTurnSeatIndex;
         final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
-        if (playerList.isEmpty) return;
+            state.players.where((p) => p.seatIndex == seat).toList();
+        if (playerList.isEmpty) return null;
         final bot = playerList.first;
-        if (!_botPlayerIds.contains(bot.id)) return;
+        if (!botPlayerIds.contains(bot.id)) return null;
 
-        final bid = EstimationBotAi.decideAuctionBid(_state, bot);
+        final bid = EstimationBotAi.decideAuctionBid(state, bot);
         if (bid != null) {
-          _handlePlayerAction({
+          return {
             'action': ActionType.submitBid,
             'playerId': bot.id,
             'bid': bid.toJson(),
-          });
-        } else {
-          _handlePlayerAction(
-              {'action': ActionType.passBid, 'playerId': bot.id});
+          };
         }
+        return {
+          'action': ActionType.passBid,
+          'playerId': bot.id,
+        };
 
       case GamePhase.declarations:
-        final seat = _state.currentPlayerSeatIndex;
+        final seat = state.currentPlayerSeatIndex;
         final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
-        if (playerList.isEmpty) return;
+            state.players.where((p) => p.seatIndex == seat).toList();
+        if (playerList.isEmpty) return null;
         final bot = playerList.first;
-        if (!_botPlayerIds.contains(bot.id)) return;
+        if (!botPlayerIds.contains(bot.id)) return null;
 
-        final decl = EstimationBotAi.decideDeclaration(_state, bot);
-        _handlePlayerAction({
+        return {
           'action': ActionType.submitDeclaration,
           'playerId': bot.id,
-          'declared': decl,
-        });
+          'declared': EstimationBotAi.decideDeclaration(state, bot),
+        };
 
       case GamePhase.trickTaking:
-        final seat = _state.currentPlayerSeatIndex;
+        if (state.currentTrick.length >= state.players.length) {
+          return null;
+        }
+        final seat = state.currentPlayerSeatIndex;
         final playerList =
-            _state.players.where((p) => p.seatIndex == seat).toList();
-        if (playerList.isEmpty) return;
+            state.players.where((p) => p.seatIndex == seat).toList();
+        if (playerList.isEmpty) return null;
         final bot = playerList.first;
-        if (!_botPlayerIds.contains(bot.id)) return;
+        if (!botPlayerIds.contains(bot.id)) return null;
 
-        final chosen = EstimationBotAi.chooseCardToPlay(_state, bot);
-        _handlePlayerAction({
+        final chosen = EstimationBotAi.chooseCardToPlay(state, bot);
+        return {
           'action': ActionType.playCard,
           'playerId': bot.id,
           'card': chosen.toJson(),
-        });
+        };
 
       default:
-        break;
+        return null;
     }
+  }
+
+  static bool isBotTurnNeeded(GameState state, Set<String> botPlayerIds) {
+    return planBotAction(state, botPlayerIds) != null;
   }
 }

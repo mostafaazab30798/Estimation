@@ -67,6 +67,7 @@ class GameState {
 
   // ── Theme ──────────────────────────────────────────────────
   String cardTheme;
+  List<String> botPlayerIds;
 
   GameState({
     required this.players,
@@ -94,12 +95,14 @@ class GameState {
     this.turnDurationSeconds = 60,
     this.turnDeadlineEpochMs,
     this.cardTheme = 'theme_1',
+    List<String>? botPlayerIds,
   })  : dashCallPassed = dashCallPassed ?? {},
         currentTrick = currentTrick ?? [],
         lastRoundScoreDeltas = lastRoundScoreDeltas ?? {},
         roundHistory = roundHistory ?? [],
         voidCheckPassed = voidCheckPassed ?? {},
-        voidRedealRejections = voidRedealRejections ?? {} {
+        voidRedealRejections = voidRedealRejections ?? {},
+        botPlayerIds = botPlayerIds ?? [] {
     if (trump == null && trumpSuit != null) {
       trump = Trump.fromSuit(trumpSuit);
     }
@@ -179,6 +182,7 @@ class GameState {
         'turnDurationSeconds': turnDurationSeconds,
         'turnDeadlineEpochMs': turnDeadlineEpochMs,
         'cardTheme': cardTheme,
+        'botPlayerIds': botPlayerIds,
       };
 
   /// Serializes GameState sanitizing all player hands except for [recipientPlayerId].
@@ -212,6 +216,7 @@ class GameState {
         'turnDurationSeconds': turnDurationSeconds,
         'turnDeadlineEpochMs': turnDeadlineEpochMs,
         'cardTheme': cardTheme,
+        'botPlayerIds': botPlayerIds,
       };
 
   factory GameState.fromJson(Map<String, dynamic> json) {
@@ -260,6 +265,10 @@ class GameState {
       turnDurationSeconds: json['turnDurationSeconds'] as int? ?? 60,
       turnDeadlineEpochMs: json['turnDeadlineEpochMs'] as int?,
       cardTheme: json['cardTheme'] as String? ?? 'theme_1',
+      botPlayerIds: (json['botPlayerIds'] as List<dynamic>?)
+              ?.map((id) => id.toString())
+              .toList() ??
+          [],
     );
   }
 }

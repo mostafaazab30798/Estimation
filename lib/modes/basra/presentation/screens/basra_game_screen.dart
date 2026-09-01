@@ -1,14 +1,12 @@
 // lib/modes/basra/presentation/screens/basra_game_screen.dart
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:estimation/core/icons/app_icons.dart';
 import 'package:estimation/core/models/game_state.dart';
-import 'package:estimation/modes/basra/domain/basra_constants.dart';
+import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/modes/basra/presentation/providers/basra_game_provider.dart';
 import 'package:estimation/modes/basra/presentation/widgets/basra_player_hand.dart';
 import 'package:estimation/modes/basra/presentation/widgets/basra_player_info.dart';
@@ -23,6 +21,9 @@ import 'package:estimation/widgets/hud/casino_table.dart';
 import 'package:estimation/widgets/hud/game_background.dart';
 import 'package:estimation/widgets/hud/reaction_picker_sheet.dart';
 import 'package:estimation/widgets/level_up_dialog.dart';
+import 'package:estimation/core/widgets/app_buttons.dart';
+import 'package:estimation/core/widgets/leave_game_dialog.dart';
+import 'package:estimation/modes/basra/presentation/widgets/basra_round_score_overlay.dart';
 
 class BasraGameScreen extends StatefulWidget {
   const BasraGameScreen({super.key});
@@ -88,12 +89,8 @@ class _BasraGameScreenState extends State<BasraGameScreen>
     _maybeFlashBasra(game);
     _maybeDelayEndOverlay(game);
 
-    final media = MediaQuery.of(context);
-    final isPortrait = media.orientation == Orientation.portrait;
-    final minDim = math.min(media.size.width, media.size.height);
-    final tableSize = isPortrait
-        ? (minDim * 0.52).clamp(170.0, 250.0)
-        : (media.size.height * 0.44).clamp(160.0, 290.0);
+    final layout = GameLayoutMetrics.of(context);
+    final tableSize = layout.trickAreaSize;
 
     return PopScope(
       canPop: false,
@@ -120,9 +117,9 @@ class _BasraGameScreenState extends State<BasraGameScreen>
               child: Stack(
                 children: [
                   Positioned(
-                    top: 10,
-                    left: 10,
-                    right: 10,
+                    top: layout.topHudInset,
+                    left: layout.topHudHorizontalInset,
+                    right: layout.topHudHorizontalInset,
                     child: BasraTopHud(
                       game: game,
                       onExitTap: () => _confirmExit(context),
@@ -130,7 +127,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
                   ),
                   ..._buildOpponents(context, game),
                   Align(
-                    alignment: Alignment(0, isPortrait ? -0.32 : -0.25),
+                    alignment: layout.trickAreaAlignment,
                     child: SizedBox(
                       width: tableSize,
                       height: tableSize,
@@ -181,7 +178,11 @@ class _BasraGameScreenState extends State<BasraGameScreen>
               },
             ),
             if (game.phase == BasraPhase.roundFinished && !_delayingEndOverlay)
-              _buildRoundOverlay(context, game),
+              BasraRoundScoreOverlay(
+                game: game,
+                isHost: context.watch<GameProvider>().isHost,
+                onNextRound: game.advanceToNextRound,
+              ),
             if (game.phase == BasraPhase.finished &&
                 game.matchWinner != null &&
                 !_delayingEndOverlay)
@@ -195,9 +196,9 @@ class _BasraGameScreenState extends State<BasraGameScreen>
   List<Widget> _buildOpponents(BuildContext context, BasraGameProvider game) {
     final seated = game.seatedPlayers;
     if (seated.length < 2) return const [];
-    final media = MediaQuery.of(context);
-    final isPortrait = media.orientation == Orientation.portrait;
-    final edge = isPortrait ? 4.0 : 14.0;
+    final layout = GameLayoutMetrics.of(context);
+    final isPortrait = layout.isPortrait;
+    final edge = layout.sideInset;
     final widgets = <Widget>[];
 
     for (var i = 1; i < seated.length; i++) {
@@ -208,7 +209,9 @@ class _BasraGameScreenState extends State<BasraGameScreen>
       final info = BasraPlayerInfoWidget(
         player: player,
         isCurrentTurn: isTurn,
-        compact: true,
+        compact: isLeft || isRight
+            ? layout.sideOpponentCompact
+            : layout.topOpponentCompact,
       );
       final fan = HiddenCardFan(
         count: player.hand.length,
@@ -231,7 +234,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
 
       if (seated.length == 2) {
         widgets.add(Positioned(
-          top: isPortrait ? 128 : 64,
+          top: layout.topOpponentTop,
           left: 0,
           right: 0,
           child: Align(alignment: Alignment.topCenter, child: child),
@@ -270,7 +273,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
         ));
       } else if (i == 2) {
         widgets.add(Positioned(
-          top: isPortrait ? 128 : 64,
+          top: layout.topOpponentTop,
           left: 0,
           right: 0,
           child: Align(alignment: Alignment.topCenter, child: child),
@@ -293,6 +296,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
   Widget _buildLocal(BuildContext context, BasraGameProvider game) {
     final local = game.localPlayer;
     if (local == null) return const SizedBox.shrink();
+    final pad = GameLayoutMetrics.of(context).localPlayerInfoPadding;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -303,25 +307,28 @@ class _BasraGameScreenState extends State<BasraGameScreen>
           onPlayCard: (card) => game.playCard(local.id, card),
         ),
         const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            BasraPlayerInfoWidget(
-              player: local,
-              isCurrentTurn: game.isLocalPlayerTurn,
-              isMe: true,
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: () => ReactionPickerSheet.show(
-                context,
-                onSelectReaction: (emoji, [text]) =>
-                    game.sendReaction(emoji, text),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad.left),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              BasraPlayerInfoWidget(
+                player: local,
+                isCurrentTurn: game.isLocalPlayerTurn,
+                isMe: true,
               ),
-              icon: const AppIcon(AppIcons.chatBubbleOutline,
-                  color: AppTheme.gold, size: 22),
-            ),
-          ],
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => ReactionPickerSheet.show(
+                  context,
+                  onSelectReaction: (emoji, [text]) =>
+                      game.sendReaction(emoji, text),
+                ),
+                icon: const AppIcon(AppIcons.chatBubbleOutline,
+                    color: AppTheme.gold, size: 22),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -330,69 +337,6 @@ class _BasraGameScreenState extends State<BasraGameScreen>
   Widget _buildReactions(BuildContext context, BasraGameProvider game) {
     if (game.activeReactions.isEmpty) return const SizedBox.shrink();
     return const SizedBox.shrink();
-  }
-
-  Widget _buildRoundOverlay(BuildContext context, BasraGameProvider game) {
-    return Container(
-      color: Colors.black87,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.all(24),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: const Color(0xF01D3348),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.5)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('نهاية الجولة ${game.currentRoundNumber}',
-                style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900)),
-            if (game.lastRoundWasTwentySixTie)
-              Text('تعادل 26-26 — ترحيل $kBasraMajorityPoints نقطة',
-                  style: GoogleFonts.cairo(
-                      color: AppTheme.gold, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ...game.players.map((p) {
-              final score = game.lastRoundScores
-                  .where((s) => s.playerId == p.id)
-                  .firstOrNull;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(p.name,
-                          style: GoogleFonts.cairo(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    Text(
-                      '${score?.capturedCount ?? p.capturedCards.length} ورقة • +${score?.roundScore ?? p.roundScore} → ${p.totalScore}',
-                      style: GoogleFonts.cairo(
-                          color: AppTheme.gold,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-            if (context.watch<GameProvider>().isHost)
-              ElevatedButton(
-                onPressed: game.advanceToNextRound,
-                child: Text('الجولة التالية',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
-              ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _award(BasraGameProvider game) {
@@ -421,7 +365,10 @@ class _BasraGameScreenState extends State<BasraGameScreen>
               ))
           .toList(),
     ));
-    RankingService.instance.processMatchReward(breakdown).then((result) {
+    final roomId = context.read<GameProvider>().currentRoom?.id;
+    RankingService.instance
+        .awardOnlineMatchXp(breakdown: breakdown, roomId: roomId)
+        .then((result) {
       if (mounted && result != null && result.didLevelUp) {
         LevelUpDialog.show(
           context,
@@ -437,44 +384,105 @@ class _BasraGameScreenState extends State<BasraGameScreen>
   Widget _buildMatchOverlay(BuildContext context, BasraGameProvider game) {
     final winner = game.matchWinner!;
     _award(game);
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 460.0 : 390.0);
+
     return Container(
-      color: Colors.black.withValues(alpha: 0.92),
+      color: AppTheme.deepNavy.withValues(alpha: 0.88),
       alignment: Alignment.center,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(layout.isTablet ? 32 : 24),
       child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(0xF01D3348),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.gold.withValues(alpha: 0.6)),
-        ),
+        width: double.infinity,
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        padding: EdgeInsets.all(layout.isTablet ? 28 : 24),
+        decoration: AppTheme.dialogDecoration(accent: AppTheme.gold),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🏆', style: TextStyle(fontSize: 48)),
-            Text('الفائز: ${winner.name}',
-                style: GoogleFonts.cairo(
-                    color: AppTheme.gold,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900)),
-            Text('${winner.totalScore} نقطة',
-                style: GoogleFonts.cairo(color: Colors.white, fontSize: 16)),
-            if (_xp != null)
-              Text(
-                '+${_xp!.totalXp} XP',
-                style: GoogleFonts.cairo(
-                    color: AppTheme.gold, fontWeight: FontWeight.w900),
+            AppIconWell(
+              icon: AppIcons.emojiEvents,
+              size: layout.isTablet ? 64 : 56,
+              iconSize: layout.isTablet ? 30 : 26,
+              color: AppTheme.gold,
+              fill: AppTheme.gold.withValues(alpha: 0.14),
+              borderColor: AppTheme.gold.withValues(alpha: 0.34),
+            ),
+            SizedBox(height: layout.isTablet ? 18 : 14),
+            Text(
+              'نهاية المباراة!',
+              style: GoogleFonts.cairo(
+                color: AppTheme.gold,
+                fontSize: layout.isTablet ? 26 : 24,
+                fontWeight: FontWeight.w900,
               ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                context.read<BasraGameProvider>().reset();
-                context.read<GameProvider>().reset();
-                Navigator.of(context, rootNavigator: true)
-                    .pushNamedAndRemoveUntil('/', (route) => false);
-              },
-              child: Text('العودة للرئيسية',
-                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+            ),
+            SizedBox(height: layout.isTablet ? 10 : 8),
+            Text(
+              'الفائز: ${winner.name}',
+              style: GoogleFonts.cairo(
+                color: AppTheme.cream,
+                fontSize: layout.isTablet ? 20 : 22,
+                fontWeight: FontWeight.w900,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              '${winner.totalScore} نقطة',
+              style: GoogleFonts.cairo(
+                color: AppTheme.steelBlue,
+                fontSize: layout.isTablet ? 17 : 16,
+              ),
+            ),
+            if (_xp != null) ...[
+              SizedBox(height: layout.isTablet ? 14 : 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.deepNavy.withValues(alpha: 0.46),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppTheme.gold.withValues(alpha: 0.32),
+                  ),
+                ),
+                child: Text(
+                  '+${_xp!.totalXp} XP',
+                  style: GoogleFonts.cairo(
+                    color: AppTheme.gold,
+                    fontWeight: FontWeight.w900,
+                    fontSize: layout.isTablet ? 16 : 15,
+                  ),
+                ),
+              ),
+            ],
+            SizedBox(height: layout.isTablet ? 22 : 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  context.read<BasraGameProvider>().reset();
+                  context.read<GameProvider>().reset();
+                  Navigator.of(context, rootNavigator: true)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: AppTheme.navyDark,
+                  padding: EdgeInsets.symmetric(vertical: layout.isTablet ? 14 : 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'العودة للرئيسية',
+                  style: GoogleFonts.cairo(
+                    fontWeight: FontWeight.bold,
+                    fontSize: layout.isTablet ? 16 : 15,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -483,31 +491,16 @@ class _BasraGameScreenState extends State<BasraGameScreen>
   }
 
   void _confirmExit(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1D3348),
-        title: Text('مغادرة اللعبة',
-            style: GoogleFonts.cairo(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text(
-          'هل تريد مغادرة غرفة الباصرة؟',
-          style: GoogleFonts.cairo(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          TextButton(
-            onPressed: () {
-              context.read<BasraGameProvider>().reset();
-              context.read<GameProvider>().reset();
-              Navigator.of(context, rootNavigator: true)
-                  .pushNamedAndRemoveUntil('/', (route) => false);
-            },
-            child: const Text('مغادرة'),
-          ),
-        ],
-      ),
+    LeaveGameDialog.show(
+      context,
+      onLeave: () async {
+        final gameProvider = context.read<GameProvider>();
+        await gameProvider.temporarilyLeaveOngoingGame();
+        if (!context.mounted) return;
+        context.read<BasraGameProvider>().reset();
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (route) => false);
+      },
     );
   }
 }

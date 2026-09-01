@@ -31,6 +31,9 @@ class BasraGameServer {
   final Random _random = Random();
   bool _isStopped = false;
 
+  /// When true, in-game actions go through server authority (Edge Function).
+  bool serverAuthorityMode = false;
+
   BasraGameServer({required this.onStateUpdate, this.onReaction});
 
   Future<void> start(
@@ -195,6 +198,11 @@ class BasraGameServer {
 
   void _handlePlayerAction(Map<String, dynamic> payload) {
     final action = payload['action'] as String? ?? '';
+    if (serverAuthorityMode &&
+        _state.phase != BasraPhase.waiting &&
+        action != ActionType.requestStateSync) {
+      return;
+    }
     final playerId = payload['playerId'] as String? ?? '';
 
     switch (action) {
@@ -250,6 +258,7 @@ class BasraGameServer {
 
   void _broadcastState() {
     if (_isStopped) return;
+    if (serverAuthorityMode && _state.phase != BasraPhase.waiting) return;
     onStateUpdate(_state);
     final payload = Map<String, dynamic>.from(_state.toSanitizedJson());
     _channel?.sendBroadcastMessage(event: 'state', payload: payload);
@@ -272,6 +281,7 @@ class BasraGameServer {
   }
 
   void _scheduleBotTurnIfNeeded() {
+    if (serverAuthorityMode) return;
     if (_isStopped || _state.phase != BasraPhase.playing) return;
     final currentP = _state.currentPlayer;
     if (currentP == null || !currentP.isBot) return;

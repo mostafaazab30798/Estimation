@@ -136,6 +136,22 @@ class ProfileService {
     return presetAvatars[index].id;
   }
 
+  /// Stable animal preset for a player when their profile photo is not yet synced.
+  static String presetForPlayerId(String playerId) {
+    if (playerId.isEmpty) return presetAvatars.first.id;
+    final index = playerId.hashCode.abs() % presetAvatars.length;
+    return presetAvatars[index].id;
+  }
+
+  /// Avatar ref for lobby display — keeps each player's chosen photo when known,
+  /// otherwise assigns a distinct preset from the full set (not always the first).
+  static String lobbyAvatarRef(String? photoData, String playerId) {
+    if (photoData != null && photoData.isNotEmpty) {
+      return publicAvatarRef(photoData);
+    }
+    return presetForPlayerId(playerId);
+  }
+
   static Future<String?> getRawProfilePhoto() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_kPhotoKey);

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../models/rank_tier.dart';
 import '../theme/app_theme.dart';
 import 'rank_tier_badge.dart';
@@ -73,50 +74,35 @@ class _LevelUpDialogState extends State<LevelUpDialog>
 
   @override
   Widget build(BuildContext context) {
+    final layout = GameLayoutMetrics.of(context);
     final isTierUp = widget.newTier.type != widget.oldTier.type;
+
+    final maxWidth = layout.isLargeTablet
+        ? 480.0
+        : (layout.isTablet ? 440.0 : double.infinity);
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: layout.isTablet ? 28 : 20,
+        vertical: 16,
+      ),
       child: ScaleTransition(
         scale: _scale,
         child: RotationTransition(
           turns: _rotate,
           child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.navyDark,
-                  const Color(0xFF0F172A),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: widget.newTier.primaryColor.withValues(alpha: 0.6),
-                width: 2.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.newTier.primaryColor.withValues(alpha: 0.35),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+            width: double.infinity,
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            padding: EdgeInsets.all(layout.isTablet ? 28 : 24),
+            decoration: AppTheme.dialogDecoration(
+              accent: widget.newTier.primaryColor,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Starburst / Trophy Badge Icon
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(layout.isTablet ? 18 : 16),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
@@ -133,45 +119,43 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                   ),
                   child: Text(
                     isTierUp ? widget.newTier.badgeEmoji : '⭐',
-                    style: const TextStyle(fontSize: 44),
+                    style: TextStyle(fontSize: layout.isTablet ? 48 : 44),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Main Title
+                SizedBox(height: layout.isTablet ? 18 : 16),
                 Text(
                   isTierUp ? 'ترقية رتبة جديدة!' : 'ارتقاء في المستوى!',
                   style: GoogleFonts.cairo(
-                    fontSize: 22,
+                    fontSize: layout.isTablet ? 24 : 22,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.cream,
                   ),
                   textAlign: TextAlign.center,
                 ),
-
-                const SizedBox(height: 6),
-
-                // Subtitle
+                SizedBox(height: layout.isTablet ? 8 : 6),
                 Text(
                   isTierUp
                       ? 'تهانينا! لقد بلغت رتبة ${widget.newTier.titleAr}'
                       : 'أداء رائع ومميز في الجولة!',
                   style: GoogleFonts.cairo(
-                    fontSize: 13,
+                    fontSize: layout.isTablet ? 14 : 13,
                     color: AppTheme.steelBlue,
+                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
-
-                const SizedBox(height: 20),
-
-                // Level Change Badge
+                SizedBox(height: layout.isTablet ? 22 : 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: layout.isTablet ? 22 : 20,
+                    vertical: layout.isTablet ? 14 : 12,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: AppTheme.deepNavy.withValues(alpha: 0.46),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white12),
+                    border: Border.all(
+                      color: AppTheme.steelBlue.withValues(alpha: 0.16),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -179,18 +163,22 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                       Text(
                         'مستوى ${widget.oldLevel}',
                         style: GoogleFonts.cairo(
-                          fontSize: 16,
+                          fontSize: layout.isTablet ? 17 : 16,
                           color: Colors.white60,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      const AppIcon(AppIcons.arrowForward, color: AppTheme.gold, size: 20),
-                      const SizedBox(width: 14),
+                      SizedBox(width: layout.isTablet ? 16 : 14),
+                      const AppIcon(
+                        AppIcons.arrowForward,
+                        color: AppTheme.gold,
+                        size: 20,
+                      ),
+                      SizedBox(width: layout.isTablet ? 16 : 14),
                       Text(
                         'مستوى ${widget.newLevel}',
                         style: GoogleFonts.cairo(
-                          fontSize: 20,
+                          fontSize: layout.isTablet ? 22 : 20,
                           color: AppTheme.gold,
                           fontWeight: FontWeight.w900,
                         ),
@@ -198,36 +186,32 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Rank Tier Badge Widget
+                SizedBox(height: layout.isTablet ? 18 : 16),
                 RankTierBadge(
                   tier: widget.newTier,
                   level: widget.newLevel,
                   showLabel: true,
                 ),
-
-                const SizedBox(height: 24),
-
-                // Continue Button
+                SizedBox(height: layout.isTablet ? 26 : 24),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: widget.newTier.primaryColor,
                       foregroundColor: AppTheme.navyDark,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      padding: EdgeInsets.symmetric(
+                        vertical: layout.isTablet ? 15 : 13,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      elevation: 4,
+                      elevation: 0,
                     ),
                     child: Text(
                       'استمرار اللعب',
                       style: GoogleFonts.cairo(
-                        fontSize: 15,
+                        fontSize: layout.isTablet ? 16 : 15,
                         fontWeight: FontWeight.w900,
                       ),
                     ),

@@ -17,6 +17,7 @@ import {
   playerBySeat,
   removeCard,
 } from "./types.ts";
+import { resolveActingPlayerId } from "./cards.ts";
 
 const K_BOUla_TOTAL_ROUNDS = 18;
 const K_MIN_BID_TRICKS = 4;
@@ -537,6 +538,8 @@ function ensureBotPlayers(state: GameState): void {
 
 function normalizeState(raw: GameState): GameState {
   const s = cloneState(raw);
+  s.players = s.players ?? [];
+  s.phase = (s.phase ?? "waiting") as GameState["phase"];
   s.dashCallPassed = s.dashCallPassed ?? [];
   s.voidCheckPassed = s.voidCheckPassed ?? [];
   s.voidRedealRejections = s.voidRedealRejections ?? [];
@@ -544,8 +547,12 @@ function normalizeState(raw: GameState): GameState {
   s.lastRoundScoreDeltas = s.lastRoundScoreDeltas ?? {};
   s.roundHistory = s.roundHistory ?? [];
   s.cardTheme = s.cardTheme ?? "theme_1";
+  s.botPlayerIds = s.botPlayerIds ?? [];
   s.totalRounds = s.totalRounds ?? K_BOUla_TOTAL_ROUNDS;
-  for (const p of s.players) {
+  s.players.forEach((p, index) => {
+    if (typeof p.seatIndex !== "number" || Number.isNaN(p.seatIndex)) {
+      p.seatIndex = index;
+    }
     p.hand = p.hand ?? [];
     p.takenTricks = p.takenTricks ?? [];
     p.actual = p.actual ?? 0;
@@ -553,7 +560,7 @@ function normalizeState(raw: GameState): GameState {
     p.isDashCall = p.isDashCall ?? false;
     p.isRisk = p.isRisk ?? false;
     p.totalScore = p.totalScore ?? 0;
-  }
+  });
   return s;
 }
 
@@ -562,6 +569,7 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
   const { ctx, actorUid, action, payload } = input;
   const state = normalizeState(ctx.state);
   const isHost = ctx.hostId === actorUid;
+  const actingId = resolveActingPlayerId(actorUid, payload, state, isHost);
 
   switch (action) {
     case "requestStateSync":
@@ -582,14 +590,18 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       };
 
     case "startGame":
-      if (!isHost || state.phase !== "lobby") return errResult("INVALID_START");
+      if (!isHost || (state.phase !== "lobby" && state.phase !== "waiting")) {
+        return errResult("INVALID_START");
+      }
       ensureBotPlayers(state);
       state.phase = "dealing";
       doDeal(state);
       return okResult(state);
 
     case "changeTheme":
-      if (!isHost || state.phase !== "lobby") return errResult("INVALID_THEME");
+      if (!isHost || (state.phase !== "lobby" && state.phase !== "waiting")) {
+        return errResult("INVALID_THEME");
+      }
       state.cardTheme = String(payload.theme ?? state.cardTheme);
       return okResult(state);
 
@@ -604,8 +616,8 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (state.phase !== "voidCheck" || !state.voidDeclaringPlayerId) {
         return errResult("WRONG_PHASE");
       }
-      if (!state.voidRedealRejections.includes(actorUid)) {
-        state.voidRedealRejections.push(actorUid);
+      if (!state.voidRedealRejections.includes(actingId)) {
+        state.voidRedealRejections.push(actingId);
       }
       if (state.voidRedealRejections.length >= state.players.length) {
         proceedAfterVoidCheck(state);
@@ -614,31 +626,31 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
 
     case "confirmNoVoid":
       if (state.phase !== "voidCheck") return errResult("WRONG_PHASE");
-      passVoidCheck(state, actorUid);
+      passVoidCheck(state, actingId);
       return okResult(state);
 
     case "unready":
       if (state.phase !== "voidCheck") return errResult("WRONG_PHASE");
-      state.voidCheckPassed = state.voidCheckPassed.filter((id) => id !== actorUid);
+      state.voidCheckPassed = state.voidCheckPassed.filter((id) => id !== actingId);
       return okResult(state);
 
     case "submitDashCall":
       if (state.phase !== "dashCall") return errResult("WRONG_PHASE");
-      submitDashCall(state, actorUid, Boolean(payload.wantsDashCall));
+      submitDashCall(state, actingId, Boolean(payload.wantsDashCall));
       return okResult(state);
 
     case "submitBid": {
       if (state.phase !== "auction") return errResult("WRONG_PHASE");
       const bid = payload.bid as Bid;
       if (!bid?.trickCount || !bid?.trump) return errResult("INVALID_BID");
-      if (!submitBid(state, actorUid, bid)) return errResult("BID_REJECTED");
+      if (!submitBid(state, actingId, bid)) return errResult("BID_REJECTED");
       if (state.phase === "dealing") doDeal(state);
       return okResult(state);
     }
 
     case "passBid":
       if (state.phase !== "auction") return errResult("WRONG_PHASE");
-      passBid(state, actorUid);
+      passBid(state, actingId);
       if (state.phase === "dealing") doDeal(state);
       return okResult(state);
 
@@ -648,7 +660,7 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (!Number.isInteger(declared) || declared < 0 || declared > 13) {
         return errResult("INVALID_DECLARATION");
       }
-      if (!submitDeclaration(state, actorUid, declared)) {
+      if (!submitDeclaration(state, actingId, declared)) {
         return errResult("DECLARATION_REJECTED");
       }
       return okResult(state);
@@ -661,7 +673,7 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       }
       const card = payload.card as Card;
       if (!card?.suit || !card?.rank) return errResult("INVALID_CARD");
-      if (!playCard(state, actorUid, card)) return errResult("CARD_REJECTED");
+      if (!playCard(state, actingId, card)) return errResult("CARD_REJECTED");
       if (state.phase === "scoring") computeAndApplyScores(state);
       return okResult(state);
     }

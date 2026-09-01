@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../core/utils/stale_game_route.dart';
 import '../core/models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/widgets/player_avatar.dart';
 import '../core/widgets/app_buttons.dart';
+import '../services/profile_service.dart';
 import '../widgets/performance_blur.dart';
 import '../modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import '../modes/basra/presentation/providers/basra_game_provider.dart';
@@ -54,6 +56,20 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final isNinetyNineMode = provider.isNinetyNine;
     final isBasraMode = provider.isBasra;
     final isAlternateMode = isNinetyNineMode || isBasraMode;
+
+    if (StaleGameRoute.isStaleLobby(
+      provider,
+      isAlternateMode: isAlternateMode,
+    )) {
+      StaleGameRoute.redirectToModeHome(context);
+      return const Scaffold(
+        backgroundColor: AppTheme.deepNavy,
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.gold),
+        ),
+      );
+    }
+
     final nnProvider = context.watch<NinetyNineGameProvider>();
     final basraProvider = context.watch<BasraGameProvider>();
     
@@ -344,14 +360,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppTheme.navyDark,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
-        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         child: Container(
           width: 400,
           padding: const EdgeInsets.all(24),
+          decoration: AppTheme.dialogDecoration(accent: AppTheme.errorRed),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -621,6 +635,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
         } catch (_) {}
       }
     }
+    final avatarRef = occupied
+        ? ProfileService.lobbyAvatarRef(photoData, player.id as String)
+        : ProfileService.presetAvatars.first.id;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -629,9 +646,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            if (occupied && photoData != null)
+            if (occupied)
               PlayerAvatar(
-                photoData: photoData,
+                photoData: avatarRef,
                 size: 72,
                 borderColor: seatColor,
                 borderWidth: 3,
@@ -845,6 +862,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               final name = themeId.replaceAll('theme_', 'التصميم ');
               
               return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   provider.changeTheme(themeId);
                 },

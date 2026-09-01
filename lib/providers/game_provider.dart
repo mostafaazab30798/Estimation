@@ -39,6 +39,9 @@ import '../features/matchmaking/domain/models/bot_fill_vote_result.dart';
 import '../features/matchmaking/domain/models/matchmaking_status.dart';
 import '../services/session_storage_service.dart';
 import '../services/profile_service.dart';
+import '../services/game_action_service.dart';
+import '../services/auth_service.dart';
+import '../core/utils/google_online_auth.dart';
 
 import '../networking/local/local_game_server.dart';
 import '../networking/local/local_game_client.dart';
@@ -124,8 +127,14 @@ class GameProvider extends ChangeNotifier {
   // Supabase Lobby State
   GameRoom? _currentRoom;
   List<RoomPlayer> _roomPlayers = [];
+  int _actionSeq = 0;
+  String? _myAvatarRef;
+  final Map<String, String> _lobbyAvatarRefs = {};
   StreamSubscription? _roomSub;
   StreamSubscription? _playersSub;
+
+  /// Lobby-only actions stay on the local host path — no Edge Function needed.
+  static const _lobbyLocalHostActions = {ActionType.changeTheme};
 
   MatchmakingStatus _matchmakingStatus = MatchmakingStatus.idle;
   Timer? _matchmakingBotOfferTimer;
@@ -137,7 +146,37 @@ class GameProvider extends ChangeNotifier {
 
   Timer? _autoPlayCardTimer;
 
+  Future<String> _loadMyAvatarRef() async {
+    final raw = await ProfileService.getProfilePhoto();
+    _myAvatarRef = ProfileService.publicAvatarRef(raw);
+    return raw;
+  }
+
+  void _rememberLobbyAvatars(GameState state) {
+    if (state.phase != GamePhase.lobby) return;
+    for (final player in state.players) {
+      final photo = player.photo;
+      if (photo != null && photo.isNotEmpty) {
+        _lobbyAvatarRefs[player.id] = ProfileService.publicAvatarRef(photo);
+      }
+    }
+  }
+
+  void _patchLobbyAvatars(GameState state) {
+    if (state.phase != GamePhase.lobby) return;
+    _rememberLobbyAvatars(state);
+    for (var i = 0; i < state.players.length; i++) {
+      final player = state.players[i];
+      if (player.photo != null && player.photo!.isNotEmpty) continue;
+      final cached = _lobbyAvatarRefs[player.id] ??
+          (player.id == myPlayerId ? _myAvatarRef : null) ??
+          ProfileService.presetForPlayerId(player.id);
+      state.players[i] = player.copyWith(photo: cached);
+    }
+  }
+
   void _updateState(GameState newState) {
+    _patchLobbyAvatars(newState);
     final oldState = _state;
     _state = newState;
     EstimationEventDispatcher.instance
@@ -146,9 +185,40 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Host GameServer callback — under server authority in-game state comes from
+  /// the Edge Function; lobby join/leave still uses local host state.
+  void _onEstimationHostState(GameState state) {
+    if (_usesServerAuthority() && state.phase != GamePhase.lobby) {
+      unawaited(_applyOnlineEstimationState(state));
+      return;
+    }
+    _updateState(state);
+  }
+
+  void _onNnHostState(NinetyNineGameState state) {
+    if (_usesServerAuthority() && state.phase != NinetyNinePhase.waiting) {
+      unawaited(_applyOnlineNinetyNineState(state));
+      return;
+    }
+    nnProvider?.syncState(state);
+  }
+
+  void _onBasraHostState(BasraGameState state) {
+    if (_usesServerAuthority() && state.phase != BasraPhase.waiting) {
+      unawaited(_applyOnlineBasraState(state));
+      return;
+    }
+    _basraProvider?.syncState(state);
+  }
+
   /// Online clients receive sanitized broadcasts; merge own hand via owner-only RPC.
+  /// Under server authority the host uses the same path as clients.
   Future<void> _applyOnlineEstimationState(GameState incoming) async {
-    if (isHost || _transport == ConnectionTransport.local) {
+    if (_transport == ConnectionTransport.local) {
+      _updateState(incoming);
+      return;
+    }
+    if (isHost && !_usesServerAuthority()) {
       _updateState(incoming);
       return;
     }
@@ -170,7 +240,11 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> _applyOnlineNinetyNineState(NinetyNineGameState incoming) async {
-    if (isHost || _transport == ConnectionTransport.local) {
+    if (_transport == ConnectionTransport.local) {
+      nnProvider?.syncState(incoming);
+      return;
+    }
+    if (isHost && !_usesServerAuthority()) {
       nnProvider?.syncState(incoming);
       return;
     }
@@ -194,7 +268,11 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> _applyOnlineBasraState(BasraGameState incoming) async {
-    if (isHost || _transport == ConnectionTransport.local) {
+    if (_transport == ConnectionTransport.local) {
+      _basraProvider?.syncState(incoming);
+      return;
+    }
+    if (isHost && !_usesServerAuthority()) {
       _basraProvider?.syncState(incoming);
       return;
     }
@@ -264,6 +342,8 @@ class GameProvider extends ChangeNotifier {
   String get myPlayerId => _myPlayerId ?? '';
   String get myName => _myName;
   bool get isHost => _role == ConnectionRole.host;
+
+  bool get usesServerAuthorityOnline => _usesServerAuthority();
   bool get isSearching => _isSearching;
   bool get isTestMode => _isTestMode;
   bool get isTemporarilyAway => _isTemporarilyAway;
@@ -293,8 +373,17 @@ class GameProvider extends ChangeNotifier {
       final room = await _lobbyRepo.getRoom(session.roomId);
       final active = room.status == GameRoomStatus.waiting ||
           room.status == GameRoomStatus.playing;
-      if (!active) await _sessionService.clearSession();
-      return active;
+      if (!active) {
+        await _sessionService.clearSession();
+        return false;
+      }
+      final stillMember =
+          await _lobbyRepo.isPlayerInRoom(session.roomId, session.playerId);
+      if (!stillMember) {
+        await _sessionService.clearSession();
+        return false;
+      }
+      return true;
     } catch (error) {
       debugPrint('[Reconnection] Could not verify active session: $error');
       return true;
@@ -323,6 +412,118 @@ class GameProvider extends ChangeNotifier {
       _basraClient != null ||
       _localBasraServer != null ||
       _localBasraClient != null;
+
+  bool _usesServerAuthority() {
+    if (!GameActionService.useServerAuthority) return false;
+    if (_isTestMode) return false;
+    if (_transport == ConnectionTransport.local) return false;
+    final type = _currentRoom?.gameType;
+    if (type == null) return !isNinetyNine && !isBasra;
+    return type == 'kotchina' ||
+        type == 'estimation' ||
+        type == 'ninety_nine' ||
+        type == 'basra';
+  }
+
+  Future<void> _applyServerPublicState(Map<String, dynamic> publicState) async {
+    if (isNinetyNine) {
+      await _applyOnlineNinetyNineState(
+          NinetyNineGameState.fromJson(publicState));
+    } else if (isBasra) {
+      await _applyOnlineBasraState(BasraGameState.fromJson(publicState));
+    } else {
+      await _applyOnlineEstimationState(GameState.fromJson(publicState));
+    }
+  }
+
+  void _syncFromRoomIfNewer(GameRoom room) {
+    if (!_usesServerAuthority()) return;
+    if (room.actionSeq <= _actionSeq) return;
+    final snapshot = room.gameState;
+    if (snapshot == null || snapshot['players'] == null) return;
+    _actionSeq = room.actionSeq;
+    try {
+      unawaited(_applyServerPublicState(snapshot));
+    } catch (e) {
+      debugPrint('[GameProvider] Room snapshot parse failed: $e');
+    }
+  }
+
+  Future<void> _refreshFromRoomSnapshot() async {
+    final roomId = _currentRoom?.id;
+    if (roomId == null) return;
+    try {
+      final room = await _lobbyRepo.getRoom(roomId);
+      _syncFromRoomIfNewer(room);
+    } catch (e) {
+      debugPrint('[GameProvider] refreshFromRoomSnapshot failed: $e');
+    }
+  }
+
+  Future<void> _sendServerAction(
+    String action,
+    Map<String, dynamic> extra,
+  ) async {
+    final roomId = _currentRoom?.id;
+    if (roomId == null) {
+      debugPrint(
+          '[GameProvider] Server action "$action" skipped: no current room');
+      return;
+    }
+
+    final payload = Map<String, dynamic>.from(extra)..remove('playerId');
+
+    final result = await GameActionService.submit(
+      roomId: roomId,
+      action: action,
+      payload: payload,
+      expectedSeq: _actionSeq,
+    );
+
+    if (!result.ok) {
+      debugPrint(
+          '[GameProvider] Server action "$action" failed: ${result.error}');
+      if (result.error == 'SEQ_MISMATCH') {
+        await _refreshFromRoomSnapshot();
+      }
+      return;
+    }
+
+    if (result.seq != null) _actionSeq = result.seq!;
+
+    if (result.ephemeral) {
+      final ephemeral = result.data['ephemeral'];
+      if (ephemeral is Map) {
+        final map = Map<String, dynamic>.from(ephemeral);
+        if (map['type'] == ActionType.sendReaction) {
+          handleIncomingReaction(map);
+        } else if (map['type'] == ActionType.triggerEarthquake) {
+          handleIncomingEarthquake(map);
+        }
+      }
+      return;
+    }
+
+    final publicState = result.publicState;
+    if (publicState != null) {
+      await _applyServerPublicState(publicState);
+    }
+  }
+
+  void _configureServerAuthority(GameServer server) {
+    server.serverAuthorityMode =
+        GameActionService.useServerAuthority && !_isTestMode;
+  }
+
+  void _configureNnServerAuthority(NinetyNineGameServer server) {
+    server.serverAuthorityMode =
+        GameActionService.useServerAuthority && !_isTestMode;
+  }
+
+  void _configureBasraServerAuthority(BasraGameServer server) {
+    server.serverAuthorityMode =
+        GameActionService.useServerAuthority && !_isTestMode;
+  }
 
   /// The room code to share with other players (host only).
   String? get gameCode => _currentRoom?.roomCode;
@@ -416,12 +617,20 @@ class GameProvider extends ChangeNotifier {
         final previousHost = _currentRoom?.hostId;
         _currentRoom = room;
         _expectedPlayers = room.maxPlayers;
+        _syncFromRoomIfNewer(room);
+        if (isHost && _server != null && room.gameState != null) {
+          _server!.applyBotPlayerIdsFromSnapshot(room.gameState);
+        }
         // Automatically sync state if status changed to playing
         if (room.status == GameRoomStatus.playing) {
           if (_state == null && !isHost) {
             requestStateSync();
           }
         } else if (room.status == GameRoomStatus.cancelled) {
+          if (_isTemporarilyAway) {
+            unawaited(_sessionService.clearSession());
+            _isTemporarilyAway = false;
+          }
           if (room.isMatchmaking) {
             _matchmakingStatus = MatchmakingStatus.error;
             _setError('انتهت جلسة البحث. سنعيدك للصفحة الرئيسية.');
@@ -450,10 +659,20 @@ class GameProvider extends ChangeNotifier {
     _playersSub?.cancel();
     _playersSub = _lobbyRepo.watchRoomPlayers(roomId).listen(
       (players) {
+        final previousIds = _roomPlayers.map((p) => p.playerId).toSet();
         final membershipChanged =
             !RoomPlayer.sameMembership(_roomPlayers, players);
         _roomPlayers = players;
         final room = _currentRoom;
+        if (membershipChanged &&
+            _isGameInProgress &&
+            isHost &&
+            _server != null) {
+          final newIds = players.map((p) => p.playerId).toSet();
+          for (final id in previousIds.difference(newIds)) {
+            _server!.markPlayerPermanentlyAbsent(id);
+          }
+        }
         if (membershipChanged &&
             !_isTemporarilyAway &&
             room != null &&
@@ -577,6 +796,10 @@ class GameProvider extends ChangeNotifier {
     String gameType = 'kotchina',
     required int totalRounds,
   }) async {
+    if (!AuthService.instance.isAuthenticated) {
+      _setError(kGoogleOnlineRequiredMessage);
+      return;
+    }
     if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myName = name.trim();
@@ -633,10 +856,11 @@ class GameProvider extends ChangeNotifier {
   Future<void> _initializeMatchmakingHost(GameRoom room) async {
     final photo = await ProfileService.getProfilePhoto();
     _server = GameServer(
-      onStateUpdate: _updateState,
+      onStateUpdate: _onEstimationHostState,
       onReaction: handleIncomingReaction,
       onEarthquake: handleIncomingEarthquake,
     );
+    _configureServerAuthority(_server!);
     await _server!.start(_myName, myPlayerId, room.id, photo,
         maxPlayers: 4, totalRounds: room.totalRounds ?? kBoulaTotalRounds);
   }
@@ -955,6 +1179,10 @@ class GameProvider extends ChangeNotifier {
     String gameType = 'kotchina',
     int totalRounds = kBoulaTotalRounds,
   }) async {
+    if (!AuthService.instance.isAuthenticated) {
+      _setError(kGoogleOnlineRequiredMessage);
+      return;
+    }
     if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
@@ -1022,33 +1250,30 @@ class GameProvider extends ChangeNotifier {
 
       if (gameType == 'ninety_nine') {
         _nnServer = NinetyNineGameServer(
-          onStateUpdate: (state) {
-            nnProvider?.syncState(state);
-          },
+          onStateUpdate: (state) => _onNnHostState(state),
           onReaction: handleIncomingReaction,
         );
+        _configureNnServerAuthority(_nnServer!);
         final myPhoto = await ProfileService.getProfilePhoto();
         await _nnServer!.start(name, myPlayerId, createdRoom.id, myPhoto,
             maxPlayers: expectedPlayers);
       } else if (gameType == 'basra') {
         _basraServer = BasraGameServer(
-          onStateUpdate: (state) {
-            _basraProvider?.syncState(state);
-          },
+          onStateUpdate: (state) => _onBasraHostState(state),
           onReaction: handleIncomingReaction,
         );
+        _configureBasraServerAuthority(_basraServer!);
         final myPhoto = await ProfileService.getProfilePhoto();
         await _basraServer!.start(name, myPlayerId, createdRoom.id, myPhoto,
             maxPlayers: expectedPlayers);
       } else {
         _server = GameServer(
-          onStateUpdate: (state) {
-            _updateState(state);
-          },
+          onStateUpdate: _onEstimationHostState,
           onReaction: handleIncomingReaction,
           onEarthquake: handleIncomingEarthquake,
         );
-        final myPhoto = await ProfileService.getProfilePhoto();
+        _configureServerAuthority(_server!);
+        final myPhoto = await _loadMyAvatarRef();
         await _server!.start(
           name,
           myPlayerId,
@@ -1060,6 +1285,7 @@ class GameProvider extends ChangeNotifier {
       }
 
       _currentRoom = createdRoom;
+      _actionSeq = createdRoom.actionSeq;
       _listenToRoom(createdRoom.id);
       await _sessionService.saveActiveRoomSession(
         roomId: createdRoom.id,
@@ -1108,6 +1334,7 @@ class GameProvider extends ChangeNotifier {
         onReaction: handleIncomingReaction,
         onEarthquake: handleIncomingEarthquake,
       );
+      _configureServerAuthority(_server!);
       final dummyRoomId = 'test_${_uuid.v4()}';
       final myPhoto = await ProfileService.getProfilePhoto();
       await _server!.start(name, myPlayerId, dummyRoomId, myPhoto,
@@ -1196,6 +1423,10 @@ class GameProvider extends ChangeNotifier {
 
   Future<void> joinGameWithCode(String name, String code,
       {String? expectedGameType}) async {
+    if (!AuthService.instance.isAuthenticated) {
+      _setError(kGoogleOnlineRequiredMessage);
+      return;
+    }
     if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
     _myPlayerId = Supabase.instance.client.auth.currentUser?.id ?? _uuid.v4();
@@ -1230,11 +1461,12 @@ class GameProvider extends ChangeNotifier {
       }
 
       _currentRoom = room;
+      _actionSeq = room.actionSeq;
       debugPrint('Successfully joined room: ${room.id}');
 
       // 2. Connect to the mode-specific broadcast channel
       _isSearching = false;
-      final myPhoto = await ProfileService.getProfilePhoto();
+      final myPhoto = await _loadMyAvatarRef();
       final type = expectedGameType ?? room.gameType;
 
       if (type == 'ninety_nine') {
@@ -1323,6 +1555,15 @@ class GameProvider extends ChangeNotifier {
           _localBasraClient!.sendAction(action, extra.isEmpty ? null : extra);
         }
       }
+      return;
+    }
+
+    if (_usesServerAuthority() && !_lobbyLocalHostActions.contains(action)) {
+      if (action == ActionType.requestStateSync) {
+        unawaited(_refreshFromRoomSnapshot());
+        return;
+      }
+      unawaited(_sendServerAction(action, extra));
       return;
     }
 
@@ -1448,9 +1689,15 @@ class GameProvider extends ChangeNotifier {
   void confirmNoVoid() => _sendAction(ActionType.confirmNoVoid);
 
   void changeTheme(String theme) {
-    if (isHost) {
-      _sendAction(ActionType.changeTheme, {'theme': theme});
+    if (!isHost) return;
+
+    // Immediate UI feedback for Estimation lobby while host applies locally.
+    if (!isNinetyNine && !isBasra && _state?.phase == GamePhase.lobby) {
+      _state!.cardTheme = theme;
+      notifyListeners();
     }
+
+    _sendAction(ActionType.changeTheme, {'theme': theme});
   }
 
   void unready() => _sendAction(ActionType.unready);
@@ -1610,8 +1857,8 @@ class GameProvider extends ChangeNotifier {
       return 'الغرفة لم تعد متاحة (منتهية أو ملغاة).';
     } else if (raw.contains('ROOM_NOT_WAITING') || raw.contains('ROOM_FULL')) {
       return 'الغرفة ممتلئة أو لم تعد في وضع الانتظار.';
-    } else if (raw.contains('NOT_AUTHENTICATED')) {
-      return 'يجب تسجيل الدخول أولاً.';
+    } else if (isGoogleOnlineAuthError(raw)) {
+      return kGoogleOnlineRequiredMessage;
     } else if (raw.contains('ONGOING_GAME_REQUIRES_RETURN')) {
       return 'لديك مباراة ما زالت جارية. عد إليها قبل الانضمام إلى غرفة أخرى.';
     } else if (raw.contains('SocketException') ||
@@ -1717,6 +1964,9 @@ class GameProvider extends ChangeNotifier {
     _state = null;
     _currentRoom = null;
     _roomPlayers = [];
+    _actionSeq = 0;
+    _myAvatarRef = null;
+    _lobbyAvatarRefs.clear();
     _role = ConnectionRole.none;
     _status = ConnectionStatus.idle;
     _transport = ConnectionTransport.online;
@@ -1938,10 +2188,9 @@ class GameProvider extends ChangeNotifier {
 
       // 3. Start GameServer with the restored state.
       _server = GameServer(
-        onStateUpdate: (state) {
-          _updateState(state);
-        },
+        onStateUpdate: _onEstimationHostState,
       );
+      _configureServerAuthority(_server!);
       await _server!.restoreFromState(
         state: restoredState,
         hostPlayerId: session.playerId,

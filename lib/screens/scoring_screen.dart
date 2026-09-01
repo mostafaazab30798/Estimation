@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
 import '../core/models/comeback_event.dart';
+import '../core/utils/game_layout_metrics.dart';
+import '../core/widgets/leave_game_dialog.dart';
 import '../core/widgets/player_avatar.dart';
+import '../core/widgets/round_advance_timer.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/score_table.dart';
@@ -31,13 +34,22 @@ class ScoringScreen extends StatefulWidget {
 }
 
 class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProviderStateMixin {
+  static const _autoAdvanceDelay = Duration(seconds: 5);
+
   late final AnimationController _entrance;
   late final Animation<double> _headerFade;
   late final Animation<Offset> _headerSlide;
   late final Animation<double> _tableFade;
   late final Animation<double> _tableScale;
+  late final RoundAdvanceTimer _advanceTimer;
   bool _showPerfectEstimate = false;
   ComebackEvent? _activeComeback;
+  int _secondsRemaining = _autoAdvanceDelay.inSeconds;
+  double _advanceProgress = 0;
+  bool _advanceTriggered = false;
+
+  bool get _celebrationActive =>
+      _activeComeback != null || _showPerfectEstimate;
 
   @override
   void initState() {
@@ -62,7 +74,22 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
       CurvedAnimation(parent: _entrance, curve: const Interval(0.25, 1.0, curve: Curves.easeOutCubic)),
     );
 
-    _entrance.forward();
+    _advanceTimer = RoundAdvanceTimer(
+      duration: _autoAdvanceDelay,
+      onTick: (seconds) {
+        if (!mounted) return;
+        setState(() {
+          _secondsRemaining = seconds;
+          _advanceProgress = _advanceTimer.progress;
+        });
+      },
+      onComplete: _handleAutoAdvance,
+    );
+
+    _entrance.forward().whenComplete(() {
+      if (!mounted || _celebrationActive) return;
+      _advanceTimer.start();
+    });
 
     final me = widget.provider.me;
     if (me != null) {
@@ -85,8 +112,35 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
     }
   }
 
+  void _resumeAdvanceTimer() {
+    if (_advanceTriggered || _celebrationActive) return;
+    _advanceTimer.start();
+  }
+
+  void _handleAutoAdvance() {
+    if (!mounted || _advanceTriggered) return;
+    _advanceTriggered = true;
+    if (widget.provider.isHost) {
+      widget.provider.nextRound();
+    }
+  }
+
+  void _handleManualAdvance() {
+    if (_advanceTriggered) return;
+    _advanceTriggered = true;
+    _advanceTimer.cancel();
+    widget.provider.nextRound();
+  }
+
+  void _onCelebrationDismissed(VoidCallback dismiss) {
+    if (!mounted) return;
+    setState(dismiss);
+    _resumeAdvanceTimer();
+  }
+
   @override
   void dispose() {
+    _advanceTimer.cancel();
     _entrance.dispose();
     super.dispose();
   }
@@ -95,63 +149,89 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     final state = widget.state;
     final provider = widget.provider;
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final layout = GameLayoutMetrics.of(context);
+    final isLargeScreen = layout.isTablet;
+    final titleSize = layout.isLargeTablet ? 42.0 : (layout.isTablet ? 38.0 : 34.0);
+    final contentPadding = layout.isLargeTablet
+        ? const EdgeInsets.all(32)
+        : (layout.isTablet ? const EdgeInsets.all(26) : const EdgeInsets.all(20));
+    final cardMaxWidth = layout.isLargeTablet
+        ? 980.0
+        : (layout.isTablet ? 760.0 : double.infinity);
 
     final headerSection = SlideTransition(
       position: _headerSlide,
       child: FadeTransition(
         opacity: _headerFade,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: isLargeScreen ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
+              mainAxisAlignment:
+                  isLargeScreen && layout.isPortrait ? MainAxisAlignment.center : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(9),
+                  padding: EdgeInsets.all(layout.isLargeTablet ? 11 : 9),
                   decoration: BoxDecoration(
                     color: AppTheme.gold.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(color: AppTheme.gold.withValues(alpha: 0.4)),
                   ),
-                  child: const AppIcon(AppIcons.flagCircle, color: AppTheme.gold, size: 20),
+                  child: AppIcon(
+                    AppIcons.flagCircle,
+                    color: AppTheme.gold,
+                    size: layout.isLargeTablet ? 24 : 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'الجولة ${state.roundNumber}',
                   style: GoogleFonts.cairo(
                     color: AppTheme.accentLight.withValues(alpha: 0.9),
-                    fontSize: 14,
+                    fontSize: layout.isLargeTablet ? 16 : 14,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.4,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [AppTheme.gold, AppTheme.cardWhite, AppTheme.goldLight],
-              ).createShader(bounds),
-              child: Text(
-                'نهاية الجولة',
-                style: GoogleFonts.cairo(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.1,
+            SizedBox(height: layout.isLargeTablet ? 10 : 6),
+            Align(
+              alignment: isLargeScreen && layout.isPortrait
+                  ? Alignment.center
+                  : AlignmentDirectional.centerStart,
+              child: ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [AppTheme.gold, AppTheme.cardWhite, AppTheme.goldLight],
+                ).createShader(bounds),
+                child: Text(
+                  'نهاية الجولة',
+                  textAlign: isLargeScreen && layout.isPortrait ? TextAlign.center : TextAlign.start,
+                  style: GoogleFonts.cairo(
+                    fontSize: titleSize,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            if (state.bidder != null) _buildBidderChip(state),
+            SizedBox(height: layout.isLargeTablet ? 20 : 16),
+            if (state.bidder != null)
+              Align(
+                alignment: isLargeScreen && layout.isPortrait
+                    ? Alignment.center
+                    : AlignmentDirectional.centerStart,
+                child: _buildBidderChip(state, layout),
+              ),
           ],
         ),
       ),
     );
 
-    final scoreTableWidget = ScaleTransition(
+    Widget buildScoreTable({required bool compact}) => ScaleTransition(
       scale: _tableScale,
       child: FadeTransition(
         opacity: _tableFade,
@@ -159,6 +239,8 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
           players: [...state.players]..sort((a, b) => b.totalScore.compareTo(a.totalScore)),
           lastRoundDeltas: state.lastRoundScoreDeltas,
           bidderPlayerId: state.bidderPlayerId,
+          largeScreen: isLargeScreen,
+          compact: compact,
         ),
       ),
     );
@@ -169,10 +251,116 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
           ? _PrimaryActionButton(
               label: state.isMatchOver ? 'إنهاء اللعبة' : 'الجولة التالية',
               isFinal: state.isMatchOver,
-              onPressed: () => provider.nextRound(),
+              secondsRemaining: _secondsRemaining,
+              progress: _advanceProgress,
+              onPressed: _handleManualAdvance,
             )
-          : const _WaitingForHostChip(),
+          : _WaitingForHostChip(
+              secondsRemaining: _secondsRemaining,
+              progress: _advanceProgress,
+            ),
     );
+
+    Widget buildBody(BoxConstraints constraints) {
+      final availableHeight = constraints.maxHeight;
+      final compact = availableHeight < (isLargeScreen ? 680 : 560);
+      final sectionGap = compact
+          ? 12.0
+          : (layout.isLargeTablet ? 24.0 : (layout.isTablet ? 20.0 : 16.0));
+      final actionGap = compact
+          ? 10.0
+          : (layout.isLargeTablet ? 28.0 : (layout.isTablet ? 24.0 : 12.0));
+      final table = buildScoreTable(compact: compact);
+
+      Widget scaledTable({required double width, bool expand = true}) {
+        final child = Align(
+          alignment: Alignment.center,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: width,
+              child: table,
+            ),
+          ),
+        );
+        return expand ? Expanded(child: child) : child;
+      }
+
+      // Tablets use a single stacked column in both orientations.
+      if (layout.isPortrait || isLargeScreen) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            headerSection,
+            SizedBox(height: sectionGap),
+            scaledTable(width: constraints.maxWidth),
+            SizedBox(height: actionGap),
+            if (isLargeScreen)
+              Align(
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: layout.isLargeTablet ? 440 : 400,
+                  ),
+                  child: actionSection,
+                ),
+              )
+            else
+              actionSection,
+          ],
+        );
+      }
+
+      // Phone landscape: side-by-side, no scrolling.
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SizedBox(
+                      width: constraints.maxWidth * 0.34,
+                      child: headerSection,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(height: 16),
+                  actionSection,
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 1.5,
+            margin: const EdgeInsets.symmetric(vertical: 20),
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            flex: 6,
+            child: Align(
+              alignment: Alignment.center,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: constraints.maxWidth * 0.56,
+                  child: table,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return PopScope(
       canPop: false,
@@ -220,61 +408,44 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
             ),
             // Content
             SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: isPortrait
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  headerSection,
-                                  const SizedBox(height: 18),
-                                  scoreTableWidget,
-                                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final body = buildBody(constraints);
+                  return Padding(
+                    padding: contentPadding,
+                    child: isLargeScreen
+                        ? Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: cardMaxWidth,
+                                maxHeight: constraints.maxHeight,
+                              ),
+                              child: PerformanceBlur(
+                                sigmaX: 18,
+                                sigmaY: 18,
+                                borderRadius: BorderRadius.circular(32),
+                                fallbackColor: AppTheme.surface2.withValues(alpha: 0.94),
+                                blurColor: AppTheme.deepNavy.withValues(alpha: 0.28),
+                                child: Container(
+                                  decoration: AppTheme.glassDecoration(
+                                    borderRadius: 32,
+                                    borderColor: AppTheme.gold.withValues(alpha: 0.24),
+                                  ),
+                                  padding: EdgeInsets.all(
+                                    layout.isLargeTablet ? 24 : 20,
+                                  ),
+                                  child: body,
+                                ),
                               ),
                             ),
+                          )
+                        : SizedBox(
+                            height: constraints.maxHeight,
+                            width: constraints.maxWidth,
+                            child: body,
                           ),
-                          const SizedBox(height: 14),
-                          actionSection,
-                        ],
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 4,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                headerSection,
-                                const Spacer(),
-                                actionSection,
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 1.5,
-                            margin: const EdgeInsets.symmetric(vertical: 24),
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            flex: 6,
-                            child: Center(
-                              child: SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                child: scoreTableWidget,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  );
+                },
               ),
             ),
             // Comeback Celebration Overlay (highest priority celebration)
@@ -282,28 +453,23 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
               Positioned.fill(
                 child: ComebackOverlay(
                   event: _activeComeback!,
-                  onDismissed: () {
-                    if (mounted) {
-                      setState(() {
-                        _activeComeback = null;
-                      });
-                    }
-                  },
+                  onDismissed: () => _onCelebrationDismissed(() {
+                    _activeComeback = null;
+                  }),
                 ),
               )
             // Perfect Estimation Celebration Overlay (shows after comeback or on its own)
-            else if (_showPerfectEstimate && widget.provider.me != null && widget.provider.me!.declared != null)
+            else if (_showPerfectEstimate &&
+                widget.provider.me != null &&
+                widget.provider.me!.declared != null)
               Positioned.fill(
                 child: PerfectEstimateOverlay(
                   declared: widget.provider.me!.declared!,
                   won: widget.provider.me!.actual,
-                  onDismissed: () {
-                    if (mounted) {
-                      setState(() {
-                        _showPerfectEstimate = false;
-                      });
-                    }
-                  },
+                  isDashCall: widget.provider.me!.isDashCall,
+                  onDismissed: () => _onCelebrationDismissed(() {
+                    _showPerfectEstimate = false;
+                  }),
                 ),
               ),
           ],
@@ -313,145 +479,26 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
   }
 
   void _confirmExit(BuildContext context, GameProvider provider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xF02A4560), Color(0xF01D3348)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.steelBlue.withValues(alpha: 0.2),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 32,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.playerRed.withValues(alpha: 0.15),
-                  border: Border.all(
-                      color: AppTheme.playerRed.withValues(alpha: 0.3)),
-                ),
-                child: const AppIcon(AppIcons.exitToApp,
-                    color: AppTheme.playerRed, size: 28),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'مغادرة اللعبة',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.cream,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
-                style: GoogleFonts.cairo(
-                  color: AppTheme.steelBlue,
-                  fontSize: 12,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(ctx),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.steelBlue.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: AppTheme.steelBlue.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(
-                          'إلغاء',
-                          style: GoogleFonts.cairo(
-                            color: AppTheme.cream,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        provider.reset();
-                        Navigator.of(context, rootNavigator: true)
-                            .pushNamedAndRemoveUntil('/', (route) => false);
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.playerRed, Color(0xFFB03050)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.playerRed.withValues(alpha: 0.35),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          'مغادرة',
-                          style: GoogleFonts.cairo(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    LeaveGameDialog.show(
+      context,
+      onLeave: () async {
+        provider.reset();
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true)
+            .pushNamedAndRemoveUntil('/', (route) => false);
+      },
     );
   }
 
-  Widget _buildBidderChip(GameState state) {
+  Widget _buildBidderChip(GameState state, GameLayoutMetrics layout) {
     final bidder = state.bidder!;
     final bid = state.currentHighBid;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: layout.isLargeTablet ? 20 : 16,
+        vertical: layout.isLargeTablet ? 14 : 12,
+      ),
       decoration: BoxDecoration(
         color: AppTheme.navyDark.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(20),
@@ -482,7 +529,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
             children: [
               PlayerAvatar(
                 photoData: bidder.photo ?? '',
-                size: 42,
+                size: layout.isLargeTablet ? 48 : 42,
                 borderWidth: 2,
                 borderColor: AppTheme.gold,
               ),
@@ -581,11 +628,15 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
 class _PrimaryActionButton extends StatefulWidget {
   final String label;
   final bool isFinal;
+  final int secondsRemaining;
+  final double progress;
   final VoidCallback onPressed;
 
   const _PrimaryActionButton({
     required this.label,
     required this.isFinal,
+    required this.secondsRemaining,
+    required this.progress,
     required this.onPressed,
   });
 
@@ -598,60 +649,96 @@ class _PrimaryActionButtonState extends State<_PrimaryActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 17),
-          decoration: BoxDecoration(
-            color: AppTheme.gold,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.gold.withValues(alpha: _pressed ? 0.18 : 0.35),
-                blurRadius: _pressed ? 8 : 18,
-                offset: const Offset(0, 6),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) {
+            setState(() => _pressed = false);
+            widget.onPressed();
+          },
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.97 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 17),
+              decoration: BoxDecoration(
+                color: AppTheme.gold,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.gold.withValues(alpha: _pressed ? 0.18 : 0.35),
+                    blurRadius: _pressed ? 8 : 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                widget.label,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.navyDark,
-                  letterSpacing: 0.2,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.label,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.navyDark,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AppIcon(
+                    widget.isFinal ? AppIcons.emojiEvents : AppIcons.arrowForwardIos,
+                    size: 17,
+                    color: AppTheme.navyDark,
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              AppIcon(
-                widget.isFinal ? AppIcons.emojiEvents : AppIcons.arrowForwardIos,
-                size: 17,
-                color: AppTheme.navyDark,
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: widget.progress.clamp(0.0, 1.0),
+            minHeight: 4,
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              AppTheme.gold.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          widget.secondsRemaining > 0
+              ? 'تبدأ الجولة التالية تلقائياً خلال ${widget.secondsRemaining} ث'
+              : 'جاري بدء الجولة التالية...',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.cairo(
+            color: AppTheme.steelBlue,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
 
 // ── Waiting-for-host state ───────────────────────────────────────────────
 class _WaitingForHostChip extends StatefulWidget {
-  const _WaitingForHostChip();
+  final int secondsRemaining;
+  final double progress;
+
+  const _WaitingForHostChip({
+    required this.secondsRemaining,
+    required this.progress,
+  });
 
   @override
   State<_WaitingForHostChip> createState() => _WaitingForHostChipState();
@@ -677,47 +764,77 @@ class _WaitingForHostChipState extends State<_WaitingForHostChip> with SingleTic
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.navyDeep.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _dotsController,
-            builder: (context, _) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (i) {
-                  final t = ((_dotsController.value - i * 0.2) % 1.0 + 1.0) % 1.0;
-                  final opacity = 0.25 + 0.75 * (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.gold.withValues(alpha: opacity),
-                      ),
-                    ),
-                  );
-                }),
-              );
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppTheme.navyDeep.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white24),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              'في انتظار المضيف للانتقال للجولة التالية...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+          child: Row(
+            children: [
+              AnimatedBuilder(
+                animation: _dotsController,
+                builder: (context, _) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(3, (i) {
+                      final t = ((_dotsController.value - i * 0.2) % 1.0 + 1.0) % 1.0;
+                      final opacity = 0.25 + 0.75 * (1 - (t - 0.5).abs() * 2).clamp(0.0, 1.0);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.gold.withValues(alpha: opacity),
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'في انتظار المضيف للانتقال للجولة التالية...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: widget.progress.clamp(0.0, 1.0),
+            minHeight: 4,
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              AppTheme.gold.withValues(alpha: 0.65),
+            ),
+          ),
+        ),
+        if (widget.secondsRemaining > 0) ...[
+          const SizedBox(height: 6),
+          Text(
+            'يبدأ المضيف الجولة التالية خلال ${widget.secondsRemaining} ث',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(
+              color: AppTheme.steelBlue,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

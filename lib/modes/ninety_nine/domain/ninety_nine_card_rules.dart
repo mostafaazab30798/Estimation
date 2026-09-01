@@ -80,8 +80,8 @@ extension NinetyNineCardEffect on PlayingCard {
     }
   }
 
-  /// Calculates the new ground total after applying this card's effect to [currentGround].
-  int applyEffect(int currentGround) {
+  /// Unclamped ground total after this card. Used to detect illegal overflow (> 99).
+  int unclampedEffect(int currentGround) {
     switch (rank) {
       case Rank.four:
       case Rank.seven:
@@ -90,26 +90,37 @@ extension NinetyNineCardEffect on PlayingCard {
         // If groundTotal is ALREADY 99, King acts as +0 instead of re-setting to 99
         return currentGround == 99 ? currentGround : 99;
       case Rank.jack:
-        return (currentGround - 10).clamp(0, 99);
+        return currentGround - 10;
       case Rank.queen:
-        return (currentGround + 10).clamp(0, 99);
+        return currentGround + 10;
       case Rank.ace:
-        return (currentGround + 1).clamp(0, 99);
+        return currentGround + 1;
       case Rank.two:
-        return (currentGround + 2).clamp(0, 99);
+        return currentGround + 2;
       case Rank.three:
-        return (currentGround + 3).clamp(0, 99);
+        return currentGround + 3;
       case Rank.five:
-        return (currentGround + 5).clamp(0, 99);
+        return currentGround + 5;
       case Rank.six:
-        return (currentGround + 6).clamp(0, 99);
+        return currentGround + 6;
       case Rank.eight:
-        return (currentGround + 8).clamp(0, 99);
+        return currentGround + 8;
       case Rank.nine:
-        return (currentGround + 9).clamp(0, 99);
+        return currentGround + 9;
       case Rank.ten:
-        return (currentGround + 10).clamp(0, 99);
+        return currentGround + 10;
     }
+  }
+
+  /// True when this card can be played without making the ground exceed 99.
+  /// Safe cards (4, 7, Jack, King) never overflow. Additive cards are illegal
+  /// when [currentGround] + their value would go past 99.
+  bool isLegalPlay(int currentGround) => unclampedEffect(currentGround) <= 99;
+
+  /// Calculates the new ground total after applying this card's effect to [currentGround].
+  /// Callers must reject illegal overflow plays with [isLegalPlay] first.
+  int applyEffect(int currentGround) {
+    return unclampedEffect(currentGround).clamp(0, 99);
   }
 }
 

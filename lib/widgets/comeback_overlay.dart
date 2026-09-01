@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/comeback_event.dart';
+import '../core/utils/game_layout_metrics.dart';
 import '../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
@@ -162,6 +163,11 @@ class _ComebackOverlayState extends State<ComebackOverlay>
   Widget build(BuildContext context) {
     final event = widget.event;
     final accent = _primaryAccent;
+    final layout = GameLayoutMetrics.of(context);
+    final maxWidth = layout.isLargeTablet
+        ? 520.0
+        : (layout.isTablet ? 460.0 : 390.0);
+    final horizontalInset = layout.isTablet ? 28.0 : 24.0;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -174,8 +180,8 @@ class _ComebackOverlayState extends State<ComebackOverlay>
             // Dark vignette backdrop
             FadeTransition(
               opacity: _fadeAnim,
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.65),
+              child: ColoredBox(
+                color: AppTheme.deepNavy.withValues(alpha: 0.78),
               ),
             ),
 
@@ -202,48 +208,34 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                   animation: _glowAnim,
                   builder: (context, child) {
                     return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 24),
-                      constraints: const BoxConstraints(maxWidth: 380),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 24,
+                      width: double.infinity,
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      margin: EdgeInsets.symmetric(horizontal: horizontalInset),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.isTablet ? 28 : 24,
+                        vertical: layout.isTablet ? 28 : 24,
                       ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.navyDark.withValues(alpha: 0.95),
-                            const Color(0xFF1E2838).withValues(alpha: 0.98),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(28),
+                      decoration: AppTheme.dialogDecoration(accent: accent).copyWith(
                         border: Border.all(
-                          color: accent.withValues(alpha: 0.7 * _glowAnim.value),
-                          width: 2.5,
+                          color: accent.withValues(alpha: 0.55 * _glowAnim.value),
+                          width: 2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: accent.withValues(alpha: 0.35 * _glowAnim.value),
-                            blurRadius: 36 * _glowAnim.value,
-                            spreadRadius: 4,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                            color: accent.withValues(alpha: 0.32 * _glowAnim.value),
+                            blurRadius: 32 * _glowAnim.value,
+                            spreadRadius: 2,
                           ),
                         ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Emoji Badge
                           ScaleTransition(
                             scale: _badgeScaleAnim,
                             child: Container(
-                              width: 80,
-                              height: 80,
+                              width: layout.isTablet ? 88 : 80,
+                              height: layout.isTablet ? 88 : 80,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
@@ -260,57 +252,45 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                               child: Center(
                                 child: Text(
                                   event.iconEmoji,
-                                  style: const TextStyle(fontSize: 44),
+                                  style: TextStyle(
+                                    fontSize: layout.isTablet ? 48 : 44,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-
-                          const SizedBox(height: 14),
-
-                          // English Title
+                          SizedBox(height: layout.isTablet ? 16 : 14),
                           Text(
                             event.titleEn,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.cinzel(
-                              fontSize: 22,
+                              fontSize: layout.isTablet ? 24 : 22,
                               fontWeight: FontWeight.w900,
                               color: accent,
                               letterSpacing: 1.5,
-                              shadows: [
-                                Shadow(
-                                  color: accent.withValues(alpha: 0.8),
-                                  blurRadius: 16,
-                                ),
-                              ],
                             ),
                           ),
-
-                          // Arabic Title
                           Text(
                             event.titleAr,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.cairo(
-                              fontSize: 20,
+                              fontSize: layout.isTablet ? 21 : 20,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.cream,
                               height: 1.2,
                             ),
                           ),
-
-                          const SizedBox(height: 16),
-
-                          // Rank Progression Pill
+                          SizedBox(height: layout.isTablet ? 18 : 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 10,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: layout.isTablet ? 20 : 18,
+                              vertical: layout.isTablet ? 12 : 10,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.35),
+                              color: AppTheme.deepNavy.withValues(alpha: 0.46),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: AppTheme.gold.withValues(alpha: 0.3),
+                                color: AppTheme.gold.withValues(alpha: 0.28),
                               ),
                             ),
                             child: Row(
@@ -320,9 +300,11 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                                   event.previousRank,
                                   isPrevious: true,
                                 ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 12),
-                                  child: AppIcon(
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: layout.isTablet ? 14 : 12,
+                                  ),
+                                  child: const AppIcon(
                                     AppIcons.trendingUp,
                                     color: AppTheme.gold,
                                     size: 26,
@@ -335,42 +317,35 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                               ],
                             ),
                           ),
-
-                          const SizedBox(height: 14),
-
-                          // Subtitle (Localized explanation)
+                          SizedBox(height: layout.isTablet ? 16 : 14),
                           Text(
                             event.subtitleAr,
                             textAlign: TextAlign.center,
                             style: GoogleFonts.cairo(
-                              fontSize: 14,
+                              fontSize: layout.isTablet ? 15 : 14,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.cream.withValues(alpha: 0.9),
                             ),
                           ),
-
                           if (event.pointsDeficitOvercome > 0) ...[
                             const SizedBox(height: 4),
                             Text(
                               'تم تعويض فارق +${event.pointsDeficitOvercome} نقطة!',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.cairo(
-                                fontSize: 13,
+                                fontSize: layout.isTablet ? 14 : 13,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.goldLight,
                               ),
                             ),
                           ],
-
-                          const SizedBox(height: 16),
-
-                          // Dismiss prompt hint
+                          SizedBox(height: layout.isTablet ? 18 : 16),
                           Text(
                             'المس للمتابعة',
                             style: GoogleFonts.cairo(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white38,
+                              color: AppTheme.steelBlue.withValues(alpha: 0.75),
                             ),
                           ),
                         ],
