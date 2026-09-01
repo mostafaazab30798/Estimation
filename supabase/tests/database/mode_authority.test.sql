@@ -89,6 +89,11 @@ select is(
   '99: successful apply increments seq'
 );
 
+-- End the 99 room so the same humans can join the Basra fixture.
+update public.game_rooms
+set status = 'finished'
+where id = 'cccccccc-cccc-cccc-cccc-000000000099'::uuid;
+
 -- Basra fixture
 insert into public.game_rooms (
   id, room_code, host_id, status, max_players, host_ip, ws_port, game_type, action_seq, game_state
