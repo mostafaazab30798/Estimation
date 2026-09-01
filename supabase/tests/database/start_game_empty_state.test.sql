@@ -52,7 +52,7 @@ insert into public.game_rooms (
 
 values (
 
-  'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid,
+  'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid,
 
   'SG0001',
 
@@ -86,7 +86,7 @@ values
 
   (
 
-    'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid,
+    'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid,
 
     tests.get_supabase_uid('sg_host'),
 
@@ -98,7 +98,7 @@ values
 
   (
 
-    'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid,
+    'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid,
 
     tests.get_supabase_uid('sg_join'),
 
@@ -118,7 +118,7 @@ select is(
 
     from public.room_players
 
-    where room_id = 'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid
+    where room_id = 'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid
 
   ),
 
@@ -138,7 +138,7 @@ select is(
 
       public.load_authority_roster_players(
 
-        'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid
+        'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid
 
       )
 
@@ -160,7 +160,7 @@ select is(
 
     select public.get_authority_room_state(
 
-      'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid
+      'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid
 
     ) -> 'state' -> 'players' -> 0 ->> 'seatIndex'
 
@@ -178,7 +178,7 @@ select lives_ok(
 
   $$ select public.apply_game_action(
 
-      'eeeeeeee-eeee-eeee-eeee-00000000sg01'::uuid,
+      'eeeeeeee-eeee-eeee-eeee-00000000aa01'::uuid,
 
       tests.get_supabase_uid('sg_host'),
 
@@ -186,7 +186,7 @@ select lives_ok(
 
       '{}'::jsonb,
 
-      'eeeeeeee-eeee-eeee-eeee-00000000a001'::uuid,
+      'eeeeeeee-eeee-eeee-eeee-00000000aa02'::uuid,
 
       0,
 
