@@ -7,6 +7,7 @@ import '../../models/academy_models.dart';
 import '../../core/constants.dart';
 import '../../core/models/card.dart';
 import '../../services/academy_service.dart';
+import '../../core/utils/home_layout_metrics.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/playing_card_widget.dart';
 import '../../core/widgets/app_buttons.dart';
@@ -129,7 +130,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
     final lesson = _lesson!;
     final topic = _topic!;
     final scenario = lesson.scenario;
-    final isPortrait = MediaQuery.of(context).size.width < 700;
+    final metrics = HomeLayoutMetrics.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.deepNavy,
@@ -188,7 +189,12 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                             const SizedBox(height: 16),
 
                             // ── Section 2: Interactive Simulator ────────────
-                            _buildSimulatorCard(scenario, isPortrait),
+                            _buildSimulatorCard(
+                              scenario,
+                              metrics.isTablet
+                                  ? metrics.width < 700
+                                  : metrics.usePhoneStackedMenuLayout,
+                            ),
 
                             const SizedBox(height: 16),
 

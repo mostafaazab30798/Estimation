@@ -6,14 +6,14 @@ import 'dart:convert';
 
 enum MessageType {
   // Server → Clients
-  stateUpdate,    // full game state broadcast
-  playerJoined,   // new player joined the lobby
-  reaction,       // player sent an emote / reaction
-  earthquake,     // player unleashed an earthquake strike
+  stateUpdate, // full game state broadcast
+  playerJoined, // new player joined the lobby
+  reaction, // player sent an emote / reaction
+  earthquake, // player unleashed an earthquake strike
   error,
   // Client → Server
-  playerAction,   // any game action from a player
-  joinRequest,    // client wants to join
+  playerAction, // any game action from a player
+  joinRequest, // client wants to join
   heartbeat,
 }
 
@@ -31,8 +31,7 @@ class GameMessage {
   String toJsonString() => jsonEncode(toJson());
 
   factory GameMessage.fromJson(Map<String, dynamic> json) => GameMessage(
-        type: MessageType.values.firstWhere(
-            (e) => e.name == json['type']),
+        type: MessageType.values.firstWhere((e) => e.name == json['type']),
         payload: json['payload'] as Map<String, dynamic>,
       );
 
@@ -49,18 +48,21 @@ class ActionType {
 
   static const String approveRedeal = 'approveRedeal';
   static const String rejectRedeal = 'rejectRedeal';
-  static const String confirmNoVoid = 'confirmNoVoid';  // no void, ready
-  static const String unready = 'unready';              // cancel ready state
+  static const String confirmNoVoid = 'confirmNoVoid'; // no void, ready
+  static const String unready = 'unready'; // cancel ready state
   static const String submitDeclaration = 'submitDeclaration';
   static const String playCard = 'playCard';
+  static const String timeoutTurn = 'timeoutTurn';
+  static const String processBots = 'processBots';
   static const String playCardNinetyNine = 'playCardNinetyNine';
   static const String playCardBasra = 'playCardBasra';
-  static const String startGame = 'startGame';          // host starts
+  static const String startGame = 'startGame'; // host starts
   static const String nextRound = 'nextRound';
-  static const String changeTheme = 'changeTheme';      // host changes card theme
-  static const String requestStateSync = 'requestStateSync'; // client requests immediate full state broadcast
-  static const String sendReaction = 'sendReaction';    // player sends an emote or tactical phrase
-  static const String triggerEarthquake = 'triggerEarthquake'; // player unleashed an earthquake card strike
+  static const String changeTheme = 'changeTheme'; // host changes card theme
+  static const String requestStateSync =
+      'requestStateSync'; // client requests immediate full state broadcast
+  static const String sendReaction =
+      'sendReaction'; // player sends an emote or tactical phrase
+  static const String triggerEarthquake =
+      'triggerEarthquake'; // player unleashed an earthquake card strike
 }
-
-

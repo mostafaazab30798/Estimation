@@ -42,8 +42,11 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
 
   ReconnectionState _state = ReconnectionState.idle;
   Timer? _heartbeatTimer;
+  bool _heartbeatInFlight = false;
 
-  static const _heartbeatInterval = Duration(seconds: 15);
+  // Check frequently enough that the server's 30-second bot threshold does
+  // not drift toward the old 45–60 second observed takeover time.
+  static const _heartbeatInterval = Duration(seconds: 5);
 
   ReconnectionManager(this._gameProvider);
 
@@ -84,7 +87,15 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _ping() async {
+    if (_heartbeatInFlight) return;
     if (_gameProvider.isTemporarilyAway) {
+      return;
+    }
+
+    // A normal join/start owns the connection while it is in progress.
+    // Recovery racing it can tear down the fresh client and show a false
+    // connection-lost dialog over a valid game.
+    if (_gameProvider.status == ConnectionStatus.connecting) {
       return;
     }
     final roomId = _gameProvider.currentRoom?.id;
@@ -93,14 +104,24 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
         _gameProvider.isLocal) {
       return;
     }
+    _heartbeatInFlight = true;
     try {
-      await _lobbyRepo.pingHeartbeat(roomId);
+      final heartbeat = await _lobbyRepo.pingHeartbeat(roomId);
+      if (heartbeat.deviceConflict) {
+        await _gameProvider.relinquishSeatToOtherDevice();
+        return;
+      }
+      if (heartbeat.botTakeoverStarted) {
+        await _gameProvider.advanceServerBotsAfterTakeover();
+      }
     } catch (e) {
       final errorStr = e.toString();
       if (!errorStr.contains('SocketException') &&
           !errorStr.contains('AuthRetryableFetchException')) {
         debugPrint('[Reconnection] Heartbeat failed: $e');
       }
+    } finally {
+      _heartbeatInFlight = false;
     }
   }
 
@@ -171,7 +192,8 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
   Future<ReconnectionState> checkOnStartup() async {
     // If we are already connected (e.g., the HomeScreen is visited mid-game
     // for some reason) do nothing.
-    if (_gameProvider.status == ConnectionStatus.connected) {
+    if (_gameProvider.status == ConnectionStatus.connected ||
+        _gameProvider.status == ConnectionStatus.connecting) {
       return ReconnectionState.idle;
     }
     return _attemptRecovery();
@@ -181,6 +203,10 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
     final session = await _sessionService.getActiveRoomSession();
     if (session == null) return null;
     try {
+      // Expire an abandoned server seat before trusting the local reconnect
+      // token. Otherwise a cold-start recovery can heartbeat yesterday's room
+      // and turn an already stale membership into a fresh five-minute block.
+      await _lobbyRepo.processRoomAbsences(session.roomId);
       final room = await _lobbyRepo.getRoom(session.roomId);
       if (room.status == GameRoomStatus.cancelled ||
           room.status == GameRoomStatus.finished) {
@@ -203,11 +229,54 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<ReconnectionState> recoverPendingSession() => _attemptRecovery();
 
+  /// Recover a server-advertised seat even when this installation has never
+  /// stored the room locally (for example, the player switches phones).
+  Future<ReconnectionState> recoverRoomFromGate(String roomId) async {
+    try {
+      await _lobbyRepo.processRoomAbsences(roomId);
+      final room = await _lobbyRepo.getRoom(roomId);
+      final player = await _lobbyRepo.fetchCurrentPlayer(roomId);
+      if (player == null ||
+          room.status == GameRoomStatus.cancelled ||
+          room.status == GameRoomStatus.finished) {
+        await _sessionService.clearSession();
+        return ReconnectionState.failed;
+      }
+      await _sessionService.saveActiveRoomSession(
+        roomId: room.id,
+        roomCode: room.roomCode,
+        playerId: player.playerId,
+        playerName: player.playerName,
+        isHost: room.hostId == player.playerId,
+      );
+      return _attemptRecovery();
+    } catch (error) {
+      debugPrint('[Reconnection] Could not prepare server recovery: $error');
+      return ReconnectionState.failed;
+    }
+  }
+
   // ── Recovery flow ─────────────────────────────────────────────────────────
 
   Future<ReconnectionState> _attemptRecovery() async {
+    if (_gameProvider.status == ConnectionStatus.connecting) {
+      _setState(ReconnectionState.idle);
+      return ReconnectionState.idle;
+    }
+    if (_gameProvider.status == ConnectionStatus.connected &&
+        _gameProvider.currentRoom != null) {
+      _setState(ReconnectionState.idle);
+      await _ping();
+      return ReconnectionState.idle;
+    }
     final session = await _sessionService.getActiveRoomSession();
     if (session == null) return ReconnectionState.idle;
+    if (_gameProvider.status == ConnectionStatus.connecting ||
+        (_gameProvider.status == ConnectionStatus.connected &&
+            _gameProvider.currentRoom != null)) {
+      _setState(ReconnectionState.idle);
+      return ReconnectionState.idle;
+    }
 
     if (session.roomId.startsWith('test_') ||
         session.roomId.startsWith('local_')) {
@@ -223,6 +292,33 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
         '[Reconnection] Attempting recovery for room ${session.roomId}…');
 
     try {
+      // Server cleanup must win the race against resume/heartbeat. A local
+      // session is only a reconnect hint; it is not proof that the seat is
+      // still recoverable.
+      await _lobbyRepo.processRoomAbsences(session.roomId);
+      final room = await _lobbyRepo.getRoom(session.roomId);
+      final stillMember =
+          await _lobbyRepo.isPlayerInRoom(session.roomId, session.playerId);
+      if (room.status == GameRoomStatus.cancelled ||
+          room.status == GameRoomStatus.finished ||
+          !stillMember) {
+        debugPrint(
+            '[Reconnection] Stored session is no longer recoverable; clearing it');
+        await _sessionService.clearSession();
+        _setState(ReconnectionState.idle);
+        return ReconnectionState.idle;
+      }
+
+      // Exactly one installation may own a Google account's active seat.
+      // Offline seats are claimable by either phone; the row lock on the RPC
+      // makes simultaneous taps deterministic and rejects the loser.
+      final claimed = await _lobbyRepo.claimRoomDevice(session.roomId);
+      if (!claimed) {
+        debugPrint('[Reconnection] Seat is active on another device');
+        _setState(ReconnectionState.failed);
+        return ReconnectionState.failed;
+      }
+
       if (_gameProvider.canResumeTemporarilyLeftGame) {
         final success = await _gameProvider.resumeTemporarilyLeftGame(session);
         _setState(
@@ -230,7 +326,12 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
         return _state;
       }
       // ── 1. Verify room is still active ──────────────────────────────────
-      final room = await _lobbyRepo.getRoom(session.roomId);
+      if (_gameProvider.status == ConnectionStatus.connecting ||
+          (_gameProvider.status == ConnectionStatus.connected &&
+              _gameProvider.currentRoom != null)) {
+        _setState(ReconnectionState.idle);
+        return ReconnectionState.idle;
+      }
 
       if (room.status == GameRoomStatus.cancelled ||
           room.status == GameRoomStatus.finished) {
@@ -276,6 +377,12 @@ class ReconnectionManager extends ChangeNotifier with WidgetsBindingObserver {
       return ReconnectionState.reconnected;
     } catch (e) {
       debugPrint('[Reconnection] Recovery threw: $e');
+      if (_gameProvider.status == ConnectionStatus.connecting ||
+          (_gameProvider.status == ConnectionStatus.connected &&
+              _gameProvider.currentRoom != null)) {
+        _setState(ReconnectionState.idle);
+        return ReconnectionState.idle;
+      }
       await _sessionService.clearSession();
       _setState(ReconnectionState.failed);
       return ReconnectionState.failed;

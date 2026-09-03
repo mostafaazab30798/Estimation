@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/utils/google_online_auth.dart';
 import '../../lobby/domain/models/game_room.dart';
+import '../../../services/device_identity_service.dart';
 import '../domain/models/bot_fill_vote_result.dart';
 import '../domain/models/matchmaking_join_result.dart';
 
@@ -19,10 +20,12 @@ class MatchmakingRepository {
     required int totalRounds,
   }) async {
     await _ensureAuth();
+    final deviceId = await DeviceIdentityService.getId();
     final response = await _client.rpc('enter_matchmaking', params: {
       'p_player_name': playerName,
       'p_game_type': gameType,
       'p_total_rounds': totalRounds,
+      'p_device_id': deviceId,
     });
     return MatchmakingJoinResult.fromJson(
       Map<String, dynamic>.from(response as Map),
@@ -94,6 +97,9 @@ class MatchmakingRepository {
     }
     if (raw.contains('ONGOING_GAME_REQUIRES_RETURN')) {
       return 'لديك مباراة ما زالت جارية. عد إليها قبل بدء طابور جديد.';
+    }
+    if (raw.contains('ACTIVE_ON_ANOTHER_DEVICE')) {
+      return 'هذا الحساب داخل مباراة الآن على جهاز آخر.';
     }
     return 'تعذر الاتصال بخدمة البحث عن لاعبين. تحقق من الإنترنت وحاول مجدداً.';
   }

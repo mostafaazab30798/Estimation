@@ -34,6 +34,7 @@ export interface Player {
   isDashCall: boolean;
   isRisk: boolean;
   totalScore: number;
+  isBot?: boolean;
 }
 
 export interface Bid {

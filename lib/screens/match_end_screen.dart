@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
+import '../core/models/player.dart';
 import '../core/models/comeback_event.dart';
 import '../models/rank_tier.dart';
 import '../providers/game_provider.dart';
@@ -13,6 +14,7 @@ import '../services/history_service.dart';
 import '../services/audio_service.dart';
 import '../services/estimation_stats_service.dart';
 import '../services/ranking_service.dart';
+import '../core/utils/home_layout_metrics.dart';
 import '../theme/app_theme.dart';
 import '../widgets/level_up_dialog.dart';
 import '../widgets/rank_tier_badge.dart';
@@ -123,6 +125,8 @@ class _MatchEndScreenState extends State<MatchEndScreen>
     final winner = widget.state.matchWinner;
     final sortedPlayers = [...widget.state.players]
       ..sort((a, b) => b.totalScore.compareTo(a.totalScore));
+    final metrics = HomeLayoutMetrics.of(context);
+    final compact = metrics.isPhoneLandscape;
 
     return PopScope(
       canPop: false,
@@ -142,265 +146,354 @@ class _MatchEndScreenState extends State<MatchEndScreen>
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    // Trophy animation
-                    ScaleTransition(
-                      scale: _scale,
-                      child: const Text('🏆', style: TextStyle(fontSize: 64)),
-                    ),
-                    const SizedBox(height: 8),
-                    if (winner != null) ...[
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [AppTheme.gold, Color(0xFFFFF9C4)],
-                        ).createShader(bounds),
-                        child: Text(
-                          'الفائز: ${winner.name}!',
-                          style: GoogleFonts.cairo(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${winner.totalScore} نقطة',
-                        style: GoogleFonts.cairo(
-                          color: AppTheme.gold,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 18),
-
-                    // XP & Ranking Progression Card
-                    if (_rewardBreakdown != null) ...[
-                      _buildXpProgressionCard(),
-                      const SizedBox(height: 18),
-                    ],
-
-                    // Match Highlights / Comeback Moments
-                    _buildMatchHighlightsSection(),
-
-                    // Final standings
-                    Text(
-                      'الترتيب النهائي',
-                      style: GoogleFonts.cairo(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.cream,
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 16 : 24,
+                vertical: compact ? 8 : 16,
+              ),
+              child: metrics.usePhoneSideBySideMenuLayout
+                  ? _buildLandscapeResults(
+                      winner: winner,
+                      sortedPlayers: sortedPlayers,
+                      compact: compact,
+                    )
+                  : SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: _buildStackedResults(
+                        winner: winner,
+                        sortedPlayers: sortedPlayers,
+                        compact: compact,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    ...sortedPlayers.asMap().entries.map((e) {
-                      final rankIndex = e.key.clamp(0, 3);
-                      final player = e.value;
-                      final matchRank = MatchRank.fromIndex(rankIndex)!;
-                      final rankColor = matchRank.accentColor;
-                      final isMe = player.id == widget.provider.myPlayerId;
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: rankColor.withValues(alpha: isMe ? 0.25 : 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isMe ? AppTheme.gold : rankColor.withValues(alpha: 0.5),
-                            width: isMe ? 2.0 : 1.0,
-                          ),
-                          boxShadow: rankIndex == 0 ? AppTheme.neumorphicTurnGlow(rankColor) : [],
-                        ),
-                        child: Row(
-                          children: [
-                            MatchRankBadge(
-                              rankIndex: rankIndex,
-                              size: rankIndex == 0
-                                  ? MatchRankBadgeSize.large
-                                  : MatchRankBadgeSize.medium,
-                              glow: rankIndex == 0,
-                            ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              width: 72,
-                              child: Text(
-                                matchRank.titleAr,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: rankColor,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      player.name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.cairo(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: isMe ? AppTheme.goldLight : rankColor,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isMe) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.gold,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'أنت',
-                                        style: GoogleFonts.cairo(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          color: AppTheme.navyDark,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '${player.totalScore} نقطة',
-                              style: GoogleFonts.cairo(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: rankColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 20),
+  Widget _buildStackedResults({
+    required Player? winner,
+    required List<Player> sortedPlayers,
+    required bool compact,
+  }) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        _buildWinnerHeader(winner, compact),
+        const SizedBox(height: 18),
+        if (_rewardBreakdown != null) ...[
+          _buildXpProgressionCard(),
+          const SizedBox(height: 18),
+        ],
+        _buildMatchHighlightsSection(),
+        _buildStandingsHeader(),
+        const SizedBox(height: 10),
+        ..._buildStandingsList(sortedPlayers),
+        const SizedBox(height: 20),
+        _buildShareButton(winner),
+        const SizedBox(height: 12),
+        _buildHomeButton(),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
 
-                    // Share Victory Card Action
-                    SizedBox(
-                      width: double.infinity,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              final auth = AuthService.instance;
-                              int matchComebacks = 0;
-                              int perfectCount = 0;
-                              final winnerId = winner?.id;
+  Widget _buildLandscapeResults({
+    required Player? winner,
+    required List<Player> sortedPlayers,
+    required bool compact,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 5,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                _buildWinnerHeader(winner, compact),
+                const SizedBox(height: 12),
+                if (_rewardBreakdown != null) ...[
+                  _buildXpProgressionCard(),
+                  const SizedBox(height: 12),
+                ],
+                _buildMatchHighlightsSection(),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 6,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                _buildStandingsHeader(),
+                const SizedBox(height: 10),
+                ..._buildStandingsList(sortedPlayers),
+                const SizedBox(height: 16),
+                _buildShareButton(winner),
+                const SizedBox(height: 12),
+                _buildHomeButton(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-                              for (int r = 1; r <= widget.state.roundHistory.length; r++) {
-                                final cbs = ComebackDetector.detectRoundComebacks(state: widget.state, roundNumber: r);
-                                matchComebacks += cbs.length;
-                              }
+  Widget _buildWinnerHeader(Player? winner, bool compact) {
+    return Column(
+      children: [
+        ScaleTransition(
+          scale: _scale,
+          child: Text(
+            '🏆',
+            style: TextStyle(fontSize: compact ? 48 : 64),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (winner != null) ...[
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [AppTheme.gold, Color(0xFFFFF9C4)],
+            ).createShader(bounds),
+            child: Text(
+              'الفائز: ${winner.name}!',
+              style: GoogleFonts.cairo(
+                fontSize: compact ? 22 : 26,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${winner.totalScore} نقطة',
+            style: GoogleFonts.cairo(
+              color: AppTheme.gold,
+              fontSize: compact ? 15 : 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
-                              for (final roundRecord in widget.state.roundHistory) {
-                                for (final pr in roundRecord.playerRecords) {
-                                  if (pr.playerId == winnerId && pr.isSuccess) {
-                                    perfectCount++;
-                                  }
-                                }
-                              }
+  Widget _buildStandingsHeader() {
+    return Text(
+      'الترتيب النهائي',
+      style: GoogleFonts.cairo(
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
+        color: AppTheme.cream,
+      ),
+    );
+  }
 
-                              ShareMyEstimationDialog.show(
-                                context,
-                                type: ShareCardType.matchVictory,
-                                playerName: winner?.name ?? 'البطل',
-                                avatarUrl: auth.currentProfile?.avatarUrl ?? '',
-                                matchFinalScore: winner?.totalScore ?? 0,
-                                matchPerfectEstimates: perfectCount,
-                                matchComebacks: matchComebacks,
-                                matchBestRound: 28,
-                                matchRankTitle: 'الكينج 👑',
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const AppIcon(AppIcons.share, color: Colors.white, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'مشاركة نتيجة الانتصار 🏆',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+  List<Widget> _buildStandingsList(List<Player> sortedPlayers) {
+    return sortedPlayers.asMap().entries.map((e) {
+      final rankIndex = e.key.clamp(0, 3);
+      final player = e.value;
+      final matchRank = MatchRank.fromIndex(rankIndex)!;
+      final rankColor = matchRank.accentColor;
+      final isMe = player.id == widget.provider.myPlayerId;
 
-                    const SizedBox(height: 12),
-
-                    // Back to home
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.gold,
-                          foregroundColor: AppTheme.navyDark,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 3,
-                        ),
-                        onPressed: () {
-                          widget.provider.reset();
-                          Navigator.of(context, rootNavigator: true)
-                              .pushNamedAndRemoveUntil('/', (r) => false);
-                        },
-                        child: Text(
-                          'العودة للقائمة الرئيسية',
-                          style: GoogleFonts.cairo(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: rankColor.withValues(alpha: isMe ? 0.25 : 0.15),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isMe ? AppTheme.gold : rankColor.withValues(alpha: 0.5),
+            width: isMe ? 2.0 : 1.0,
+          ),
+          boxShadow:
+              rankIndex == 0 ? AppTheme.neumorphicTurnGlow(rankColor) : [],
+        ),
+        child: Row(
+          children: [
+            MatchRankBadge(
+              rankIndex: rankIndex,
+              size: rankIndex == 0
+                  ? MatchRankBadgeSize.large
+                  : MatchRankBadgeSize.medium,
+              glow: rankIndex == 0,
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 72,
+              child: Text(
+                matchRank.titleAr,
+                style: GoogleFonts.cairo(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: rankColor,
                 ),
               ),
             ),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      player.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cairo(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isMe ? AppTheme.goldLight : rankColor,
+                      ),
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.gold,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'أنت',
+                        style: GoogleFonts.cairo(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.navyDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              '${player.totalScore} نقطة',
+              style: GoogleFonts.cairo(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: rankColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildShareButton(Player? winner) {
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              final auth = AuthService.instance;
+              int matchComebacks = 0;
+              int perfectCount = 0;
+              final winnerId = winner?.id;
+
+              for (int r = 1; r <= widget.state.roundHistory.length; r++) {
+                final cbs = ComebackDetector.detectRoundComebacks(
+                  state: widget.state,
+                  roundNumber: r,
+                );
+                matchComebacks += cbs.length;
+              }
+
+              for (final roundRecord in widget.state.roundHistory) {
+                for (final pr in roundRecord.playerRecords) {
+                  if (pr.playerId == winnerId && pr.isSuccess) {
+                    perfectCount++;
+                  }
+                }
+              }
+
+              ShareMyEstimationDialog.show(
+                context,
+                type: ShareCardType.matchVictory,
+                playerName: winner?.name ?? 'البطل',
+                avatarUrl: auth.currentProfile?.avatarUrl ?? '',
+                matchFinalScore: winner?.totalScore ?? 0,
+                matchPerfectEstimates: perfectCount,
+                matchComebacks: matchComebacks,
+                matchBestRound: 28,
+                matchRankTitle: 'الكينج 👑',
+              );
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const AppIcon(AppIcons.share, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'مشاركة نتيجة الانتصار 🏆',
+                    style: GoogleFonts.cairo(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.gold,
+          foregroundColor: AppTheme.navyDark,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 3,
+        ),
+        onPressed: () {
+          widget.provider.reset();
+          Navigator.of(context, rootNavigator: true)
+              .pushNamedAndRemoveUntil('/', (r) => false);
+        },
+        child: Text(
+          'العودة للقائمة الرئيسية',
+          style: GoogleFonts.cairo(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ),

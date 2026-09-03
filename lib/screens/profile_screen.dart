@@ -25,6 +25,7 @@ import '../widgets/playstyle_radar_view.dart';
 import 'leaderboard_screen.dart';
 import '../theme/app_theme.dart';
 import '../core/constants.dart';
+import '../core/utils/home_layout_metrics.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/utils/string_utils.dart';
 import '../core/widgets/player_avatar.dart';
@@ -418,6 +419,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return true;
     }
 
+    if (!mounted) return false;
+
     final accepted = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -463,7 +466,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (accepted != true || !mounted) return false;
     final ok = await UgcService.instance.acceptTerms();
-    if (!ok && mounted) {
+    if (!mounted) return false;
+    if (!ok) {
       SnackbarHelper.showError(
         context,
         'تعذر حفظ الموافقة. حاول مرة أخرى.',
@@ -1091,8 +1095,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildHeaderBar() {
     return Consumer<_ProfileViewModel>(
       builder: (context, vm, _) {
+        final metrics = HomeLayoutMetrics.of(context);
+        final compact = metrics.isCompactLandscape;
+
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          padding: EdgeInsets.fromLTRB(16, compact ? 4 : 8, 16, compact ? 2 : 4),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
@@ -1103,10 +1110,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppTheme.cream,
                     backgroundColor: Colors.white.withValues(alpha: 0.06),
                     borderColor: Colors.white.withValues(alpha: 0.10),
-                    size: AppIconButtonSize.lg,
+                    size: compact ? AppIconButtonSize.md : AppIconButtonSize.lg,
                     onTap: () => Navigator.pop(context),
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: compact ? 10 : 14),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
@@ -1117,28 +1124,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             _tabTitle(vm.currentTab),
                             style: GoogleFonts.cairo(
-                              fontSize: 20,
+                              fontSize: compact ? 17 : 20,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.cream,
                               height: 1.15,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _tabSubtitle(vm.currentTab),
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.steelBlue.withValues(alpha: 0.9),
+                          if (!compact) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              _tabSubtitle(vm.currentTab),
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color:
+                                    AppTheme.steelBlue.withValues(alpha: 0.9),
+                              ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
                   ),
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: compact ? 38 : 44,
+                    height: compact ? 38 : 44,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -1173,11 +1183,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildBottomNav() {
     return Consumer<_ProfileViewModel>(
       builder: (context, vm, _) {
+        final metrics = HomeLayoutMetrics.of(context);
+        final compact = metrics.isCompactLandscape;
         final bottomInset = MediaQuery.paddingOf(context).bottom;
 
         return Padding(
           padding: EdgeInsets.fromLTRB(
-              14, 6, 14, bottomInset > 0 ? bottomInset : 12),
+            14,
+            compact ? 4 : 6,
+            14,
+            bottomInset > 0 ? bottomInset : (compact ? 8 : 12),
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
@@ -1225,7 +1241,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 240),
                               curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              padding: EdgeInsets.symmetric(
+                                vertical: compact ? 6 : 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppTheme.gold.withValues(alpha: 0.16)
@@ -1247,7 +1265,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                   AppIcon(
                                     icon,
-                                    size: AppIconTokens.sizeXl,
+                                    size: compact
+                                        ? AppIconTokens.sizeLg
+                                        : AppIconTokens.sizeXl,
                                     color: isSelected
                                         ? AppTheme.goldLight
                                         : Colors.white.withValues(alpha: 0.45),
@@ -1255,22 +1275,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ? AppIconTokens.strokeBold
                                         : AppIconTokens.stroke,
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 10,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                      color: isSelected
-                                          ? AppTheme.goldLight
-                                          : Colors.white
-                                              .withValues(alpha: 0.45),
+                                  if (!compact) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 10,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: isSelected
+                                            ? AppTheme.goldLight
+                                            : Colors.white
+                                                .withValues(alpha: 0.45),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
                               ),
                             ),

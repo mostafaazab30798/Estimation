@@ -5,7 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   authorityContext,
   hydrateLobbyPlayers,
-  loadAuthorityState,
+  loadAuthorityState,
+
+  reclaimActingHumanSeat,
 } from "./authority_state.ts";
 import { reduceGameAction } from "./reducer/index.ts";
 import { runServerBotTurns } from "./bot_runner.ts";
@@ -97,7 +99,8 @@ Deno.serve(async (req) => {
   if (!authority) {
     return json({ error: "ROOM_NOT_FOUND" }, 404);
   }
-  await hydrateLobbyPlayers(serviceClient, authority);
+  await hydrateLobbyPlayers(serviceClient, authority);
+  reclaimActingHumanSeat(authority, uid);
 
   let reduceResult;
   try {
@@ -170,7 +173,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const finalSeq = await runServerBotTurns(
+  const botRun = await runServerBotTurns(
     serviceClient,
     {
       roomId,
@@ -184,14 +187,35 @@ Deno.serve(async (req) => {
       >,
     },
     (rid, state) => broadcastToRoom(serviceClient, rid, "state", state),
-  );
-
-  return json({
-    status: "applied",
-    ...commitRow,
-    seq: finalSeq,
-    ephemeral: reduceResult.ephemeral ?? null,
-  });
+  );
+
+  // Return the caller's hand only over this authenticated HTTP response.
+  // Realtime broadcasts and the persisted room snapshot stay sanitized.
+  const { data: privateHandRow, error: privateHandError } = await serviceClient
+    .from("player_private_hands")
+    .select("hand_cards")
+    .eq("room_id", roomId)
+    .eq("player_id", uid)
+    .maybeSingle();
+  if (privateHandError) {
+    console.error(
+      "[game-action] private hand fetch failed:",
+      privateHandError.message,
+    );
+  }
+
+  return json({
+    status: "applied",
+    ...commitRow,
+    // The bot runner may have committed several states after the human action.
+    // Returning commitRow.publicState here rolls clients back to the pre-bot
+    // snapshot while advancing them to the final sequence number, so the real
+    // final room update is then ignored as "already seen".
+    seq: botRun.seq,
+    publicState: sanitizePublicState(botRun.state),
+    privateHand: privateHandRow?.hand_cards ?? [],
+    ephemeral: reduceResult.ephemeral ?? null,
+  });
 });
 
 function mapRpcError(message: string): string {
@@ -202,7 +226,9 @@ function mapRpcError(message: string): string {
   if (message.includes("RATE_LIMIT")) return "RATE_LIMIT_EXCEEDED";
   if (message.includes("NOT_ROOM_MEMBER")) return "NOT_ROOM_MEMBER";
   if (message.includes("UNKNOWN_ACTION")) return "UNKNOWN_ACTION";
-  if (message.includes("ACTOR_NOT_IN_GAME")) return "ACTOR_NOT_IN_GAME";
+  if (message.includes("ACTOR_NOT_IN_GAME")) return "ACTOR_NOT_IN_GAME";
+
+  if (message.includes("TURN_NOT_EXPIRED")) return "TURN_NOT_EXPIRED";
   return "COMMIT_FAILED";
 }
 
@@ -212,7 +238,9 @@ function mapRpcStatus(code: string): number {
     case "NOT_YOUR_TURN":
     case "WRONG_PHASE":
     case "HOST_ONLY":
-    case "ACTOR_NOT_IN_GAME":
+    case "ACTOR_NOT_IN_GAME":
+
+    case "TURN_NOT_EXPIRED":
       return 409;
     case "RATE_LIMIT_EXCEEDED":
       return 429;
@@ -242,10 +270,9 @@ async function broadcastToRoom(
   });
 }
 
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
+function json(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}

@@ -133,8 +133,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
+    final metrics = HomeLayoutMetrics.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.deepNavy,
@@ -154,26 +153,94 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
                 child: Column(
                   children: [
                     _buildTopBar(),
-                    SizedBox(height: isLandscape ? 4 : 12),
-                    _buildHeroHeader(compact: isLandscape),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: isLandscape ? 880 : 420,
-                        ),
-                        child: isLandscape
-                            ? _buildLandscapeModes(context)
-                            : _buildPortraitModes(context),
-                      ),
+                    Expanded(
+                      child: metrics.isTablet
+                          ? _buildTabletLayout(metrics)
+                          : (metrics.usePhoneSideBySideMenuLayout
+                              ? _buildSideBySideLayout(metrics)
+                              : _buildStackedLayout(metrics)),
                     ),
-                    const Spacer(),
                     const ModeHomeSuitFooter(),
                   ],
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(HomeLayoutMetrics metrics) {
+    final isLandscape = metrics.isLandscape;
+
+    return Column(
+      children: [
+        SizedBox(height: isLandscape ? 4 : 12),
+        _buildHeroHeader(compact: isLandscape),
+        const Spacer(),
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: metrics.modeHomeHorizontalPadding(),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isLandscape ? 880 : 420,
+            ),
+            child: isLandscape
+                ? _buildLandscapeModes(context, useDynamicHeight: false)
+                : _buildPortraitModes(context),
+          ),
+        ),
+        const Spacer(),
+      ],
+    );
+  }
+
+  Widget _buildStackedLayout(HomeLayoutMetrics metrics) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        metrics.isLandscape ? 4 : 12,
+        20,
+        8,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHeroHeader(compact: metrics.isLandscape),
+          SizedBox(height: metrics.isLandscape ? 12 : 20),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: _buildPortraitModes(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSideBySideLayout(HomeLayoutMetrics metrics) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeroHeader(compact: true),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 7,
+            child: _buildLandscapeModes(context, useDynamicHeight: true),
           ),
         ],
       ),
@@ -263,15 +330,24 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     );
   }
 
-  Widget _buildLandscapeModes(BuildContext context) {
+  Widget _buildLandscapeModes(
+    BuildContext context, {
+    bool useDynamicHeight = false,
+  }) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final cardHeight = useDynamicHeight
+        ? (metrics.height * 0.52).clamp(180.0, 232.0)
+        : null;
+
     return Row(
       children: [
         for (int i = 0; i < _modes.length; i++) ...[
-          if (i > 0) const SizedBox(width: 16),
+          if (i > 0) SizedBox(width: useDynamicHeight ? 12 : 16),
           Expanded(
             child: _ModeCard(
               mode: _modes[i],
               tall: true,
+              height: cardHeight,
               onTap: () => _tap(
                 () => Navigator.pushNamed(context, _modes[i].route),
               ),
@@ -289,11 +365,13 @@ class _ModeCard extends StatefulWidget {
   final _MainGameMode mode;
   final VoidCallback onTap;
   final bool tall;
+  final double? height;
 
   const _ModeCard({
     required this.mode,
     required this.onTap,
     this.tall = false,
+    this.height,
   });
 
   @override
@@ -320,7 +398,7 @@ class _ModeCardState extends State<_ModeCard> {
         curve: Curves.easeOut,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          height: widget.tall ? 232 : 120,
+          height: widget.height ?? (widget.tall ? 232 : 120),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: AppTheme.navyDark.withValues(alpha: 0.78),

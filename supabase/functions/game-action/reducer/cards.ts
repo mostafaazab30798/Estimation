@@ -87,7 +87,7 @@ export function humanHandUpdates(
 ): Record<string, Card[]> {
   const updates: Record<string, Card[]> = {};
   for (const p of players) {
-    if (p.isBot || !isUuid(p.id)) continue;
+    if (p.isBot || p.id.startsWith("bot_") || !isUuid(p.id)) continue;
     updates[p.id] = p.hand.map((c) => ({ ...c }));
   }
   return updates;

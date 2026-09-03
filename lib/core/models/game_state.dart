@@ -62,7 +62,7 @@ class GameState {
   Set<String> voidRedealRejections; // player IDs who rejected the redeal
 
   // ── Turn Timer (Authoritative) ─────────────────────────────
-  int turnDurationSeconds;       // Standard duration for current phase (15s or 10s)
+  int turnDurationSeconds;       // Standard duration for the current phase.
   int? turnDeadlineEpochMs;      // Timestamp in epoch ms when active turn expires
 
   // ── Theme ──────────────────────────────────────────────────

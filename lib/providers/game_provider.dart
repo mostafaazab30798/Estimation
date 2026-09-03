@@ -128,6 +128,11 @@ class GameProvider extends ChangeNotifier {
   GameRoom? _currentRoom;
   List<RoomPlayer> _roomPlayers = [];
   int _actionSeq = 0;
+  int _receivedActionSeq = 0;
+  int _expectedOwnHandCount = -1;
+  List<PlayingCard> _lastKnownPrivateHand = [];
+  Future<void>? _pendingAuthorityStateApply;
+  bool _serverActionInFlight = false;
   String? _myAvatarRef;
   final Map<String, String> _lobbyAvatarRefs = {};
   StreamSubscription? _roomSub;
@@ -138,6 +143,8 @@ class GameProvider extends ChangeNotifier {
 
   MatchmakingStatus _matchmakingStatus = MatchmakingStatus.idle;
   Timer? _matchmakingBotOfferTimer;
+  Timer? _matchmakingSyncTimer;
+  int _matchmakingRosterFetchEpoch = 0;
   int? _lastPresentedBotOfferVersion;
   bool _isLeavingMatchmaking = false;
   bool _matchmakingStartInProgress = false;
@@ -145,6 +152,7 @@ class GameProvider extends ChangeNotifier {
   bool _matchmakingSessionSaved = false;
 
   Timer? _autoPlayCardTimer;
+  Timer? _authorityTimeoutTimer;
 
   Future<String> _loadMyAvatarRef() async {
     final raw = await ProfileService.getProfilePhoto();
@@ -182,7 +190,68 @@ class GameProvider extends ChangeNotifier {
     EstimationEventDispatcher.instance
         .dispatchStateTransition(oldState, newState);
     _checkAutoPlayCard();
+    _scheduleAuthorityTurnTimeout();
     notifyListeners();
+  }
+
+  void _scheduleAuthorityTurnTimeout() {
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
+    if (!_usesServerAuthority() || _transport == ConnectionTransport.local) {
+      return;
+    }
+    final deadline = _state?.turnDeadlineEpochMs;
+    final phase = _state?.phase;
+    if (deadline == null ||
+        (phase != GamePhase.dashCall &&
+            phase != GamePhase.auction &&
+            phase != GamePhase.declarations &&
+            phase != GamePhase.trickTaking)) {
+      return;
+    }
+    final waitMs = max(
+      0,
+      deadline - DateTime.now().millisecondsSinceEpoch + 150,
+    );
+    _authorityTimeoutTimer = Timer(
+      Duration(milliseconds: waitMs),
+      () => _submitAuthorityTimeout(deadline),
+    );
+  }
+
+  void _submitAuthorityTimeout(int expectedDeadline) {
+    if (_state?.turnDeadlineEpochMs != expectedDeadline) return;
+    if (_serverActionInFlight) {
+      _authorityTimeoutTimer = Timer(
+        const Duration(milliseconds: 300),
+        () => _submitAuthorityTimeout(expectedDeadline),
+      );
+      return;
+    }
+    unawaited(_sendServerAction(ActionType.timeoutTurn, const {}));
+  }
+
+  void _applyOptimisticCardPlay(PlayingCard card) {
+    final current = _state;
+    if (current == null || me == null) return;
+    final optimistic = GameState.fromJson(current.toJson());
+    final playerIndex =
+        optimistic.players.indexWhere((player) => player.id == myPlayerId);
+    if (playerIndex < 0) return;
+    final player = optimistic.players[playerIndex];
+    final cardIndex = player.hand.indexWhere((held) => held == card);
+    if (cardIndex < 0 || !GameEngine.canPlayCard(optimistic, player, card)) {
+      return;
+    }
+    player.hand.removeAt(cardIndex);
+    _lastKnownPrivateHand = List.from(player.hand);
+    _expectedOwnHandCount = player.hand.length;
+    optimistic.currentTrick.add(TrickCard(playerId: player.id, card: card));
+    if (optimistic.currentTrick.length < optimistic.players.length) {
+      optimistic.currentPlayerSeatIndex =
+          (optimistic.currentPlayerSeatIndex + 1) % optimistic.players.length;
+    }
+    _updateState(optimistic);
   }
 
   /// Host GameServer callback — under server authority in-game state comes from
@@ -213,7 +282,10 @@ class GameProvider extends ChangeNotifier {
 
   /// Online clients receive sanitized broadcasts; merge own hand via owner-only RPC.
   /// Under server authority the host uses the same path as clients.
-  Future<void> _applyOnlineEstimationState(GameState incoming) async {
+  Future<void> _applyOnlineEstimationState(
+    GameState incoming, {
+    List<PlayingCard>? privateHand,
+  }) async {
     if (_transport == ConnectionTransport.local) {
       _updateState(incoming);
       return;
@@ -222,21 +294,60 @@ class GameProvider extends ChangeNotifier {
       _updateState(incoming);
       return;
     }
+    // A server-authoritative host keeps a lightweight lobby server for the
+    // waiting room. A reconnect must not let that stale server replace a live
+    // table with its empty lobby snapshot.
+    if ((_currentRoom?.status == GameRoomStatus.playing ||
+            (_state?.phase != null && _state!.phase != GamePhase.lobby)) &&
+        incoming.phase == GamePhase.lobby) {
+      debugPrint('[GameProvider] Ignored stale lobby state during live game');
+      return;
+    }
     final roomId = _currentRoom?.id;
     if (roomId == null || myPlayerId.isEmpty) {
       _updateState(incoming);
       return;
     }
+    final incomingIndex =
+        incoming.players.indexWhere((player) => player.id == myPlayerId);
+    final expectedHandCount =
+        incomingIndex >= 0 ? incoming.players[incomingIndex].hand.length : -1;
+    _expectedOwnHandCount = expectedHandCount;
+    if (privateHand != null && privateHand.length == expectedHandCount) {
+      GameEngine.autoSort(privateHand);
+      _lastKnownPrivateHand = List.from(privateHand);
+    }
+    if (incomingIndex >= 0) {
+      if (_lastKnownPrivateHand.length == expectedHandCount) {
+        incoming.players[incomingIndex].hand = List.from(_lastKnownPrivateHand);
+      } else {
+        // Repeated 2-spades are the server privacy mask, never a real hand.
+        incoming.players[incomingIndex].hand = [];
+      }
+    }
+
+    // Render public turn/card changes immediately. Waiting for the private-hand
+    // RPC here added a complete network round trip to every online animation.
+    _updateState(incoming);
+
     try {
       final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
-      if (myHand.isNotEmpty) {
-        final idx = incoming.players.indexWhere((p) => p.id == myPlayerId);
-        if (idx != -1) incoming.players[idx].hand = myHand;
+      final current = _state;
+      if (current == null) return;
+      final currentIndex =
+          current.players.indexWhere((player) => player.id == myPlayerId);
+      if (currentIndex < 0 ||
+          (_expectedOwnHandCount >= 0 &&
+              myHand.length != _expectedOwnHandCount)) {
+        return;
       }
+      GameEngine.autoSort(myHand);
+      _lastKnownPrivateHand = List.from(myHand);
+      current.players[currentIndex].hand = List.from(myHand);
+      notifyListeners();
     } catch (e) {
       debugPrint('[GameProvider] Estimation hand merge failed: $e');
     }
-    _updateState(incoming);
   }
 
   Future<void> _applyOnlineNinetyNineState(NinetyNineGameState incoming) async {
@@ -298,6 +409,8 @@ class GameProvider extends ChangeNotifier {
   void _checkAutoPlayCard() {
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
 
     if (_isTemporarilyAway || _status != ConnectionStatus.connected) return;
 
@@ -425,36 +538,68 @@ class GameProvider extends ChangeNotifier {
         type == 'basra';
   }
 
-  Future<void> _applyServerPublicState(Map<String, dynamic> publicState) async {
+  Future<void> _applyServerPublicState(
+    Map<String, dynamic> publicState, {
+    int? actionSeq,
+    List<PlayingCard>? privateHand,
+  }) async {
     if (isNinetyNine) {
       await _applyOnlineNinetyNineState(
           NinetyNineGameState.fromJson(publicState));
     } else if (isBasra) {
       await _applyOnlineBasraState(BasraGameState.fromJson(publicState));
     } else {
-      await _applyOnlineEstimationState(GameState.fromJson(publicState));
+      await _applyOnlineEstimationState(
+        GameState.fromJson(publicState),
+        privateHand: privateHand,
+      );
+    }
+    if (actionSeq != null && actionSeq > _actionSeq) {
+      _actionSeq = actionSeq;
     }
   }
 
-  void _syncFromRoomIfNewer(GameRoom room) {
+  Future<void> _syncFromRoomIfNewer(
+    GameRoom room, {
+    bool force = false,
+  }) async {
     if (!_usesServerAuthority()) return;
-    if (room.actionSeq <= _actionSeq) return;
+    if (!force && room.actionSeq <= _receivedActionSeq) return;
     final snapshot = room.gameState;
     if (snapshot == null || snapshot['players'] == null) return;
-    _actionSeq = room.actionSeq;
+    if (room.actionSeq > _receivedActionSeq) {
+      _receivedActionSeq = room.actionSeq;
+    }
     try {
-      unawaited(_applyServerPublicState(snapshot));
+      await _applyServerPublicState(snapshot, actionSeq: room.actionSeq);
     } catch (e) {
       debugPrint('[GameProvider] Room snapshot parse failed: $e');
     }
+  }
+
+  void _queueAuthorityRoomSync(GameRoom room) {
+    late final Future<void> sync;
+    sync = _syncFromRoomIfNewer(room);
+    _pendingAuthorityStateApply = sync;
+    unawaited(sync.whenComplete(() {
+      if (identical(_pendingAuthorityStateApply, sync)) {
+        _pendingAuthorityStateApply = null;
+      }
+    }));
   }
 
   Future<void> _refreshFromRoomSnapshot() async {
     final roomId = _currentRoom?.id;
     if (roomId == null) return;
     try {
-      final room = await _lobbyRepo.getRoom(roomId);
-      _syncFromRoomIfNewer(room);
+      final view = await _lobbyRepo.getMyGameState(roomId);
+      final rawState = view?['state'];
+      if (rawState is Map) {
+        await _applyServerPublicState(
+          Map<String, dynamic>.from(rawState),
+          actionSeq: (view?['actionSeq'] as num?)?.toInt(),
+        );
+      }
     } catch (e) {
       debugPrint('[GameProvider] refreshFromRoomSnapshot failed: $e');
     }
@@ -471,42 +616,97 @@ class GameProvider extends ChangeNotifier {
       return;
     }
 
+    final isEphemeralAction = action == ActionType.sendReaction ||
+        action == ActionType.triggerEarthquake;
+
+    if (_serverActionInFlight && !isEphemeralAction) {
+      debugPrint('[GameProvider] Ignored duplicate in-flight action "$action"');
+      return;
+    }
+
+    if (!isEphemeralAction) {
+      final pendingApply = _pendingAuthorityStateApply;
+      if (pendingApply != null) {
+        await pendingApply;
+      }
+    }
+
     final payload = Map<String, dynamic>.from(extra)..remove('playerId');
-
-    final result = await GameActionService.submit(
-      roomId: roomId,
-      action: action,
-      payload: payload,
-      expectedSeq: _actionSeq,
-    );
-
-    if (!result.ok) {
-      debugPrint(
-          '[GameProvider] Server action "$action" failed: ${result.error}');
-      if (result.error == 'SEQ_MISMATCH') {
-        await _refreshFromRoomSnapshot();
+    if (action == ActionType.playCard) {
+      final rawCard = payload['card'];
+      final currentState = _state;
+      final currentPlayer = me;
+      if (rawCard is! Map || currentState == null || currentPlayer == null) {
+        return;
       }
-      return;
+      final selected = PlayingCard.fromJson(
+        Map<String, dynamic>.from(rawCard),
+      );
+      if (!GameEngine.canPlayCard(currentState, currentPlayer, selected)) {
+        debugPrint(
+          '[GameProvider] Dropped stale card selection after state sync',
+        );
+        return;
+      }
+      _applyOptimisticCardPlay(selected);
     }
 
-    if (result.seq != null) _actionSeq = result.seq!;
+    if (!isEphemeralAction) {
+      _serverActionInFlight = true;
+    }
+    try {
+      final result = await GameActionService.submit(
+        roomId: roomId,
+        action: action,
+        payload: payload,
+        expectedSeq: _actionSeq,
+      );
 
-    if (result.ephemeral) {
-      final ephemeral = result.data['ephemeral'];
-      if (ephemeral is Map) {
-        final map = Map<String, dynamic>.from(ephemeral);
-        if (map['type'] == ActionType.sendReaction) {
-          handleIncomingReaction(map);
-        } else if (map['type'] == ActionType.triggerEarthquake) {
-          handleIncomingEarthquake(map);
+      if (!result.ok) {
+        debugPrint(
+            '[GameProvider] Server action "$action" failed: ${result.error}');
+        if (result.error == 'SEQ_MISMATCH' || result.error == 'CARD_REJECTED') {
+          await _refreshFromRoomSnapshot();
         }
+        return;
       }
-      return;
-    }
 
-    final publicState = result.publicState;
-    if (publicState != null) {
-      await _applyServerPublicState(publicState);
+      if (action == ActionType.startGame) {
+        _server?.markServerAuthorityGameStarted();
+      }
+
+      final resultSeq = result.seq;
+      if (resultSeq != null && resultSeq > _receivedActionSeq) {
+        _receivedActionSeq = resultSeq;
+      }
+
+      if (result.ephemeral) {
+        final ephemeral = result.data['ephemeral'];
+        if (ephemeral is Map) {
+          final map = Map<String, dynamic>.from(ephemeral);
+          if (map['type'] == ActionType.sendReaction) {
+            handleIncomingReaction(map);
+          } else if (map['type'] == ActionType.triggerEarthquake) {
+            handleIncomingEarthquake(map);
+          }
+        }
+        return;
+      }
+
+      final publicState = result.publicState;
+      if (publicState != null) {
+        final privateHand =
+            result.privateHand?.map(PlayingCard.fromJson).toList();
+        await _applyServerPublicState(
+          publicState,
+          actionSeq: resultSeq,
+          privateHand: privateHand,
+        );
+      }
+    } finally {
+      if (!isEphemeralAction) {
+        _serverActionInFlight = false;
+      }
     }
   }
 
@@ -612,12 +812,13 @@ class GameProvider extends ChangeNotifier {
 
   void _listenToRoom(String roomId) {
     _roomSub?.cancel();
+    unawaited(_refreshRoomPlayers(roomId));
     _roomSub = _lobbyRepo.watchRoom(roomId).listen(
       (room) {
         final previousHost = _currentRoom?.hostId;
         _currentRoom = room;
         _expectedPlayers = room.maxPlayers;
-        _syncFromRoomIfNewer(room);
+        _queueAuthorityRoomSync(room);
         if (isHost && _server != null && room.gameState != null) {
           _server!.applyBotPlayerIdsFromSnapshot(room.gameState);
         }
@@ -639,6 +840,7 @@ class GameProvider extends ChangeNotifier {
           }
         }
         if (room.isMatchmaking) {
+          unawaited(_refreshRoomPlayers(room.id));
           _handleMatchmakingRoomUpdate(room, previousHost: previousHost);
         }
         notifyListeners();
@@ -659,31 +861,8 @@ class GameProvider extends ChangeNotifier {
     _playersSub?.cancel();
     _playersSub = _lobbyRepo.watchRoomPlayers(roomId).listen(
       (players) {
-        final previousIds = _roomPlayers.map((p) => p.playerId).toSet();
-        final membershipChanged =
-            !RoomPlayer.sameMembership(_roomPlayers, players);
-        _roomPlayers = players;
-        final room = _currentRoom;
-        if (membershipChanged &&
-            _isGameInProgress &&
-            isHost &&
-            _server != null) {
-          final newIds = players.map((p) => p.playerId).toSet();
-          for (final id in previousIds.difference(newIds)) {
-            _server!.markPlayerPermanentlyAbsent(id);
-          }
-        }
-        if (membershipChanged &&
-            !_isTemporarilyAway &&
-            room != null &&
-            room.isMatchmakingWaiting) {
-          _handleMatchmakingPopulationChanged();
-        }
-        // Heartbeats and hand saves rewrite room_players rows without changing
-        // who is seated. Skip those notifies once the match is in progress.
-        if (membershipChanged || !_isGameInProgress) {
-          notifyListeners();
-        }
+        _matchmakingRosterFetchEpoch++;
+        _applyRoomPlayers(players, fromRealtime: true);
       },
       onError: (err) {
         // Same: player-list stream errors mid-game are non-fatal.
@@ -695,6 +874,101 @@ class GameProvider extends ChangeNotifier {
         }
       },
     );
+    _startMatchmakingSyncIfNeeded();
+  }
+
+  Future<void> _refreshRoomPlayers(String roomId) async {
+    final fetchEpoch = ++_matchmakingRosterFetchEpoch;
+    try {
+      final room = _currentRoom;
+      final players = await _lobbyRepo.fetchRoomPlayers(
+        roomId,
+        activeOnly: room?.isMatchmakingWaiting ?? false,
+      );
+      if (fetchEpoch != _matchmakingRosterFetchEpoch ||
+          _currentRoom?.id != roomId) {
+        return;
+      }
+      _applyRoomPlayers(players);
+    } catch (error) {
+      debugPrint('[Matchmaking] Player roster refresh failed: $error');
+    }
+  }
+
+  Future<void> _refreshMatchmakingState(String roomId) async {
+    try {
+      final room = await _matchmakingRepo.getRoom(roomId);
+      if (_currentRoom?.id != roomId) return;
+      final previousHost = _currentRoom?.hostId;
+      _currentRoom = room;
+      _expectedPlayers = room.maxPlayers;
+      _queueAuthorityRoomSync(room);
+      _handleMatchmakingRoomUpdate(room, previousHost: previousHost);
+      await _refreshRoomPlayers(roomId);
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[Matchmaking] State refresh failed: $error');
+    }
+  }
+
+  void _applyRoomPlayers(List<RoomPlayer> players,
+      {bool fromRealtime = false}) {
+    Iterable<RoomPlayer> resolved = players;
+    final room = _currentRoom;
+    if ((room?.isMatchmakingWaiting ?? false) && fromRealtime) {
+      resolved = _filterActiveMatchmakingPlayers(players);
+    }
+    final ordered = RoomPlayer.stableSeatOrder(resolved);
+    final previousIds = _roomPlayers.map((p) => p.playerId).toSet();
+    final membershipChanged = !RoomPlayer.sameMembership(_roomPlayers, ordered);
+    final presentationChanged =
+        !RoomPlayer.sameSeatPresentation(_roomPlayers, ordered);
+    _roomPlayers = ordered;
+    if (membershipChanged && _isGameInProgress && isHost && _server != null) {
+      final newIds = players.map((p) => p.playerId).toSet();
+      for (final id in previousIds.difference(newIds)) {
+        _server!.markPlayerPermanentlyAbsent(id);
+      }
+    }
+    if (membershipChanged &&
+        !_isTemporarilyAway &&
+        room != null &&
+        room.isMatchmakingWaiting) {
+      if (isHost && _server != null) {
+        _server!.syncPlayersFromRoom(_roomPlayers
+            .map((p) => (id: p.playerId, name: p.playerName))
+            .toList());
+      }
+      _handleMatchmakingPopulationChanged();
+    }
+    if (membershipChanged || presentationChanged) {
+      notifyListeners();
+    }
+  }
+
+  List<RoomPlayer> _filterActiveMatchmakingPlayers(List<RoomPlayer> players) {
+    return players.where((p) => p.isActiveForMatchmaking).toList();
+  }
+
+  void _startMatchmakingSyncIfNeeded() {
+    final room = _currentRoom;
+    if (room == null || !room.isMatchmakingWaiting) {
+      _stopMatchmakingSync();
+      return;
+    }
+    _matchmakingSyncTimer ??= Timer.periodic(const Duration(seconds: 3), (_) {
+      final activeRoom = _currentRoom;
+      if (activeRoom == null || !activeRoom.isMatchmakingWaiting) {
+        _stopMatchmakingSync();
+        return;
+      }
+      unawaited(_refreshMatchmakingState(activeRoom.id));
+    });
+  }
+
+  void _stopMatchmakingSync() {
+    _matchmakingSyncTimer?.cancel();
+    _matchmakingSyncTimer = null;
   }
 
   void _handleMatchmakingRoomUpdate(GameRoom room, {String? previousHost}) {
@@ -708,6 +982,7 @@ class GameProvider extends ChangeNotifier {
           : MatchmakingStatus.starting;
       _cancelMatchmakingBotOfferTimer();
       unawaited(_saveMatchmakingSessionIfNeeded(room));
+      _stopMatchmakingSync();
       if (room.hostId == myPlayerId) {
         unawaited(_startApprovedMatchmakingGame());
       } else if (room.status == GameRoomStatus.playing && _state == null) {
@@ -764,9 +1039,12 @@ class GameProvider extends ChangeNotifier {
       return;
     }
     final notBefore = room.botOfferAfter;
-    final delay = notBefore != null && notBefore.isAfter(DateTime.now())
-        ? notBefore.difference(DateTime.now())
-        : matchmakingBotOfferDelay;
+    final now = DateTime.now();
+    final delay = notBefore == null
+        ? matchmakingBotOfferDelay
+        : notBefore.isAfter(now)
+            ? notBefore.difference(now)
+            : Duration.zero;
     _matchmakingBotOfferTimer = Timer(delay, () async {
       _matchmakingBotOfferTimer = null;
       final latest = _currentRoom;
@@ -781,8 +1059,11 @@ class GameProvider extends ChangeNotifier {
         if (offer != null) {
           debugPrint(
               '[Matchmaking] Bot offer opened: version=${offer.offerVersion} humans=${offer.humanCount}');
+          await _refreshMatchmakingState(latest.id);
         }
-      } catch (_) {}
+      } catch (error) {
+        debugPrint('[Matchmaking] Bot offer retry needed: $error');
+      }
     });
   }
 
@@ -802,6 +1083,7 @@ class GameProvider extends ChangeNotifier {
     }
     if (await _rejectNewGameWhileSessionActive()) return;
     await reset();
+    _roomPlayers = [];
     _myName = name.trim();
     _transport = ConnectionTransport.online;
     _expectedPlayers = 4;
@@ -827,18 +1109,24 @@ class GameProvider extends ChangeNotifier {
       final room = await _matchmakingRepo.getRoom(result.roomId);
       _currentRoom = room;
       _role = result.isHost ? ConnectionRole.host : ConnectionRole.client;
+      await _refreshRoomPlayers(room.id);
       if (result.isHost) {
         await _initializeMatchmakingHost(room);
       } else {
         await _initializeMatchmakingClient(room);
       }
       _listenToRoom(room.id);
+      _startMatchmakingSyncIfNeeded();
       _status = ConnectionStatus.connected;
       _isSearching = false;
       _matchmakingStatus = room.isMatchmakingStarting
           ? MatchmakingStatus.starting
           : MatchmakingStatus.searching;
-      debugPrint('[Matchmaking] Joined room ${room.id}, host=${result.isHost}');
+      debugPrint(
+        '[Matchmaking] Joined room ${room.id} code=${room.roomCode} '
+        'host=${result.isHost} rpcPlayers=${result.playerCount} '
+        'roster=${_roomPlayers.length}',
+      );
       notifyListeners();
       if (room.isMatchmakingStarting && isHost) {
         unawaited(_startApprovedMatchmakingGame());
@@ -908,8 +1196,10 @@ class GameProvider extends ChangeNotifier {
     final room = _currentRoom;
     if (room == null || !room.isMatchmaking) return null;
     try {
-      return await _matchmakingRepo.castBotFillVote(
+      final result = await _matchmakingRepo.castBotFillVote(
           roomId: room.id, offerVersion: offerVersion, accepted: accepted);
+      await _refreshMatchmakingState(room.id);
+      return result;
     } catch (error) {
       _errorMessage = _matchmakingRepo.translateError(error);
       notifyListeners();
@@ -974,12 +1264,15 @@ class GameProvider extends ChangeNotifier {
     _isLeavingMatchmaking = true;
     _matchmakingStatus = MatchmakingStatus.cancelling;
     _cancelMatchmakingBotOfferTimer();
+    _stopMatchmakingSync();
     notifyListeners();
     final room = _currentRoom;
+    final roomId = room?.id;
     try {
       if (room?.isMatchmaking == true &&
-          room!.status == GameRoomStatus.waiting) {
-        await _matchmakingRepo.leaveMatchmaking(room.id);
+          room!.status == GameRoomStatus.waiting &&
+          roomId != null) {
+        await _matchmakingRepo.leaveMatchmaking(roomId);
       }
     } catch (error) {
       debugPrint('[Matchmaking] Leave failed: $error');
@@ -1286,6 +1579,7 @@ class GameProvider extends ChangeNotifier {
 
       _currentRoom = createdRoom;
       _actionSeq = createdRoom.actionSeq;
+      _receivedActionSeq = createdRoom.actionSeq;
       _listenToRoom(createdRoom.id);
       await _sessionService.saveActiveRoomSession(
         roomId: createdRoom.id,
@@ -1462,6 +1756,7 @@ class GameProvider extends ChangeNotifier {
 
       _currentRoom = room;
       _actionSeq = room.actionSeq;
+      _receivedActionSeq = room.actionSeq;
       debugPrint('Successfully joined room: ${room.id}');
 
       // 2. Connect to the mode-specific broadcast channel
@@ -1732,10 +2027,24 @@ class GameProvider extends ChangeNotifier {
   void playCard(PlayingCard card) {
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
     _sendAction(ActionType.playCard, {'card': card.toJson()});
   }
 
   void requestStateSync() => _sendAction(ActionType.requestStateSync);
+
+  Future<void> advanceServerBotsAfterTakeover() async {
+    if (!_usesServerAuthority() || isNinetyNine || isBasra) return;
+    for (var attempt = 0; attempt < 12 && _serverActionInFlight; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    if (_serverActionInFlight) {
+      debugPrint('[GameProvider] Bot takeover wake-up deferred to next sync');
+      return;
+    }
+    await _sendServerAction(ActionType.processBots, const {});
+  }
 
   void nextRound() => _sendAction(ActionType.nextRound);
 
@@ -1877,7 +2186,11 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> reset() async {
+    _matchmakingRosterFetchEpoch++;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
     _cancelMatchmakingBotOfferTimer();
+    _stopMatchmakingSync();
     await _sessionService.clearSession();
     _nnProvider?.reset();
     _basraProvider?.reset();
@@ -1965,6 +2278,11 @@ class GameProvider extends ChangeNotifier {
     _currentRoom = null;
     _roomPlayers = [];
     _actionSeq = 0;
+    _receivedActionSeq = 0;
+    _expectedOwnHandCount = -1;
+    _lastKnownPrivateHand = [];
+    _pendingAuthorityStateApply = null;
+    _serverActionInFlight = false;
     _myAvatarRef = null;
     _lobbyAvatarRefs.clear();
     _role = ConnectionRole.none;
@@ -2043,12 +2361,16 @@ class GameProvider extends ChangeNotifier {
     _isTemporarilyAway = true;
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
     _cancelMatchmakingBotOfferTimer();
     _roomSub?.cancel();
     _roomSub = null;
     _playersSub?.cancel();
     _playersSub = null;
     try {
+      // Complete the ownership handoff before the home screen refreshes. This
+      // makes the five-minute recovery state appear on both phones at once.
       await _lobbyRepo.markOffline(room.id);
     } catch (error) {
       debugPrint('[Reconnection] Could not mark temporary departure: $error');
@@ -2060,6 +2382,32 @@ class GameProvider extends ChangeNotifier {
       _client = null;
     }
     _status = ConnectionStatus.idle;
+    notifyListeners();
+  }
+
+  /// Stop this installation when the same Google account has claimed the seat
+  /// from another device. This intentionally performs no server-side leave:
+  /// deleting the shared membership would also kick out the new owner.
+  Future<void> relinquishSeatToOtherDevice() async {
+    _isTemporarilyAway = true;
+    _autoPlayCardTimer?.cancel();
+    _autoPlayCardTimer = null;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
+    _cancelMatchmakingBotOfferTimer();
+    _stopMatchmakingSync();
+    await _roomSub?.cancel();
+    _roomSub = null;
+    await _playersSub?.cancel();
+    _playersSub = null;
+    if (isHost) {
+      _server?.markHostTemporarilyAway();
+    } else {
+      _client?.disconnect(myPlayerId);
+      _client = null;
+    }
+    _status = ConnectionStatus.idle;
+    _errorMessage = 'تم فتح المباراة على جهاز آخر بهذا الحساب.';
     notifyListeners();
   }
 
@@ -2105,33 +2453,28 @@ class GameProvider extends ChangeNotifier {
     try {
       debugPrint('[Provider] Rehydrating state for room $roomId…');
 
-      // 1. Fetch the phase-transition snapshot from Supabase.
-      final snapshot = await _lobbyRepo.getGameStateSnapshot(roomId);
-      if (snapshot == null) {
+      // 1. Atomically fetch the public table plus only this device's real hand.
+      final view = await _lobbyRepo.getMyGameState(roomId);
+      final rawSnapshot = view?['state'];
+      if (rawSnapshot is! Map) {
         debugPrint('[Provider] No snapshot found — cannot rehydrate');
         return false;
       }
 
-      _state = GameState.fromJson(snapshot);
-
-      // 2. Recover the player's own hand cards (private, per-player row).
-      if (myPlayerId.isNotEmpty) {
-        try {
-          final myHand = await _lobbyRepo.getMyHandCards(roomId, myPlayerId);
-          if (myHand.isNotEmpty) {
-            final idx = _state!.players.indexWhere((p) => p.id == myPlayerId);
-            if (idx != -1) _state!.players[idx].hand = myHand;
-          }
-        } catch (e) {
-          // Non-fatal: sanitized broadcast + RPC hand merge will recover.
-          debugPrint('[Provider] Hand recovery skipped: $e');
-        }
+      _state = GameState.fromJson(Map<String, dynamic>.from(rawSnapshot));
+      _actionSeq = (view?['actionSeq'] as num?)?.toInt() ?? _actionSeq;
+      _receivedActionSeq = _actionSeq;
+      final ownIndex = _state!.players.indexWhere((p) => p.id == myPlayerId);
+      if (ownIndex >= 0) {
+        GameEngine.autoSort(_state!.players[ownIndex].hand);
+        _lastKnownPrivateHand = List.from(_state!.players[ownIndex].hand);
+        _expectedOwnHandCount = _lastKnownPrivateHand.length;
       }
 
-      // 3. Clean up any stale client connection.
+      // 2. Clean up any stale client connection.
       _client?.disconnect(myPlayerId);
 
-      // 4. Re-subscribe to the Realtime broadcast channel.
+      // 3. Re-subscribe to the Realtime broadcast channel.
       _client = GameClient(
         onStateUpdate: (state) => unawaited(_applyOnlineEstimationState(state)),
         onError: (err) => _setError(err),
@@ -2139,7 +2482,7 @@ class GameProvider extends ChangeNotifier {
       final myPhoto = await ProfileService.getProfilePhoto();
       await _client!.connect(roomId, myPlayerId, myName, myPhoto);
 
-      // 5. Re-subscribe to Supabase room stream.
+      // 4. Re-subscribe to Supabase room stream.
       _listenToRoom(roomId);
       _currentRoom = await _lobbyRepo.getRoom(roomId);
 
@@ -2178,7 +2521,11 @@ class GameProvider extends ChangeNotifier {
           await _lobbyRepo.getRoomPrivateHandsForHost(session.roomId);
       for (final entry in privateHands.entries) {
         final idx = restoredState.players.indexWhere((p) => p.id == entry.key);
-        if (idx != -1) restoredState.players[idx].hand = entry.value;
+        if (idx != -1) {
+          final orderedHand = List<PlayingCard>.from(entry.value);
+          GameEngine.autoSort(orderedHand);
+          restoredState.players[idx].hand = orderedHand;
+        }
       }
 
       // 2. Clean up any existing connections.
@@ -2222,6 +2569,8 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     _autoPlayCardTimer?.cancel();
     _autoPlayCardTimer = null;
+    _authorityTimeoutTimer?.cancel();
+    _authorityTimeoutTimer = null;
     _roomSub?.cancel();
     _playersSub?.cancel();
     _server?.stop();

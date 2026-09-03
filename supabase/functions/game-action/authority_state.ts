@@ -24,6 +24,26 @@ export function authorityContext(authority: LoadedAuthority) {
   };
 }
 
+/** A signed-in action proves this temporarily bot-controlled seat is human again. */
+export function reclaimActingHumanSeat(
+  authority: LoadedAuthority,
+  playerId: string,
+): void {
+  const players = authority.state.players;
+  if (!Array.isArray(players)) return;
+  const player = players.find((raw) =>
+    raw && typeof raw === "object" &&
+    String((raw as Record<string, unknown>).id) === playerId
+  ) as Record<string, unknown> | undefined;
+  if (!player || String(player.id).startsWith("bot_")) return;
+
+  player.isBot = false;
+  const botIds = authority.state.botPlayerIds;
+  if (Array.isArray(botIds)) {
+    authority.state.botPlayerIds = botIds.filter((id) => String(id) !== playerId);
+  }
+}
+
 export async function loadAuthorityState(
   client: SupabaseClient,
   roomId: string,

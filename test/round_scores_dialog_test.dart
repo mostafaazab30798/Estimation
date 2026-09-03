@@ -13,12 +13,14 @@ import 'package:estimation/services/device_performance_service.dart';
 import 'package:estimation/widgets/hud/top_hud.dart';
 
 void main() {
-  testWidgets('TopHud displays scores leaderboard button and opens RoundScoresDialog', (tester) async {
+  testWidgets(
+      'TopHud displays scores leaderboard button and opens RoundScoresDialog',
+      (tester) async {
     final players = [
       Player(id: 'p1', name: 'Player 1', seatIndex: 0, totalScore: 100),
       Player(id: 'p2', name: 'Player 2', seatIndex: 1, totalScore: 50),
       Player(id: 'p3', name: 'Player 3', seatIndex: 2, totalScore: -20),
-      Player(id: 'p4', name: 'Player 4', seatIndex: 3, totalScore: 200),
+      Player(id: 'p4', name: 'Mohamed Ali', seatIndex: 3, totalScore: 200),
     ];
 
     final state = GameState(
@@ -61,7 +63,7 @@ void main() {
             ),
             PlayerRoundRecord(
               playerId: 'p4',
-              playerName: 'Player 4',
+              playerName: 'Mohamed Ali',
               declared: 5,
               actual: 5,
               scoreDelta: 85,
@@ -105,7 +107,8 @@ void main() {
     expect(find.text('سجل الجولات'), findsOneWidget);
 
     // Verify player scores and ranks
-    expect(find.text('Player 4'), findsWidgets); // leader
+    expect(find.text('Mohamed'), findsWidgets); // full first name, no ellipsis
+    expect(find.text('Mohamed Ali'), findsNothing);
     expect(find.text('200'), findsWidgets);
     expect(find.text('كينج'), findsOneWidget);
 
@@ -114,12 +117,20 @@ void main() {
     expect(find.text('سبيد 5'), findsOneWidget);
   });
 
-  testWidgets('TopHud in last 5 rounds (14-18) renders flawlessly on narrow mobile screens (320px)', (tester) async {
+  testWidgets(
+      'TopHud in last 5 rounds (14-18) renders flawlessly on narrow mobile screens (320px)',
+      (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final trumps = [Trump.sans, Trump.spade, Trump.heart, Trump.diamond, Trump.club];
+    final trumps = [
+      Trump.sans,
+      Trump.spade,
+      Trump.heart,
+      Trump.diamond,
+      Trump.club
+    ];
 
     for (int r = 14; r <= 18; r++) {
       final state = GameState(

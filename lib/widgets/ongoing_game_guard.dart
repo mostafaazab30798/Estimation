@@ -6,6 +6,7 @@ import '../providers/game_provider.dart';
 import '../core/widgets/app_dialog.dart';
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
+import 'game_reentry_loading_dialog.dart';
 
 /// Returns true when a still-active game blocked the requested new-game action.
 Future<bool> guardAgainstOngoingGame(BuildContext context) async {
@@ -37,7 +38,10 @@ Future<bool> guardAgainstOngoingGame(BuildContext context) async {
       ) ??
       false;
   if (!returnNow || !context.mounted) return true;
-  final result = await reconnect.recoverPendingSession();
+  final result = await runWithGameReentryLoading(
+    context,
+    operation: reconnect.recoverPendingSession,
+  );
   if (!context.mounted || result != ReconnectionState.reconnected) return true;
   final provider = context.read<GameProvider>();
   final room = provider.currentRoom;

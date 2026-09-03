@@ -79,19 +79,34 @@ class _TrickAreaState extends State<TrickArea>
   void didUpdateWidget(TrickArea oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (_trickCache.length == 4 && widget.state.currentTrick.isEmpty) {
+    List<TrickCard>? completedTrick;
+    if (_trickCache.length == 4) {
+      completedTrick = List.from(_trickCache);
+    } else if (_trickCache.length == 3 &&
+        widget.state.currentTrick.isEmpty) {
+      // The authoritative reducer resolves the trick atomically. Recover the
+      // winning four-card trick so clients that saw only the first three still
+      // render the fourth card before collecting the pile.
+      final winner = widget.state.playerBySeat(widget.state.trickLeaderSeatIndex);
+      if (winner.takenTricks.isNotEmpty &&
+          winner.takenTricks.last.length == 4) {
+        completedTrick = List.from(winner.takenTricks.last);
+      }
+    }
+
+    if (completedTrick != null && widget.state.currentTrick.isEmpty) {
       final winnerSeat = widget.state.trickLeaderSeatIndex;
 
       // Set sweep state — no setState needed.
       _sweepState.value = _SweepState(
         isSweeping: true,
-        sweepingTrick: List.from(_trickCache),
+        sweepingTrick: completedTrick,
         winnerSeat: winnerSeat,
       );
 
-      // Reset and start the Phase 3 controller after Phase 1 finishes (200 ms).
+      // Hold the completed trick briefly, then collect and fly it to the winner.
       _sweepCtrl.reset();
-      Future.delayed(const Duration(milliseconds: 200), () {
+      Future.delayed(const Duration(milliseconds: 430), () {
         if (mounted) {
           AudioService.instance.playCollection();
           _sweepCtrl.forward();
@@ -99,7 +114,7 @@ class _TrickAreaState extends State<TrickArea>
       });
 
       // Clear sweep state after the full animation.
-      Future.delayed(const Duration(milliseconds: 1050), () {
+      Future.delayed(const Duration(milliseconds: 1250), () {
         if (mounted) {
           _sweepState.value = _SweepState.empty;
           _sweepCtrl.reset();
@@ -227,7 +242,8 @@ class _TrickAreaState extends State<TrickArea>
                 final pileOffsetDy = (rand.nextDouble() * 6 - 3);
 
                 return card
-                    .animate()
+                    // Let the fourth card visibly land before collecting.
+                    .animate(delay: 220.ms)
                     // Phase 1: each card slides to center (200 ms)
                     .move(
                       begin: Offset(dx, dy),
@@ -304,23 +320,15 @@ class _TrickAreaState extends State<TrickArea>
                         final rotation = t * 10 * math.pi / 180.0;
                         final scale = 1.0 - 0.15 * t;
 
-                        // Fade out in the last 20% of the animation
-                        final opacity = t >= 0.80
-                            ? (1.0 - (t - 0.80) / 0.20).clamp(0.0, 1.0)
-                            : 1.0;
-
-                        return Opacity(
-                          opacity: opacity,
-                          child: Transform.translate(
-                            offset: Offset(dx, dy),
-                            child: Transform.rotate(
-                              angle: rotation,
+                        return Transform.translate(
+                          offset: Offset(dx, dy),
+                          child: Transform.rotate(
+                            angle: rotation,
+                            alignment: Alignment.center,
+                            child: Transform.scale(
+                              scale: scale,
                               alignment: Alignment.center,
-                              child: Transform.scale(
-                                scale: scale,
-                                alignment: Alignment.center,
-                                child: child,
-                              ),
+                              child: child,
                             ),
                           ),
                         );
@@ -405,13 +413,9 @@ class _AnimatedCard extends StatelessWidget {
             dx = -offsetDist;
             break; // slide right from left
         }
-        return Transform.translate(
-          offset: Offset(dx, dy),
-          child: Opacity(
-            opacity: val,
-            child: child,
-          ),
-        );
+        // Shader-backed card contents cannot accept inherited opacity on
+        // Impeller. The movement still communicates the card entrance.
+        return Transform.translate(offset: Offset(dx, dy), child: child);
       },
       child: PlayingCardWidget(
         card: trickCard!.card,

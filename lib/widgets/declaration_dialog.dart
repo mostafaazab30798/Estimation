@@ -102,7 +102,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                 customPhaseLabel: 'DECLARATION',
                 isMyTurn: true,
                 compact: true,
-                explicitDurationSeconds: state?.turnDurationSeconds ?? 15,
+                explicitDurationSeconds: state?.turnDurationSeconds ?? 60,
                 explicitDeadlineEpochMs: state?.turnDeadlineEpochMs,
               ),
             ],

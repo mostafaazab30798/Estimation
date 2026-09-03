@@ -16,6 +16,7 @@ import 'package:estimation/screens/game_screen.dart' show HiddenCardFan;
 
 import 'package:estimation/core/widgets/leave_game_dialog.dart';
 import 'package:estimation/providers/game_provider.dart';
+import 'package:estimation/services/online_play_gate.dart';
 import 'package:estimation/modes/ninety_nine/presentation/providers/ninety_nine_game_provider.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_top_hud.dart';
 import 'package:estimation/modes/ninety_nine/presentation/widgets/ninety_nine_player_info.dart';
@@ -953,6 +954,9 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
     LeaveGameDialog.show(
       context,
       onLeave: () async {
+        final gate = context.read<OnlinePlayGate>();
+        gate.stopPolling();
+        gate.resumeAfterLeavingMatch();
         final gameProvider = context.read<GameProvider>();
         await gameProvider.temporarilyLeaveOngoingGame();
         if (!context.mounted) return;

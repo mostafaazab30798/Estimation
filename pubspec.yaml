@@ -1,7 +1,7 @@
 name: estimation
 description: "سهرة ورق — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
-version: 1.11.0+22
+version: 1.12.1+24
 environment:
   sdk: ^3.5.0
 

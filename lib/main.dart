@@ -28,6 +28,7 @@ import 'features/matchmaking/presentation/screens/matchmaking_screen.dart';
 import 'services/audio_service.dart';
 import 'services/reconnection_manager.dart';
 import 'services/online_play_gate.dart';
+import 'widgets/online_play_gate_lifecycle.dart';
 import 'services/device_performance_service.dart';
 import 'services/auth_service.dart';
 import 'services/settings_service.dart';
@@ -37,6 +38,7 @@ import 'core/constants.dart';
 import 'core/utils/wallpaper_precache.dart';
 import 'core/config/app_config.dart';
 import 'core/widgets/app_logo.dart';
+import 'core/widgets/device_orientation_locker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,18 +56,17 @@ void main() async {
     ),
   );
 
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  await applyDeviceOrientationPolicyFromPlatform();
 
   const serverAuthority =
       bool.fromEnvironment('SERVER_AUTHORITY', defaultValue: false);
   GameActionService.useServerAuthority = serverAuthority;
 
-  runApp(const AppBootstrap());
+  runApp(
+    const DeviceOrientationLocker(
+      child: AppBootstrap(),
+    ),
+  );
 }
 
 class AppBootstrap extends StatefulWidget {
@@ -245,17 +246,20 @@ class KotshinaApp extends StatelessWidget {
           '/': (_) => const AppEntryLoader(),
           '/home': (_) => const ModeSelectionScreen(),
           '/kotchina/home': (_) => const HomeScreen(),
-          '/lobby': (_) => const LobbyScreen(),
-          '/game': (_) => const GameScreen(),
-          '/matchmaking': (_) => const MatchmakingScreen(),
+          '/lobby': (_) => const OnlinePlayGateMatchScope(child: LobbyScreen()),
+          '/game': (_) => const OnlinePlayGateMatchScope(child: GameScreen()),
+          '/matchmaking': (_) =>
+              const OnlinePlayGateMatchScope(child: MatchmakingScreen()),
           '/profile': (_) => const ProfileScreen(),
           '/local_discovery': (_) => const LocalDiscoveryScreen(),
           '/academy': (_) => const AcademyHomeScreen(),
           '/puzzles': (_) => const PuzzlesHomeScreen(),
           '/ninety_nine/home': (_) => const NinetyNineHomeScreen(),
-          '/ninety_nine/game': (_) => const NinetyNineGameScreen(),
+          '/ninety_nine/game': (_) =>
+              const OnlinePlayGateMatchScope(child: NinetyNineGameScreen()),
           '/basra/home': (_) => const BasraHomeScreen(),
-          '/basra/game': (_) => const BasraGameScreen(),
+          '/basra/game': (_) =>
+              const OnlinePlayGateMatchScope(child: BasraGameScreen()),
         },
       ),
     );

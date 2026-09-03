@@ -52,6 +52,12 @@ class GameActionService {
 
       final data = _asMap(response.data);
       return GameActionResult.success(data);
+    } on FunctionException catch (e) {
+      final error = _parseError(e.details);
+      debugPrint(
+        '[GameActionService] $action rejected: $error (${e.status})',
+      );
+      return GameActionResult.failure(error, statusCode: e.status);
     } catch (e, st) {
       debugPrint('[GameActionService] invoke error: $e\n$st');
       return GameActionResult.failure('INVOKE_FAILED');
@@ -104,6 +110,15 @@ class GameActionResult {
     if (raw is Map<String, dynamic>) return raw;
     if (raw is Map) return Map<String, dynamic>.from(raw);
     return null;
+  }
+
+  List<Map<String, dynamic>>? get privateHand {
+    final raw = data['privateHand'];
+    if (raw is! List) return null;
+    return raw
+        .whereType<Map>()
+        .map((card) => Map<String, dynamic>.from(card))
+        .toList();
   }
 
   bool get idempotent => data['idempotent'] == true;

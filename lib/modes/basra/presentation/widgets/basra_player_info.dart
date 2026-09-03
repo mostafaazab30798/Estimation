@@ -45,8 +45,9 @@ class BasraPlayerInfoWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           PlayerAvatarRing(
-            photoData: null,
+            photoData: player.isBot ? null : player.avatarId,
             playerName: player.name,
+            fallbackAvatarKey: player.id,
             size: 22,
             ringColor: accent,
             isCurrentTurn: isCurrentTurn,
@@ -91,8 +92,9 @@ class BasraPlayerInfoWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         PlayerAvatarRing(
-          photoData: null,
+          photoData: player.isBot ? null : player.avatarId,
           playerName: player.name,
+          fallbackAvatarKey: player.id,
           size: 26,
           ringColor: accent,
           isCurrentTurn: isCurrentTurn,

@@ -27,6 +27,15 @@ void main() {
       );
     });
 
+    test('numbered bots receive distinct game avatars', () {
+      final ids = {
+        for (var i = 1; i <= 4; i++) ProfileService.presetForPlayerId('bot_$i'),
+      };
+
+      expect(ids, hasLength(4));
+      expect(ids.every(ProfileService.isKnownPreset), isTrue);
+    });
+
     test('guests keep animal presets but not Google photos', () {
       expect(
         ProfileService.isGuestAssignableAvatar('preset:panda'),

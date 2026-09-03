@@ -356,7 +356,7 @@ class ModeHomeScreenLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metrics = HomeLayoutMetrics.of(context);
-    final isPhoneLandscape = metrics.isLandscape && !metrics.isTablet;
+    final isPhoneLandscape = metrics.isPhoneLandscape;
 
     return Column(
       children: [
@@ -367,7 +367,9 @@ class ModeHomeScreenLayout extends StatelessWidget {
                   ? _buildTabletLandscape(context, metrics)
                   : _buildTabletPortrait(context, metrics))
               : (isPhoneLandscape
-                  ? _buildPhoneLandscape(context)
+                  ? (metrics.isCompactLandscape
+                      ? _buildPhoneCompactLandscape(context)
+                      : _buildPhoneLandscape(context))
                   : _buildPhonePortrait(context)),
         ),
         const ModeHomeSuitFooter(),
@@ -429,6 +431,45 @@ class ModeHomeScreenLayout extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhoneCompactLandscape(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                hero,
+                const SizedBox(height: 12),
+                primaryAction,
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ModeHomeLandscapeDivider(accent: accent),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 6,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                multiplayerSection,
+                if (extraSection != null) ...[
+                  const SizedBox(height: 12),
+                  extraSection!,
+                ],
+              ],
             ),
           ),
         ],

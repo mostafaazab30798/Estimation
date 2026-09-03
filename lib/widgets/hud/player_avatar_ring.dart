@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../core/widgets/player_avatar.dart';
+import '../../services/profile_service.dart';
 
 /// Wraps [PlayerAvatar] (or an initials fallback) in an animated
 /// colored ring that communicates player state and active turn timer at a glance:
@@ -19,6 +20,8 @@ import '../../core/widgets/player_avatar.dart';
 class PlayerAvatarRing extends StatefulWidget {
   final String? photoData;
   final String playerName;
+  final String? fallbackAvatarKey;
+  final int? fallbackAvatarIndex;
   final double size;
   final Color ringColor;
   final bool isCurrentTurn;
@@ -30,11 +33,13 @@ class PlayerAvatarRing extends StatefulWidget {
     super.key,
     this.photoData,
     required this.playerName,
+    this.fallbackAvatarKey,
+    this.fallbackAvatarIndex,
     this.size = 44,
     this.ringColor = AppTheme.playerBlue,
     this.isCurrentTurn = false,
     this.compact = false,
-    this.turnDurationSeconds = 10,
+    this.turnDurationSeconds = 60,
     this.turnDeadlineEpochMs,
   });
 
@@ -191,7 +196,7 @@ class _PlayerAvatarRingState extends State<PlayerAvatarRing>
 
   Widget _buildAvatar(double size) {
     final photo = widget.photoData;
-    if (photo != null && photo.isNotEmpty) {
+    if (photo != null && ProfileService.isAssignableAvatar(photo)) {
       return PlayerAvatar(
         photoData: photo,
         size: size,
@@ -200,31 +205,18 @@ class _PlayerAvatarRingState extends State<PlayerAvatarRing>
       );
     }
 
-    // Initials fallback
-    final initial = widget.playerName.isNotEmpty
-        ? widget.playerName[0].toUpperCase()
-        : '?';
+    final presets = ProfileService.presetAvatars;
+    final fallbackPhoto = widget.fallbackAvatarIndex == null
+        ? ProfileService.presetForPlayerId(
+            widget.fallbackAvatarKey ?? widget.playerName,
+          )
+        : presets[widget.fallbackAvatarIndex!.abs() % presets.length].id;
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [AppTheme.midBlue, AppTheme.deepNavy],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: TextStyle(
-          fontSize: size * 0.4,
-          fontWeight: FontWeight.bold,
-          color: AppTheme.cream,
-        ),
-      ),
+    return PlayerAvatar(
+      photoData: fallbackPhoto,
+      size: size,
+      hasBorder: false,
+      boxShadow: const [],
     );
   }
 }

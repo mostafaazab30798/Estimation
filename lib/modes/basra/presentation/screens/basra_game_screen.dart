@@ -13,6 +13,7 @@ import 'package:estimation/modes/basra/presentation/widgets/basra_player_info.da
 import 'package:estimation/modes/basra/presentation/widgets/basra_table_area.dart';
 import 'package:estimation/modes/basra/presentation/widgets/basra_top_hud.dart';
 import 'package:estimation/providers/game_provider.dart';
+import 'package:estimation/services/online_play_gate.dart';
 import 'package:estimation/screens/game_screen.dart' show HiddenCardFan;
 import 'package:estimation/services/history_service.dart';
 import 'package:estimation/services/ranking_service.dart';
@@ -494,6 +495,9 @@ class _BasraGameScreenState extends State<BasraGameScreen>
     LeaveGameDialog.show(
       context,
       onLeave: () async {
+        final gate = context.read<OnlinePlayGate>();
+        gate.stopPolling();
+        gate.resumeAfterLeavingMatch();
         final gameProvider = context.read<GameProvider>();
         await gameProvider.temporarilyLeaveOngoingGame();
         if (!context.mounted) return;

@@ -55,8 +55,9 @@ class NinetyNinePlayerInfoWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           PlayerAvatarRing(
-            photoData: null,
+            photoData: player.isBot ? null : player.avatarId,
             playerName: player.name,
+            fallbackAvatarKey: player.id,
             size: 40,
             ringColor: accentColor,
             isCurrentTurn: isCurrentTurn,
@@ -73,8 +74,9 @@ class NinetyNinePlayerInfoWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         PlayerAvatarRing(
-          photoData: null,
+          photoData: player.isBot ? null : player.avatarId,
           playerName: player.name,
+          fallbackAvatarKey: player.id,
           size: 40,
           ringColor: accentColor,
           isCurrentTurn: isCurrentTurn,
@@ -101,8 +103,9 @@ class NinetyNinePlayerInfoWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           PlayerAvatarRing(
-            photoData: null,
+            photoData: player.isBot ? null : player.avatarId,
             playerName: player.name,
+            fallbackAvatarKey: player.id,
             size: 26,
             ringColor: accentColor,
             isCurrentTurn: isCurrentTurn,
@@ -119,8 +122,9 @@ class NinetyNinePlayerInfoWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         PlayerAvatarRing(
-          photoData: null,
+          photoData: player.isBot ? null : player.avatarId,
           playerName: player.name,
+          fallbackAvatarKey: player.id,
           size: 26,
           ringColor: accentColor,
           isCurrentTurn: isCurrentTurn,

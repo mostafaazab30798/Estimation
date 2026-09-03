@@ -3,21 +3,20 @@
 import {
   Bid,
   Card,
-  GameState,
-  Player,
-  ReduceInput,
-  ReduceResult,
-  TrickCard,
   cloneState,
   errResult,
+  GameState,
   handContains,
-  handUpdatesFromState,
   okResult,
+  Player,
   playerById,
   playerBySeat,
+  ReduceInput,
+  ReduceResult,
   removeCard,
+  TrickCard,
 } from "./types.ts";
-import { resolveActingPlayerId } from "./cards.ts";
+import { humanHandUpdates, resolveActingPlayerId } from "./cards.ts";
 
 const K_BOUla_TOTAL_ROUNDS = 18;
 const K_MIN_BID_TRICKS = 4;
@@ -26,19 +25,38 @@ const K_TRICKS_PER_ROUND = 13;
 const K_FIXED_TRUMP_ROUND_COUNT = 5;
 const K_MATCH_END_SCORE = 50;
 const MAX_PLAYERS = 4;
+const TURN_DURATION_SECONDS = 60;
 
 const SUITS = ["club", "diamond", "heart", "spade"] as const;
 const RANKS = [
-  "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-  "jack", "queen", "king", "ace",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "jack",
+  "queen",
+  "king",
+  "ace",
 ] as const;
 
 const TRUMP_PRIORITY: Record<string, number> = {
-  club: 0, diamond: 1, heart: 2, spade: 3, sans: 4,
+  club: 0,
+  diamond: 1,
+  heart: 2,
+  spade: 3,
+  sans: 4,
 };
 
 const SUIT_PRIORITY: Record<string, number> = {
-  club: 0, diamond: 1, heart: 2, spade: 3,
+  club: 0,
+  diamond: 1,
+  heart: 2,
+  spade: 3,
 };
 
 const RANK_SORT: Record<string, number> = Object.fromEntries(
@@ -49,7 +67,10 @@ function isRoundBasedBoula(totalRounds: number): boolean {
   return totalRounds === 18 || totalRounds === 10;
 }
 
-function fixedTrumpForRound(roundNumber: number, totalRounds: number): string | null {
+function fixedTrumpForRound(
+  roundNumber: number,
+  totalRounds: number,
+): string | null {
   if (!isRoundBasedBoula(totalRounds)) return null;
   const firstFixed = totalRounds - K_FIXED_TRUMP_ROUND_COUNT + 1;
   if (roundNumber < firstFixed || roundNumber > totalRounds) return null;
@@ -147,7 +168,11 @@ function passVoidCheck(state: GameState, playerId: string): void {
   }
 }
 
-function submitDashCall(state: GameState, playerId: string, wantsDashCall: boolean): void {
+function submitDashCall(
+  state: GameState,
+  playerId: string,
+  wantsDashCall: boolean,
+): void {
   const player = playerById(state, playerId);
   if (player.seatIndex !== state.currentPlayerSeatIndex) return;
 
@@ -164,33 +189,48 @@ function submitDashCall(state: GameState, playerId: string, wantsDashCall: boole
     const fixed = getFixedTrump(state);
     if (fixed) {
       state.trump = fixed;
-      state.currentPlayerSeatIndex = (state.dealerSeatIndex + 1) % state.players.length;
+      state.currentPlayerSeatIndex = (state.dealerSeatIndex + 1) %
+        state.players.length;
       state.phase = "declarations";
     } else {
-      state.auctionTurnSeatIndex = (state.dealerSeatIndex + 1) % state.players.length;
+      state.auctionTurnSeatIndex = (state.dealerSeatIndex + 1) %
+        state.players.length;
       state.phase = "auction";
       checkAuctionState(state);
     }
   } else {
-    state.currentPlayerSeatIndex = (state.currentPlayerSeatIndex + 1) % state.players.length;
+    state.currentPlayerSeatIndex = (state.currentPlayerSeatIndex + 1) %
+      state.players.length;
   }
 }
 
-function isValidBid(bid: Bid, currentHighBid: Bid | null | undefined, state: GameState): boolean {
+function isValidBid(
+  bid: Bid,
+  currentHighBid: Bid | null | undefined,
+  state: GameState,
+): boolean {
   if (bid.trickCount < K_MIN_BID_TRICKS) return false;
   const fixed = getFixedTrump(state);
-  if (fixed && bid.trump !== fixed && bid.trickCount < K_OVERRIDE_FIXED_TRUMP_TRICKS) {
+  if (
+    fixed && bid.trump !== fixed &&
+    bid.trickCount < K_OVERRIDE_FIXED_TRUMP_TRICKS
+  ) {
     return false;
   }
   if (!currentHighBid) return true;
   if (bid.trickCount > currentHighBid.trickCount) return true;
   if (bid.trickCount === currentHighBid.trickCount) {
-    return (TRUMP_PRIORITY[bid.trump] ?? 0) > (TRUMP_PRIORITY[currentHighBid.trump] ?? 0);
+    return (TRUMP_PRIORITY[bid.trump] ?? 0) >
+      (TRUMP_PRIORITY[currentHighBid.trump] ?? 0);
   }
   return false;
 }
 
-function getNextSeat(state: GameState, currentSeat: number, isValid: (p: Player) => boolean): number {
+function getNextSeat(
+  state: GameState,
+  currentSeat: number,
+  isValid: (p: Player) => boolean,
+): number {
   let next = (currentSeat + 1) % state.players.length;
   while (next !== currentSeat) {
     if (isValid(playerBySeat(state, next))) return next;
@@ -261,7 +301,9 @@ function checkAuctionState(state: GameState): void {
 
 function submitBid(state: GameState, playerId: string, bid: Bid): boolean {
   const player = playerById(state, playerId);
-  if (player.seatIndex !== state.auctionTurnSeatIndex || player.isDashCall) return false;
+  if (player.seatIndex !== state.auctionTurnSeatIndex || player.isDashCall) {
+    return false;
+  }
   if (!isValidBid(bid, state.currentHighBid, state)) return false;
   state.currentHighBid = bid;
   state.currentHighBidderPlayerId = playerId;
@@ -276,7 +318,10 @@ function passBid(state: GameState, playerId: string): void {
   advanceAuctionTurn(state);
 }
 
-function getForbiddenDeclaration(state: GameState, playerId: string): number | null {
+function getForbiddenDeclaration(
+  state: GameState,
+  playerId: string,
+): number | null {
   const player = playerById(state, playerId);
   if (player.isDashCall) return null;
   const declaredPlayers = state.players.filter((p) => p.declared != null);
@@ -300,7 +345,11 @@ function getMaxAllowedDeclaration(state: GameState, playerId: string): number {
   return 13;
 }
 
-function submitDeclaration(state: GameState, playerId: string, declared: number): boolean {
+function submitDeclaration(
+  state: GameState,
+  playerId: string,
+  declared: number,
+): boolean {
   const player = playerById(state, playerId);
   if (player.seatIndex !== state.currentPlayerSeatIndex) return false;
   if (player.isDashCall && declared !== 0) return false;
@@ -318,7 +367,8 @@ function submitDeclaration(state: GameState, playerId: string, declared: number)
 
   const declaredPlayers = state.players.filter((p) => p.declared != null);
   if (declaredPlayers.length === state.players.length - 1) {
-    const sum = declaredPlayers.reduce((s, p) => s + (p.declared ?? 0), 0) + declared;
+    const sum = declaredPlayers.reduce((s, p) => s + (p.declared ?? 0), 0) +
+      declared;
     if (sum <= 11) player.isRisk = true;
   }
 
@@ -371,18 +421,24 @@ function resolveTrickWinner(state: GameState): string {
 
   if (!trump || trump === "sans") {
     const led = state.currentTrick.filter((tc) => tc.card.suit === ledSuit);
-    led.sort((a, b) => (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0));
+    led.sort((a, b) =>
+      (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0)
+    );
     return led[0].playerId;
   }
 
   const trumpCards = state.currentTrick.filter((tc) => tc.card.suit === trump);
   if (trumpCards.length > 0) {
-    trumpCards.sort((a, b) => (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0));
+    trumpCards.sort((a, b) =>
+      (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0)
+    );
     return trumpCards[0].playerId;
   }
 
   const led = state.currentTrick.filter((tc) => tc.card.suit === ledSuit);
-  led.sort((a, b) => (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0));
+  led.sort((a, b) =>
+    (RANK_SORT[b.card.rank] ?? 0) - (RANK_SORT[a.card.rank] ?? 0)
+  );
   return led[0].playerId;
 }
 
@@ -406,8 +462,10 @@ function playCard(state: GameState, playerId: string, card: Card): boolean {
   removeCard(player.hand, card);
   state.currentTrick.push({ playerId, card });
   if (state.currentTrick.length < state.players.length) {
-    state.currentPlayerSeatIndex = (state.currentPlayerSeatIndex + 1) % state.players.length;
-    return false;
+    state.currentPlayerSeatIndex = (state.currentPlayerSeatIndex + 1) %
+      state.players.length;
+    // The play succeeded; the trick simply is not complete yet.
+    return true;
   }
   resolveTrick(state);
   return true;
@@ -471,7 +529,8 @@ function startNextRound(state: GameState): void {
   }
   state.roundNumber++;
   const firstBidder = (state.roundNumber - 1) % state.players.length;
-  state.dealerSeatIndex = (firstBidder - 1 + state.players.length) % state.players.length;
+  state.dealerSeatIndex = (firstBidder - 1 + state.players.length) %
+    state.players.length;
   for (const p of state.players) {
     p.hand = [];
     p.takenTricks = [];
@@ -519,10 +578,19 @@ function triggerRedeal(state: GameState): void {
 }
 
 function ensureBotPlayers(state: GameState): void {
+  state.botPlayerIds = state.botPlayerIds ?? [];
+  for (const player of state.players) {
+    if (
+      player.id.startsWith("bot_") && !state.botPlayerIds.includes(player.id)
+    ) {
+      state.botPlayerIds.push(player.id);
+    }
+  }
   while (state.players.length < MAX_PLAYERS) {
     const seat = state.players.length;
+    const botId = `bot_${seat}_${Date.now()}`;
     state.players.push({
-      id: `bot_${seat}_${Date.now()}`,
+      id: botId,
       name: `Bot ${seat + 1}`,
       seatIndex: seat,
       hand: [],
@@ -532,8 +600,69 @@ function ensureBotPlayers(state: GameState): void {
       isDashCall: false,
       isRisk: false,
       totalScore: 0,
+      isBot: true,
     });
+    state.botPlayerIds.push(botId);
   }
+}
+
+function estimationOkResult(state: GameState): ReduceResult {
+  prepareTurnDeadline(state);
+  return okResult(state, humanHandUpdates(state.players));
+}
+
+function applyTurnTimeout(state: GameState): boolean {
+  if (state.phase === "dashCall") {
+    const player = playerBySeat(state, state.currentPlayerSeatIndex);
+    submitDashCall(state, player.id, false);
+    return true;
+  }
+  if (state.phase === "auction") {
+    const player = playerBySeat(state, state.auctionTurnSeatIndex);
+    passBid(state, player.id);
+    if (state.phase === "dealing") doDeal(state);
+    return true;
+  }
+  if (state.phase === "declarations") {
+    const player = playerBySeat(state, state.currentPlayerSeatIndex);
+    const minimum = player.id === state.bidderPlayerId
+      ? state.currentHighBid?.trickCount ?? 0
+      : 0;
+    const maxAllowed = getMaxAllowedDeclaration(state, player.id);
+    const forbidden = getForbiddenDeclaration(state, player.id);
+    let declared = Math.min(minimum, maxAllowed);
+    if (declared === forbidden) {
+      declared = declared < maxAllowed
+        ? declared + 1
+        : Math.max(0, declared - 1);
+    }
+    return submitDeclaration(state, player.id, declared);
+  }
+  if (state.phase === "trickTaking") {
+    const player = playerBySeat(state, state.currentPlayerSeatIndex);
+    const legal = player.hand.filter((card) =>
+      canPlayCard(state, player, card)
+    );
+    legal.sort((a, b) => (RANK_SORT[a.rank] ?? 0) - (RANK_SORT[b.rank] ?? 0));
+    if (legal.length === 0) return false;
+    const accepted = playCard(state, player.id, legal[0]);
+    if (state.phase === "scoring") computeAndApplyScores(state);
+    return accepted;
+  }
+  return false;
+}
+
+/** Set the authoritative deadline for the next actor after an accepted action. */
+function prepareTurnDeadline(state: GameState): void {
+  const hasActiveTurn = state.phase === "dashCall" ||
+    state.phase === "auction" ||
+    state.phase === "declarations" ||
+    state.phase === "trickTaking";
+
+  state.turnDurationSeconds = TURN_DURATION_SECONDS;
+  state.turnDeadlineEpochMs = hasActiveTurn
+    ? Date.now() + TURN_DURATION_SECONDS * 1000
+    : null;
 }
 
 function normalizeState(raw: GameState): GameState {
@@ -578,6 +707,11 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
         ephemeral: { type: "requestStateSync", playerId: actorUid },
       };
 
+    case "processBots":
+      // A heartbeat has just assigned an absent human seat to server AI.
+      // Commit the takeover marker, then bot_runner advances that seat now.
+      return estimationOkResult(state);
+
     case "sendReaction":
     case "triggerEarthquake":
       return {
@@ -596,21 +730,21 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       ensureBotPlayers(state);
       state.phase = "dealing";
       doDeal(state);
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "changeTheme":
       if (!isHost || (state.phase !== "lobby" && state.phase !== "waiting")) {
         return errResult("INVALID_THEME");
       }
       state.cardTheme = String(payload.theme ?? state.cardTheme);
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "approveRedeal":
       if (state.phase !== "voidCheck" || !state.voidDeclaringPlayerId) {
         return errResult("WRONG_PHASE");
       }
       triggerRedeal(state);
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "rejectRedeal":
       if (state.phase !== "voidCheck" || !state.voidDeclaringPlayerId) {
@@ -622,22 +756,24 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (state.voidRedealRejections.length >= state.players.length) {
         proceedAfterVoidCheck(state);
       }
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "confirmNoVoid":
       if (state.phase !== "voidCheck") return errResult("WRONG_PHASE");
       passVoidCheck(state, actingId);
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "unready":
       if (state.phase !== "voidCheck") return errResult("WRONG_PHASE");
-      state.voidCheckPassed = state.voidCheckPassed.filter((id) => id !== actingId);
-      return okResult(state);
+      state.voidCheckPassed = state.voidCheckPassed.filter((id) =>
+        id !== actingId
+      );
+      return estimationOkResult(state);
 
     case "submitDashCall":
       if (state.phase !== "dashCall") return errResult("WRONG_PHASE");
       submitDashCall(state, actingId, Boolean(payload.wantsDashCall));
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "submitBid": {
       if (state.phase !== "auction") return errResult("WRONG_PHASE");
@@ -645,14 +781,14 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (!bid?.trickCount || !bid?.trump) return errResult("INVALID_BID");
       if (!submitBid(state, actingId, bid)) return errResult("BID_REJECTED");
       if (state.phase === "dealing") doDeal(state);
-      return okResult(state);
+      return estimationOkResult(state);
     }
 
     case "passBid":
       if (state.phase !== "auction") return errResult("WRONG_PHASE");
       passBid(state, actingId);
       if (state.phase === "dealing") doDeal(state);
-      return okResult(state);
+      return estimationOkResult(state);
 
     case "submitDeclaration": {
       if (state.phase !== "declarations") return errResult("WRONG_PHASE");
@@ -663,7 +799,7 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (!submitDeclaration(state, actingId, declared)) {
         return errResult("DECLARATION_REJECTED");
       }
-      return okResult(state);
+      return estimationOkResult(state);
     }
 
     case "playCard": {
@@ -675,18 +811,29 @@ export function reduceEstimation(input: ReduceInput): ReduceResult {
       if (!card?.suit || !card?.rank) return errResult("INVALID_CARD");
       if (!playCard(state, actingId, card)) return errResult("CARD_REJECTED");
       if (state.phase === "scoring") computeAndApplyScores(state);
-      return okResult(state);
+      return estimationOkResult(state);
+    }
+
+    case "timeoutTurn": {
+      const deadline = Number(state.turnDeadlineEpochMs ?? 0);
+      if (deadline <= 0 || Date.now() + 250 < deadline) {
+        return errResult("TURN_NOT_EXPIRED");
+      }
+      if (!applyTurnTimeout(state)) return errResult("TIMEOUT_REJECTED");
+      return estimationOkResult(state);
     }
 
     case "nextRound":
-      if (!isHost || state.phase !== "scoring") return errResult("INVALID_NEXT_ROUND");
+      if (!isHost || state.phase !== "scoring") {
+        return errResult("INVALID_NEXT_ROUND");
+      }
       if (isMatchOver(state)) {
         state.phase = "matchEnd";
       } else {
         startNextRound(state);
         doDeal(state);
       }
-      return okResult(state);
+      return estimationOkResult(state);
 
     default:
       return errResult("UNSUPPORTED_ACTION");

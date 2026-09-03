@@ -98,8 +98,8 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 72,
-          height: 72,
+          width: 58,
+          height: 58,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -110,15 +110,15 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
                   builder: (_, __) {
                     final t = Curves.easeOut.transform(_ripple.value);
                     return Container(
-                      width: 56 + (t * 16),
-                      height: 56 + (t * 16),
+                      width: 48 + (t * 8),
+                      height: 48 + (t * 8),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: AppTheme.steelBlue.withValues(
-                            alpha: 0.35 - (t * 0.3),
+                            alpha: 0.2 - (t * 0.16),
                           ),
-                          width: 1.5,
+                          width: 1,
                         ),
                       ),
                     );
@@ -127,80 +127,66 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
               AnimatedContainer(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                width: 56,
-                height: 56,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _occupied
-                      ? _accent.withValues(alpha: 0.18)
-                      : AppTheme.navyDark.withValues(alpha: 0.7),
+                      ? _accent.withValues(alpha: 0.12)
+                      : AppTheme.deepNavy,
                   border: Border.all(
                     color: widget.isYou
                         ? AppTheme.midBlue
-                        : _occupied
-                            ? _accent.withValues(alpha: 0.75)
-                            : AppTheme.steelBlue.withValues(alpha: 0.25),
-                    width: widget.isYou ? 2.5 : (_occupied ? 2 : 1.2),
+                            : _occupied
+                            ? _accent.withValues(alpha: 0.55)
+                            : AppTheme.steelBlue.withValues(alpha: 0.2),
+                    width: widget.isYou ? 2 : 1,
                   ),
-                  boxShadow: _occupied
-                      ? [
-                          BoxShadow(
-                            color: _accent.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            spreadRadius: 0,
-                          ),
-                        ]
-                      : null,
                 ),
                 child: Center(
                   child: _occupied
                       ? (widget.isBot
-                          ? AppIconWell(
-                              icon: AppIcons.smartToy,
-                              size: 34,
-                              iconSize: 18,
+                          ? AppIcon(
+                              AppIcons.smartToy,
+                              size: 18,
                               color: AppTheme.goldLight,
-                              fill: AppTheme.gold.withValues(alpha: 0.15),
-                              borderColor:
-                                  AppTheme.gold.withValues(alpha: 0.3),
+                              strokeWidth: AppIconTokens.strokeThin,
                             )
                           : Text(
                               _initial ?? '…',
                               style: GoogleFonts.cairo(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
                                 color: AppTheme.cream,
                                 height: 1,
                               ),
                             ))
                       : AppIcon(
                           AppIcons.hourglassEmpty,
-                          size: 20,
-                          color: AppTheme.steelBlue.withValues(alpha: 0.5),
+                          size: 16,
+                          color: AppTheme.steelBlue.withValues(alpha: 0.42),
                           strokeWidth: AppIconTokens.strokeThin,
                         ),
                 ),
               ),
               if (widget.isYou)
                 Positioned(
-                  top: -2,
+                  top: -1,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.midBlue,
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: AppTheme.deepNavy,
-                        width: 1.5,
-                      ),
                     ),
                     child: Text(
                       'أنت',
                       style: GoogleFonts.cairo(
                         color: AppTheme.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
                         height: 1,
                       ),
                     ),
@@ -208,45 +194,34 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
                 ),
               if (_occupied && !widget.isBot)
                 Positioned(
-                  bottom: 2,
-                  right: 2,
+                  bottom: 5,
+                  right: 5,
                   child: Container(
-                    width: 14,
-                    height: 14,
+                    width: 8,
+                    height: 8,
                     decoration: BoxDecoration(
                       color: AppTheme.playerGreen,
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.deepNavy, width: 2),
+                      border: Border.all(color: AppTheme.deepNavy, width: 1.5),
                     ),
                   ),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: 6),
-        Container(
-          constraints: const BoxConstraints(maxWidth: 80),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: AppTheme.navyDark.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: _occupied
-                  ? _accent.withValues(alpha: 0.25)
-                  : Colors.transparent,
-            ),
-          ),
-          child: Text(
-            _label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.cairo(
-              color: _occupied ? AppTheme.cream : AppTheme.steelBlue,
-              fontSize: 11,
-              fontWeight: _occupied ? FontWeight.w700 : FontWeight.w500,
-              height: 1.1,
-            ),
+        const SizedBox(height: 3),
+        Text(
+          _label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.cairo(
+            color: _occupied
+                ? AppTheme.cream.withValues(alpha: 0.88)
+                : AppTheme.steelBlue.withValues(alpha: 0.65),
+            fontSize: 10,
+            fontWeight: _occupied ? FontWeight.w600 : FontWeight.w400,
+            height: 1.1,
           ),
         ),
       ],

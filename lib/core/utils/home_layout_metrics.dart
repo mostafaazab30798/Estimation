@@ -17,8 +17,27 @@ class HomeLayoutMetrics {
   double get minDimension => math.min(width, height);
   double get maxDimension => math.max(width, height);
   bool get isLandscape => orientation == Orientation.landscape;
+  bool get isPortrait => !isLandscape;
   bool get isTablet => minDimension >= 600;
   bool get isLargeTablet => isTablet && maxDimension >= 900;
+  bool get isPhone => !isTablet;
+  bool get isPhoneLandscape => isLandscape && isPhone;
+  bool get isPhonePortrait => isPortrait && isPhone;
+
+  /// Phone landscape with limited vertical space (typical small phones).
+  bool get isCompactLandscape => isPhoneLandscape && height < 420;
+
+  /// Vertical stacked menus — portrait phones and very short landscape phones.
+  bool get useStackedMenuLayout => isPortrait || isCompactLandscape;
+
+  /// Horizontal split menus — phone/tablet landscape with enough height.
+  bool get useSideBySideMenuLayout => isLandscape && !isCompactLandscape;
+
+  /// Stacked menus on phones only (keeps tablet layouts unchanged).
+  bool get usePhoneStackedMenuLayout => isPhone && useStackedMenuLayout;
+
+  /// Side-by-side menus on phones only (keeps tablet layouts unchanged).
+  bool get usePhoneSideBySideMenuLayout => isPhone && useSideBySideMenuLayout;
 
   static HomeLayoutMetrics of(BuildContext context) {
     final media = MediaQuery.of(context);

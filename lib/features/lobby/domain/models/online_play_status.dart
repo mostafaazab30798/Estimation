@@ -5,6 +5,8 @@ class OnlinePlayStatus {
   final DateTime? graceEndsAt;
   final String? roomId;
   final String? roomStatus;
+  final bool activeOnAnotherDevice;
+  final bool recoveryAvailable;
 
   const OnlinePlayStatus({
     required this.canJoinNewOnline,
@@ -13,6 +15,8 @@ class OnlinePlayStatus {
     this.graceEndsAt,
     this.roomId,
     this.roomStatus,
+    this.activeOnAnotherDevice = false,
+    this.recoveryAvailable = true,
   });
 
   factory OnlinePlayStatus.fromJson(Map<String, dynamic> json) {
@@ -28,6 +32,9 @@ class OnlinePlayStatus {
       graceEndsAt: parseTime(json['grace_ends_at']),
       roomId: json['room_id'] as String?,
       roomStatus: json['room_status'] as String?,
+      activeOnAnotherDevice:
+          json['active_on_another_device'] as bool? ?? false,
+      recoveryAvailable: json['recovery_available'] as bool? ?? true,
     );
   }
 
@@ -50,10 +57,19 @@ class OnlinePlayStatus {
   }
 
   /// True when every block timer has expired but the server still reports blocked.
-  bool get isStaleBlock => !canJoinNewOnline && remainingBlock().inSeconds <= 0;
+  bool get isStaleBlock =>
+      !canJoinNewOnline &&
+      !hasActiveMembership &&
+      !activeOnAnotherDevice &&
+      remainingBlock().inSeconds <= 0;
 
   bool get canReturnToOngoingGame {
-    if (!hasActiveMembership || roomId == null) return false;
+    if (!hasActiveMembership ||
+        roomId == null ||
+        activeOnAnotherDevice ||
+        !recoveryAvailable) {
+      return false;
+    }
     final ends = graceEndsAt;
     if (ends == null) return true;
     return ends.isAfter(DateTime.now().toUtc());

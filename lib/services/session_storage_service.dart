@@ -48,6 +48,14 @@ class SessionStorageService {
   static const _kPlayerName = 'session_player_name';
   static const _kIsHost     = 'session_is_host';
 
+  static ActiveRoomSession? _cachedSession;
+  static bool _cacheLoaded = false;
+
+  static void _invalidateCache() {
+    _cacheLoaded = false;
+    _cachedSession = null;
+  }
+
   // ── Write ─────────────────────────────────────────────────────────────────
 
   /// Persist all data required to recover an in-progress room session.
@@ -69,6 +77,14 @@ class SessionStorageService {
         prefs.setString(_kPlayerName, playerName),
         prefs.setBool  (_kIsHost,     isHost),
       ]);
+      _cachedSession = ActiveRoomSession(
+        roomId: roomId,
+        roomCode: roomCode,
+        playerId: playerId,
+        playerName: playerName,
+        isHost: isHost,
+      );
+      _cacheLoaded = true;
       debugPrint('[Session] ✓ saved  room=$roomCode  isHost=$isHost');
     } catch (e) {
       // Non-fatal: if SharedPreferences is unavailable the player simply won't
@@ -81,6 +97,7 @@ class SessionStorageService {
 
   /// Return the last saved session, or null if none exists / data is corrupt.
   Future<ActiveRoomSession?> getActiveRoomSession() async {
+    if (_cacheLoaded) return _cachedSession;
     try {
       final prefs = await SharedPreferences.getInstance();
       final roomId     = prefs.getString(_kRoomId);
@@ -92,18 +109,20 @@ class SessionStorageService {
       // All five fields must be present; partial data is treated as no session.
       if (roomId == null || roomCode == null ||
           playerId == null || playerName == null || isHost == null) {
+        _cacheLoaded = true;
+        _cachedSession = null;
         return null;
       }
 
-      final session = ActiveRoomSession(
+      _cachedSession = ActiveRoomSession(
         roomId:     roomId,
         roomCode:   roomCode,
         playerId:   playerId,
         playerName: playerName,
         isHost:     isHost,
       );
-      debugPrint('[Session] ✓ loaded $session');
-      return session;
+      _cacheLoaded = true;
+      return _cachedSession;
     } catch (e) {
       debugPrint('[Session] ✗ load failed: $e');
       return null;
@@ -126,6 +145,7 @@ class SessionStorageService {
         prefs.remove(_kPlayerName),
         prefs.remove(_kIsHost),
       ]);
+      _invalidateCache();
       debugPrint('[Session] ✓ cleared');
     } catch (e) {
       debugPrint('[Session] ✗ clear failed: $e');
@@ -139,6 +159,15 @@ class SessionStorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_kIsHost, isHost);
+      if (_cachedSession != null) {
+        _cachedSession = ActiveRoomSession(
+          roomId: _cachedSession!.roomId,
+          roomCode: _cachedSession!.roomCode,
+          playerId: _cachedSession!.playerId,
+          playerName: _cachedSession!.playerName,
+          isHost: isHost,
+        );
+      }
       debugPrint('[Session] ✓ isHost updated → $isHost');
     } catch (e) {
       debugPrint('[Session] ✗ isHost update failed: $e');

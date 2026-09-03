@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:estimation/widgets/perfect_estimate_overlay.dart';
 import 'package:estimation/core/models/player.dart';
+import 'package:estimation/core/icons/app_icons.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -67,7 +68,13 @@ void main() {
       expect(find.text('declared • صرّح'), findsOneWidget);
       expect(find.text('won • ربح'), findsOneWidget);
       expect(find.text('+25 XP BONUS'), findsOneWidget);
-      expect(find.text('🎯'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AppIcon && identical(widget.icon, AppIcons.emojiEvents),
+        ),
+        findsOneWidget,
+      );
 
       // Tap to dismiss
       await tester.tap(find.byType(PerfectEstimateOverlay));
@@ -97,7 +104,12 @@ void main() {
 
       expect(find.text('PERFECT DASH CALL'), findsOneWidget);
       expect(find.text('داش كول مثالي'), findsOneWidget);
-      expect(find.text('⚡'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is AppIcon && identical(widget.icon, AppIcons.bolt),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

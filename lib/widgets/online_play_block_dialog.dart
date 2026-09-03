@@ -10,6 +10,7 @@ import '../providers/game_provider.dart';
 import '../services/online_play_gate.dart';
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
+import 'game_reentry_loading_dialog.dart';
 
 /// Shows a blocking dialog when online play is gated by grace or ban.
 ///
@@ -36,7 +37,13 @@ Future<bool> showOnlinePlayBlockDialog(
   if (!context.mounted) return true;
 
   if (result == _OnlinePlayBlockChoice.returnToGame && canReturn) {
-    final recovery = await reconnect.recoverPendingSession();
+    final roomId = status.roomId;
+    final recovery = roomId == null
+        ? ReconnectionState.failed
+        : await runWithGameReentryLoading(
+            context,
+            operation: () => reconnect.recoverRoomFromGate(roomId),
+          );
     if (!context.mounted) return true;
     if (recovery == ReconnectionState.reconnected) {
       final provider = context.read<GameProvider>();
@@ -114,6 +121,7 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final activeElsewhere = widget.status.activeOnAnotherDevice;
     return AppAlertDialog(
       title: Text(
         'لا يمكن بدء مباراة جديدة الآن',
@@ -127,13 +135,17 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.canReturnToGame
+            activeElsewhere
+                ? 'هذا الحساب داخل مباراة الآن على جهاز آخر. اخرج من المباراة على الجهاز الآخر أولاً، وبعدها يمكنك اختيار الجهاز الذي سيستعيد المقعد.'
+                : widget.canReturnToGame
                 ? 'لديك مباراة ما زالت جارية. بعد 30 ثانية يلعب البوت مكانك. لديك حتى 5 دقائق للعودة واستعادة مقعدك قبل أن تُفصل تلقائياً.'
                 : 'تم فصلك من مباراة سابقة. انتظر حتى ينتهي الحظر قبل دخول طابور أونلاين جديد.',
             style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
           ),
-          const SizedBox(height: 16),
-          Container(
+          if (!activeElsewhere && _remaining.inSeconds > 0)
+            const SizedBox(height: 16),
+          if (!activeElsewhere && _remaining.inSeconds > 0)
+            Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
               color: AppTheme.navyDark.withValues(alpha: 0.55),
@@ -168,7 +180,8 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
         TextButton(
           onPressed: () =>
               Navigator.pop(context, _OnlinePlayBlockChoice.wait),
-          child: Text('انتظر', style: GoogleFonts.cairo()),
+          child: Text(activeElsewhere ? 'حسناً' : 'انتظر',
+              style: GoogleFonts.cairo()),
         ),
         if (widget.canReturnToGame)
           FilledButton(
@@ -181,14 +194,23 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
   }
 }
 
+bool _onlinePlayBlockDialogOpen = false;
+
 /// Returns true when online matchmaking must be blocked.
 Future<bool> guardOnlineMatchmaking(BuildContext context) async {
+  if (_onlinePlayBlockDialogOpen) return true;
+
   final gate = context.read<OnlinePlayGate>();
   final status = await gate.refresh();
   if (!context.mounted) return true;
   if (status.canJoinNewOnline) return false;
 
-  gate.startPolling();
-  await showOnlinePlayBlockDialog(context, status: status);
+  _onlinePlayBlockDialogOpen = true;
+  try {
+    gate.startPolling(immediate: false);
+    await showOnlinePlayBlockDialog(context, status: status);
+  } finally {
+    _onlinePlayBlockDialogOpen = false;
+  }
   return true;
 }

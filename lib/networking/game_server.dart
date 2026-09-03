@@ -58,6 +58,7 @@ class GameServer {
   /// When true, in-game actions are handled by the server authority (Edge
   /// Function). Host keeps lobby join/leave only; bots are disabled.
   bool serverAuthorityMode = false;
+  bool _serverAuthorityGameStarted = false;
 
   GameServer({required this.onStateUpdate, this.onReaction, this.onEarthquake});
 
@@ -72,6 +73,7 @@ class GameServer {
     int totalRounds = kBoulaTotalRounds,
   }) async {
     _isStopped = false;
+    _serverAuthorityGameStarted = false;
     this.hostName = hostName;
     this.hostPlayerId = hostPlayerId;
     this.roomId = roomId;
@@ -160,6 +162,18 @@ class GameServer {
     _channel = null;
   }
 
+  /// Retire this host's lobby authority after the Edge Function starts play.
+  ///
+  /// The server remains subscribed long enough for normal cleanup, but it must
+  /// never answer a reconnect with its stale pre-game lobby snapshot.
+  void markServerAuthorityGameStarted() {
+    if (!serverAuthorityMode) return;
+    _serverAuthorityGameStarted = true;
+    _turnTimer?.cancel();
+    _botTimer?.cancel();
+    _trickTimer?.cancel();
+  }
+
   int get playerCount => _state.players.length;
 
   // ── Bot players ──────────────────────────────────────────────
@@ -218,6 +232,7 @@ class GameServer {
   // ── Network handling ───────────────────────────────────────
 
   void _handleJoinRequest(Map<String, dynamic> payload) {
+    if (_serverAuthorityGameStarted) return;
     final playerId = payload['playerId'] as String;
     final playerName = payload['name'] as String;
     final playerPhoto = ProfileService.publicAvatarRef(
@@ -261,6 +276,7 @@ class GameServer {
   }
 
   void _handleLeaveRequest(Map<String, dynamic> payload) {
+    if (_serverAuthorityGameStarted) return;
     final playerId = payload['playerId'] as String;
     if (_state.phase == GamePhase.lobby) {
       _state.players.removeWhere((p) => p.id == playerId);
@@ -275,6 +291,7 @@ class GameServer {
   }
 
   void _handlePresenceLeave(dynamic payload) {
+    if (_serverAuthorityGameStarted) return;
     for (final presence in payload.leftPresences) {
       final playerId = presence.payload['playerId'] as String?;
       if (playerId == null || playerId == hostPlayerId) continue;
@@ -627,6 +644,7 @@ class GameServer {
 
   void _broadcastState() {
     if (_isStopped) return;
+    if (_serverAuthorityGameStarted) return;
     if (serverAuthorityMode && _state.phase != GamePhase.lobby) return;
     _prepareTurnTimer();
 
@@ -858,6 +876,8 @@ class GameServer {
     required String roomId,
   }) async {
     _isStopped = false;
+    _serverAuthorityGameStarted =
+        serverAuthorityMode && state.phase != GamePhase.lobby;
     this.hostPlayerId = hostPlayerId;
     this.hostName = hostName;
     this.roomId = roomId;

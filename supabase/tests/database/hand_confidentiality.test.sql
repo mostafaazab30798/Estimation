@@ -2,7 +2,7 @@
 
 begin;
 
-select plan(5);
+select plan(7);
 
 select tests.create_supabase_user('hc_alice', 'hc-alice@test.local');
 select tests.create_supabase_user('hc_bob', 'hc-bob@test.local');
@@ -88,6 +88,20 @@ select is(
   public.get_my_hand_cards('bbbbbbbb-bbbb-bbbb-bbbb-000000000002'::uuid)::jsonb,
   '[{"suit": "heart", "rank": "king"}]'::jsonb,
   'bob reads only own private hand via RPC'
+);
+
+select is(
+  public.get_my_game_state('bbbbbbbb-bbbb-bbbb-bbbb-000000000002'::uuid)
+    -> 'state' -> 'players' -> 1 -> 'hand' -> 0 ->> 'rank',
+  'king',
+  'owner game state contains the caller real hand'
+);
+
+select is(
+  public.get_my_game_state('bbbbbbbb-bbbb-bbbb-bbbb-000000000002'::uuid)
+    -> 'state' -> 'players' -> 0 -> 'hand' -> 0 ->> 'rank',
+  'two',
+  'owner game state keeps opponent hands masked'
 );
 
 select tests.authenticate_as('hc_carol');

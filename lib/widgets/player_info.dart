@@ -168,8 +168,11 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           PlayerAvatarRing(
-            photoData: widget.player.photo,
+            photoData:
+                widget.player.id.startsWith('bot_') ? null : widget.player.photo,
             playerName: widget.player.name,
+            fallbackAvatarKey: widget.player.id,
+            fallbackAvatarIndex: widget.player.seatIndex,
             size: 40,
             ringColor: accentColor,
             isCurrentTurn: widget.isCurrentTurn,
@@ -204,8 +207,11 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         PlayerAvatarRing(
-          photoData: widget.player.photo,
+          photoData:
+              widget.player.id.startsWith('bot_') ? null : widget.player.photo,
           playerName: widget.player.name,
+          fallbackAvatarKey: widget.player.id,
+          fallbackAvatarIndex: widget.player.seatIndex,
           size: 40,
           ringColor: accentColor,
           isCurrentTurn: widget.isCurrentTurn,
@@ -262,8 +268,11 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           PlayerAvatarRing(
-            photoData: widget.player.photo,
+            photoData:
+                widget.player.id.startsWith('bot_') ? null : widget.player.photo,
             playerName: widget.player.name,
+            fallbackAvatarKey: widget.player.id,
+            fallbackAvatarIndex: widget.player.seatIndex,
             size: 24,
             ringColor: accentColor,
             isCurrentTurn: widget.isCurrentTurn,
@@ -302,8 +311,12 @@ class _PlayerInfoWidgetState extends State<PlayerInfoWidget> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PlayerAvatarRing(
-              photoData: widget.player.photo,
+              photoData: widget.player.id.startsWith('bot_')
+                  ? null
+                  : widget.player.photo,
               playerName: widget.player.name,
+              fallbackAvatarKey: widget.player.id,
+              fallbackAvatarIndex: widget.player.seatIndex,
               size: 24,
               ringColor: accentColor,
               isCurrentTurn: widget.isCurrentTurn,

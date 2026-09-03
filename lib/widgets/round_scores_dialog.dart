@@ -20,6 +20,12 @@ class RoundScoresDialog extends StatelessWidget {
 
   const RoundScoresDialog({super.key, required this.state});
 
+  static String _firstName(String fullName) {
+    final trimmed = fullName.trim();
+    if (trimmed.isEmpty) return 'Player';
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+
   static Future<void> show(BuildContext context, GameState state) {
     return showGeneralDialog(
       context: context,
@@ -35,7 +41,8 @@ class RoundScoresDialog extends StatelessWidget {
             position: Tween<Offset>(
               begin: const Offset(0, 0.04),
               end: Offset.zero,
-            ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+            ).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
             child: child,
           ),
         );
@@ -65,46 +72,46 @@ class RoundScoresDialog extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AppTheme.dialogRadius),
             child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildHeader(context),
-                    _buildRoundProgress(),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _SectionLabel(
-                              title: 'الترتيب ومجموع النقاط',
-                              subtitle: 'النقاط الكلية حتى الآن',
-                            ),
-                            const SizedBox(height: 10),
-                            _buildColumnHeaders(),
-                            const SizedBox(height: 6),
-                            _buildStandingsList(sortedPlayers),
-                            const SizedBox(height: 20),
-                            _SectionLabel(
-                              title: 'سجل الجولات',
-                              subtitle: state.roundHistory.isEmpty
-                                  ? 'لم تُحسب أي جولة بعد'
-                                  : '${state.roundHistory.length} جولة مكتملة',
-                            ),
-                            const SizedBox(height: 10),
-                            if (state.roundHistory.isEmpty)
-                              _buildEmptyHistoryCard()
-                            else
-                              _buildRoundHistoryList(),
-                          ],
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(context),
+                _buildRoundProgress(),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionLabel(
+                          title: 'الترتيب ومجموع النقاط',
+                          subtitle: 'النقاط الكلية حتى الآن',
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        _buildColumnHeaders(),
+                        const SizedBox(height: 6),
+                        _buildStandingsList(sortedPlayers),
+                        const SizedBox(height: 20),
+                        _SectionLabel(
+                          title: 'سجل الجولات',
+                          subtitle: state.roundHistory.isEmpty
+                              ? 'لم تُحسب أي جولة بعد'
+                              : '${state.roundHistory.length} جولة مكتملة',
+                        ),
+                        const SizedBox(height: 10),
+                        if (state.roundHistory.isEmpty)
+                          _buildEmptyHistoryCard()
+                        else
+                          _buildRoundHistoryList(),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
+        ),
+      ),
     );
   }
 
@@ -115,7 +122,8 @@ class RoundScoresDialog extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const AppIcon(AppIcons.close, color: AppTheme.steelBlue, size: 22),
+            icon: const AppIcon(AppIcons.close,
+                color: AppTheme.steelBlue, size: 22),
             splashRadius: 20,
             tooltip: 'إغلاق',
           ),
@@ -157,7 +165,8 @@ class RoundScoresDialog extends StatelessWidget {
               border: Border.all(color: AppTheme.gold.withValues(alpha: 0.45)),
             ),
             child: const Center(
-              child: AppIcon(AppIcons.leaderboard, color: AppTheme.gold, size: 20),
+              child:
+                  AppIcon(AppIcons.leaderboard, color: AppTheme.gold, size: 20),
             ),
           ),
         ],
@@ -337,13 +346,18 @@ class RoundScoresDialog extends StatelessWidget {
                             ),
                           ),
                         Flexible(
-                          child: Text(
-                            p.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.cairo(
-                              color: isLeader ? AppTheme.gold : AppTheme.cream,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13.5,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: Text(
+                              _firstName(p.name),
+                              maxLines: 1,
+                              style: GoogleFonts.cairo(
+                                color:
+                                    isLeader ? AppTheme.gold : AppTheme.cream,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                              ),
                             ),
                           ),
                         ),
@@ -398,7 +412,8 @@ class RoundScoresDialog extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const AppIcon(AppIcons.infoOutline, color: AppTheme.steelBlue, size: 18),
+          const AppIcon(AppIcons.infoOutline,
+              color: AppTheme.steelBlue, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -441,26 +456,31 @@ class RoundScoresDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.deepNavy.withValues(alpha: 0.62),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.steelBlue.withValues(alpha: 0.22)),
+            border:
+                Border.all(color: AppTheme.steelBlue.withValues(alpha: 0.22)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.04),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(13)),
                 ),
                 child: Row(
                   children: [
                     if (trump != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: trumpColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(7),
-                          border: Border.all(color: trumpColor.withValues(alpha: 0.35)),
+                          border: Border.all(
+                              color: trumpColor.withValues(alpha: 0.35)),
                         ),
                         child: Text(
                           trump.isSans
@@ -492,7 +512,8 @@ class RoundScoresDialog extends StatelessWidget {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6, left: 2, right: 2),
+                      padding:
+                          const EdgeInsets.only(bottom: 6, left: 2, right: 2),
                       child: Row(
                         children: [
                           _historyColHeader('المجموع', width: 56),
@@ -525,7 +546,8 @@ class RoundScoresDialog extends StatelessWidget {
                             const SizedBox(width: 6),
                             SizedBox(
                               width: 64,
-                              child: _DeltaChip(delta: pr.scoreDelta, compact: true),
+                              child: _DeltaChip(
+                                  delta: pr.scoreDelta, compact: true),
                             ),
                             const Spacer(),
                             Text(
@@ -541,14 +563,18 @@ class RoundScoresDialog extends StatelessWidget {
                             const SizedBox(width: 10),
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 90),
-                              child: Text(
-                                pr.playerName,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.right,
-                                style: GoogleFonts.cairo(
-                                  color: AppTheme.cream,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Text(
+                                  _firstName(pr.playerName),
+                                  maxLines: 1,
+                                  textAlign: TextAlign.right,
+                                  style: GoogleFonts.cairo(
+                                    color: AppTheme.cream,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ),
                             ),

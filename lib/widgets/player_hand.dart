@@ -440,8 +440,11 @@ class _PlayerHandState extends State<PlayerHand>
           shakeAngle = math.sin(time * 2.1) * (0.05 * progress);
         }
 
-        final cardWidget = Opacity(
-          opacity: hideForFlight ? 0.0 : 1.0,
+        final cardWidget = Visibility(
+          visible: !hideForFlight,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
           child: Stack(
             key: isThisCardCharging ? _chargingCardKey : null,
             clipBehavior: Clip.none,

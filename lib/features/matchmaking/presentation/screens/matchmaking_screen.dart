@@ -7,13 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/icons/app_icons.dart';
 import '../../../../core/models/game_state.dart';
+import '../../../../core/utils/home_layout_metrics.dart';
 import '../../../../core/widgets/app_buttons.dart';
-import '../../../../core/utils/wallpaper_precache.dart';
-import '../../../../core/widgets/mode_home_shell.dart';
 import '../../../../features/lobby/domain/models/room_player.dart';
 import '../../../../providers/game_provider.dart';
 import '../../../../theme/app_theme.dart';
-import '../../../../widgets/performance_blur.dart';
 import '../../domain/models/matchmaking_status.dart';
 import '../widgets/bot_fill_dialog.dart';
 import '../widgets/matchmaking_player_slot.dart';
@@ -26,29 +24,22 @@ class MatchmakingScreen extends StatefulWidget {
 }
 
 class _MatchmakingScreenState extends State<MatchmakingScreen>
-    with TickerProviderStateMixin, ModeWallpaperPrecacheMixin {
+    with TickerProviderStateMixin {
   bool _dialogOpen = false;
+  bool _confirmingCancel = false;
   bool _hasNavigatedToGame = false;
   bool _leaving = false;
   int? _dialogVersion;
 
-  late final AnimationController _entrance;
   late final AnimationController _pulse;
-  late final Animation<double> _fade;
 
   @override
   void initState() {
     super.initState();
-    _entrance = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    );
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    _fade = CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
-    _entrance.forward();
     _startPulseIfAllowed();
   }
 
@@ -62,7 +53,6 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
 
   @override
   void dispose() {
-    _entrance.dispose();
     _pulse.dispose();
     super.dispose();
   }
@@ -79,6 +69,66 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
         (_) => false,
       );
     }
+  }
+
+  Future<void> _requestCancel() async {
+    if (_leaving || _confirmingCancel) return;
+    _confirmingCancel = true;
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (dialogContext) => AlertDialog(
+        elevation: 0,
+        backgroundColor: AppTheme.surface2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: AppTheme.steelBlue.withValues(alpha: 0.18),
+          ),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+        title: Text(
+          'مغادرة طابور الانتظار؟',
+          style: GoogleFonts.cairo(
+            color: AppTheme.cream,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'سيتم إلغاء البحث عن لاعبين والعودة إلى الشاشة الرئيسية.',
+          style: GoogleFonts.cairo(
+            color: AppTheme.steelBlue,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              'متابعة الانتظار',
+              style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
+            child: Text(
+              'مغادرة',
+              style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    _confirmingCancel = false;
+
+    if (shouldLeave == true && mounted) await _cancel();
   }
 
   void _reactToState(GameProvider provider) {
@@ -173,130 +223,278 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
     final filled = players.length + bots;
     final myId = provider.myPlayerId;
     final size = MediaQuery.sizeOf(context);
-    final tableWidth = math.min(size.width - 48, 360.0);
+    final metrics = HomeLayoutMetrics.of(context);
+    final usePhoneSideBySide = metrics.usePhoneSideBySideMenuLayout;
+    final tableWidth = usePhoneSideBySide
+        ? math.min(size.height * 1.05, size.width * 0.42).clamp(200.0, 320.0)
+        : math.min(size.width - 48, 360.0);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && !starting) _cancel();
+        if (!didPop && !starting) _requestCancel();
       },
       child: Scaffold(
         backgroundColor: AppTheme.deepNavy,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            const ModeHomeBackground(
-              wallpaperAsset: 'assets/wallpapers/w2.jpg',
-              primaryGlow: Color(0xFF11998E),
-              secondaryGlow: AppTheme.gold,
-              subtleOverlay: true,
-            ),
-            SafeArea(
-              child: FadeTransition(
-                opacity: _fade,
-                child: Column(
-                  children: [
-                    _TopBar(
-                      filled: filled,
-                      searching: searching,
-                      onCancel: starting || _leaving ? null : _cancel,
-                      leaving: _leaving,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _headline(provider, searching),
-                              style: GoogleFonts.cairo(
-                                color: AppTheme.cream,
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            _ProgressSegments(filled: filled),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: Center(
-                        child: _MatchmakingTable(
-                          width: tableWidth,
-                          pulse: _pulse,
-                          filled: filled,
-                          players: players,
-                          bots: bots,
-                          myId: myId,
-                          searching: searching,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: _StatusPanel(
-                        message: _status(provider),
-                        searching: searching,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed:
-                              starting || _leaving ? null : _cancel,
-                          icon: _leaving
-                              ? SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppTheme.steelBlue.withValues(
-                                      alpha: 0.9,
-                                    ),
-                                  ),
-                                )
-                              : AppIcon(
-                                  AppIcons.close,
-                                  size: 18,
-                                  color: AppTheme.steelBlue,
-                                  strokeWidth: AppIconTokens.stroke,
-                                ),
-                          label: Text(
-                            _leaving ? 'جاري الخروج...' : 'إلغاء البحث',
-                            style: GoogleFonts.cairo(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.cream,
-                            side: BorderSide(
-                              color: AppTheme.steelBlue.withValues(alpha: 0.35),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+        body: SafeArea(
+          child: usePhoneSideBySide
+              ? _buildSideBySideBody(
+                  provider: provider,
+                  searching: searching,
+                  starting: starting,
+                  filled: filled,
+                  players: players,
+                  bots: bots,
+                  myId: myId,
+                  tableWidth: tableWidth,
+                )
+              : _buildStackedBody(
+                  provider: provider,
+                  searching: searching,
+                  starting: starting,
+                  filled: filled,
+                  players: players,
+                  bots: bots,
+                  myId: myId,
+                  tableWidth: tableWidth,
                 ),
-              ),
-            ),
-          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStackedBody({
+    required GameProvider provider,
+    required bool searching,
+    required bool starting,
+    required int filled,
+    required List<RoomPlayer> players,
+    required int bots,
+    required String myId,
+    required double tableWidth,
+  }) {
+    return Column(
+      children: [
+        _TopBar(
+          filled: filled,
+          searching: searching,
+          onCancel: starting || _leaving ? null : _requestCancel,
+          leaving: _leaving,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: _MatchmakingHeader(
+            headline: _headline(provider, searching),
+            status: _status(provider),
+            filled: filled,
+            searching: searching,
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: _MatchmakingTable(
+              width: tableWidth,
+              pulse: _pulse,
+              filled: filled,
+              players: players,
+              bots: bots,
+              myId: myId,
+              searching: searching,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+          child: _CancelSearchButton(
+            starting: starting,
+            leaving: _leaving,
+            onCancel: _requestCancel,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSideBySideBody({
+    required GameProvider provider,
+    required bool searching,
+    required bool starting,
+    required int filled,
+    required List<RoomPlayer> players,
+    required int bots,
+    required String myId,
+    required double tableWidth,
+  }) {
+    final metrics = HomeLayoutMetrics.of(context);
+    final headlineSize = metrics.isCompactLandscape ? 22.0 : 26.0;
+
+    return Column(
+      children: [
+        _TopBar(
+          filled: filled,
+          searching: searching,
+          onCancel: starting || _leaving ? null : _requestCancel,
+          leaving: _leaving,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _MatchmakingHeader(
+                        headline: _headline(provider, searching),
+                        status: _status(provider),
+                        filled: filled,
+                        searching: searching,
+                        headlineSize: headlineSize,
+                      ),
+                      const SizedBox(height: 24),
+                      _CancelSearchButton(
+                        starting: starting,
+                        leaving: _leaving,
+                        onCancel: _requestCancel,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 6,
+                  child: Center(
+                    child: _MatchmakingTable(
+                      width: tableWidth,
+                      pulse: _pulse,
+                      filled: filled,
+                      players: players,
+                      bots: bots,
+                      myId: myId,
+                      searching: searching,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CancelSearchButton extends StatelessWidget {
+  final bool starting;
+  final bool leaving;
+  final VoidCallback onCancel;
+
+  const _CancelSearchButton({
+    required this.starting,
+    required this.leaving,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: starting || leaving ? null : onCancel,
+      icon: leaving
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppTheme.steelBlue.withValues(alpha: 0.9),
+              ),
+            )
+          : AppIcon(
+              AppIcons.close,
+              size: 15,
+              color: AppTheme.steelBlue,
+              strokeWidth: AppIconTokens.strokeThin,
+            ),
+      label: Text(
+        leaving ? 'جاري الخروج...' : 'إلغاء البحث',
+        style: GoogleFonts.cairo(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppTheme.steelBlue,
+        side: BorderSide(
+          color: AppTheme.steelBlue.withValues(alpha: 0.24),
+        ),
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchmakingHeader extends StatelessWidget {
+  final String headline;
+  final String status;
+  final int filled;
+  final bool searching;
+  final double headlineSize;
+
+  const _MatchmakingHeader({
+    required this.headline,
+    required this.status,
+    required this.filled,
+    required this.searching,
+    this.headlineSize = 28,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = searching ? AppTheme.gold : AppTheme.playerGreen;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          searching ? 'جاري البحث' : 'جاهزون',
+          style: GoogleFonts.cairo(
+            color: accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          headline,
+          style: GoogleFonts.cairo(
+            color: AppTheme.cream,
+            fontSize: headlineSize,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+            letterSpacing: -0.35,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          status,
+          style: GoogleFonts.cairo(
+            color: AppTheme.steelBlue.withValues(alpha: 0.82),
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 18),
+        _ProgressSegments(filled: filled),
+      ],
     );
   }
 }
@@ -317,27 +515,33 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(12, 8, 20, 0),
       child: Row(
         children: [
           IconButton(
             onPressed: leaving ? null : onCancel,
+            tooltip: 'رجوع',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(40, 40),
+              padding: EdgeInsets.zero,
+            ),
             icon: AppIcon(
               AppIcons.arrowForwardIos,
-              size: 20,
-              color: AppTheme.cream.withValues(alpha: 0.85),
-              strokeWidth: AppIconTokens.stroke,
+              size: 18,
+              color: AppTheme.cream.withValues(alpha: 0.8),
+              strokeWidth: AppIconTokens.strokeThin,
+              matchTextDirection: false,
             ),
           ),
           Expanded(
             child: Text(
-              'طابور أونلاين',
+              'المطابقة',
               textAlign: TextAlign.center,
               style: GoogleFonts.cairo(
-                color: AppTheme.steelBlue,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
+                color: AppTheme.cream.withValues(alpha: 0.72),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
             ),
           ),
@@ -405,12 +609,7 @@ class _LiveBadgeState extends State<_LiveBadge>
     final accent = widget.searching ? AppTheme.gold : AppTheme.playerGreen;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.navyDark.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: accent.withValues(alpha: 0.35)),
-      ),
+      constraints: const BoxConstraints(minWidth: 40),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -418,8 +617,8 @@ class _LiveBadgeState extends State<_LiveBadge>
             animation: _dot,
             builder: (_, __) {
               return Container(
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: accent.withValues(
@@ -435,9 +634,9 @@ class _LiveBadgeState extends State<_LiveBadge>
           Text(
             '${widget.filled}/4',
             style: GoogleFonts.cairo(
-              color: AppTheme.cream,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              color: AppTheme.cream.withValues(alpha: 0.82),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -462,20 +661,12 @@ class _ProgressSegments extends StatelessWidget {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 350),
               curve: Curves.easeOutCubic,
-              height: 4,
+              height: 2,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
                 color: active
                     ? (filled >= 4 ? AppTheme.playerGreen : AppTheme.gold)
-                    : AppTheme.steelBlue.withValues(alpha: 0.22),
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: AppTheme.gold.withValues(alpha: 0.25),
-                          blurRadius: 6,
-                        ),
-                      ]
-                    : null,
+                    : AppTheme.steelBlue.withValues(alpha: 0.16),
               ),
             ),
           ),
@@ -506,8 +697,8 @@ class _MatchmakingTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final height = width * 0.88;
-    const seatW = 80.0;
+    final height = width * 0.82;
+    const seatW = 72.0;
 
     Widget slotForIndex(int index) {
       if (index < players.length) {
@@ -581,8 +772,8 @@ class _TableSurface extends StatelessWidget {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return SizedBox(
-      width: width + 24,
-      height: height + 24,
+      width: width + 16,
+      height: height + 16,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -591,7 +782,7 @@ class _TableSurface extends StatelessWidget {
               animation: pulse,
               builder: (_, __) {
                 return CustomPaint(
-                  size: Size(width + 20, height + 20),
+                  size: Size(width + 12, height + 12),
                   painter: _TablePulsePainter(t: pulse.value),
                 );
               },
@@ -600,52 +791,41 @@ class _TableSurface extends StatelessWidget {
             size: Size(width, height),
             painter: _FeltTablePainter(),
           ),
-          PerformanceBlur(
-            borderRadius: BorderRadius.circular(999),
-            sigmaX: 10,
-            sigmaY: 10,
-            fallbackColor: AppTheme.deepNavy.withValues(alpha: 0.55),
-            blurColor: AppTheme.deepNavy.withValues(alpha: 0.2),
-            child: Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppIcon(
+                searching ? AppIcons.wifiFind : AppIcons.checkCircle,
+                size: 20,
+                color: searching ? AppTheme.gold : AppTheme.playerGreen,
+                strokeWidth: AppIconTokens.strokeThin,
+              ),
+              const SizedBox(height: 7),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$filled',
+                      style: GoogleFonts.cairo(
+                        color: AppTheme.cream,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' / 4',
+                      style: GoogleFonts.cairo(
+                        color: AppTheme.steelBlue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+                textDirection: TextDirection.ltr,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AppIcon(
-                    searching ? AppIcons.wifiFind : AppIcons.checkCircle,
-                    size: 26,
-                    color: searching ? AppTheme.gold : AppTheme.playerGreen,
-                    strokeWidth: AppIconTokens.stroke,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$filled',
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.cream,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  Text(
-                    'من 4',
-                    style: GoogleFonts.cairo(
-                      color: AppTheme.steelBlue,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -659,39 +839,21 @@ class _FeltTablePainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final r = RRect.fromRectAndRadius(rect, Radius.circular(size.height / 2));
 
-    final rail = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          const Color(0xFF5C3D2E),
-          const Color(0xFF3D2819),
-          const Color(0xFF2A1810),
-        ],
-      ).createShader(rect);
+    final rail = Paint()..color = AppTheme.steelBlue.withValues(alpha: 0.22);
     canvas.drawRRect(r, rail);
 
     final inset = RRect.fromRectAndRadius(
-      rect.deflate(7),
-      Radius.circular(size.height / 2 - 7),
+      rect.deflate(2),
+      Radius.circular(size.height / 2 - 2),
     );
-    final felt = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0, -0.2),
-        radius: 1.1,
-        colors: [
-          const Color(0xFF1B6B52),
-          const Color(0xFF0F4A38),
-          const Color(0xFF0A3228),
-        ],
-      ).createShader(rect.deflate(7));
+    final felt = Paint()..color = AppTheme.surface2;
     canvas.drawRRect(inset, felt);
 
     final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = AppTheme.steelBlue.withValues(alpha: 0.1)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawRRect(inset.deflate(18), line);
+      ..strokeWidth = 1;
+    canvas.drawRRect(inset.deflate(14), line);
   }
 
   @override
@@ -707,11 +869,11 @@ class _TablePulsePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()
-      ..color = AppTheme.gold.withValues(alpha: 0.08 * (1 - t))
+      ..color = AppTheme.gold.withValues(alpha: 0.12 * (1 - t))
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final rx = size.width / 2 * (0.85 + t * 0.12);
-    final ry = size.height / 2 * (0.85 + t * 0.12);
+      ..strokeWidth = 1;
+    final rx = size.width / 2 * (0.9 + t * 0.08);
+    final ry = size.height / 2 * (0.9 + t * 0.08);
     canvas.drawOval(
       Rect.fromCenter(center: center, width: rx * 2, height: ry * 2),
       paint,
@@ -721,74 +883,4 @@ class _TablePulsePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TablePulsePainter oldDelegate) =>
       oldDelegate.t != t;
-}
-
-class _StatusPanel extends StatelessWidget {
-  final String message;
-  final bool searching;
-
-  const _StatusPanel({required this.message, required this.searching});
-
-  @override
-  Widget build(BuildContext context) {
-    return PerformanceBlur(
-      borderRadius: BorderRadius.circular(18),
-      sigmaX: 12,
-      sigmaY: 12,
-      fallbackColor: AppTheme.navyDark.withValues(alpha: 0.88),
-      blurColor: AppTheme.deepNavy.withValues(alpha: 0.25),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: AppTheme.steelBlue.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: (searching ? AppTheme.gold : AppTheme.playerGreen)
-                    .withValues(alpha: 0.14),
-              ),
-              child: Center(
-                child: searching
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.gold.withValues(alpha: 0.95),
-                        ),
-                      )
-                    : AppIcon(
-                        AppIcons.playCircle,
-                        size: 18,
-                        color: AppTheme.playerGreen,
-                        strokeWidth: AppIconTokens.stroke,
-                      ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.cairo(
-                  color: AppTheme.cream.withValues(alpha: 0.95),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

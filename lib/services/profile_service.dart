@@ -139,6 +139,11 @@ class ProfileService {
   /// Stable animal preset for a player when their profile photo is not yet synced.
   static String presetForPlayerId(String playerId) {
     if (playerId.isEmpty) return presetAvatars.first.id;
+    final botNumber = RegExp(r'^bot[_-]?(\d+)$').firstMatch(playerId);
+    if (botNumber != null) {
+      final number = int.parse(botNumber.group(1)!);
+      return presetAvatars[number % presetAvatars.length].id;
+    }
     final index = playerId.hashCode.abs() % presetAvatars.length;
     return presetAvatars[index].id;
   }

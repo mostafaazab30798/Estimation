@@ -9,14 +9,15 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 import '../services/reconnection_manager.dart';
 import '../services/online_play_gate.dart';
-import '../widgets/recover_ongoing_game_banner.dart';
 import '../widgets/online_play_block_dialog.dart';
 import '../widgets/google_online_play_guard.dart';
+import '../widgets/game_reentry_loading_dialog.dart';
 import '../widgets/player_name_prompt.dart';
 import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 import '../core/utils/snackbar_helper.dart';
 import '../core/utils/wallpaper_precache.dart';
+import '../core/utils/home_layout_metrics.dart';
 import '../core/widgets/mode_home_shell.dart';
 import '../core/widgets/app_buttons.dart';
 import '../core/constants.dart';
@@ -41,6 +42,8 @@ class _HomeScreenState extends State<HomeScreen>
   final _estimationMode = ValueNotifier<String>('classic');
   late final _profilePhoto =
       ValueNotifier<String>(ProfileService.presetAvatars.first.id);
+  bool _onlineTapInFlight = false;
+  bool _onlineGateReady = false;
 
   @override
   void initState() {
@@ -72,16 +75,19 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (mounted) {
       final gate = context.read<OnlinePlayGate>();
+      gate.resumeAfterLeavingMatch();
       final status = await gate.refresh();
       if (!status.canJoinNewOnline) gate.startPolling();
-    }
-
-    if (mounted && context.read<OnlinePlayGate>().canReturnToOngoingGame) {
-      await _showOngoingGameDisclaimer(context);
+      if (mounted) setState(() => _onlineGateReady = true);
     }
   }
 
   Future<bool> _showOngoingGameDisclaimer(BuildContext context) async {
+    final gate = context.read<OnlinePlayGate>();
+    if (!gate.canJoinNewOnline) {
+      return guardOnlineMatchmaking(context);
+    }
+
     final reconnect = context.read<ReconnectionManager>();
     final pendingSession = await reconnect.getPendingSession();
     if (!context.mounted || pendingSession == null) return false;
@@ -117,8 +123,12 @@ class _HomeScreenState extends State<HomeScreen>
     if (!shouldReturn) {
       return true;
     }
+    if (!context.mounted) return true;
 
-    final result = await reconnect.recoverPendingSession();
+    final result = await runWithGameReentryLoading(
+      context,
+      operation: reconnect.recoverPendingSession,
+    );
 
     if (!context.mounted) return true;
     if (result == ReconnectionState.reconnected) {
@@ -244,6 +254,17 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _handleOnlineTap(BuildContext context) async {
+    if (!_onlineGateReady || _onlineTapInFlight) return;
+    _onlineTapInFlight = true;
+    HapticFeedback.lightImpact();
+    try {
+      await _startOnlineMatchmaking(context);
+    } finally {
+      _onlineTapInFlight = false;
+    }
+  }
+
   Future<void> _startOnlineMatchmaking(BuildContext context) async {
     if (await guardGoogleOnlinePlay(context)) return;
     if (!context.mounted) return;
@@ -283,8 +304,8 @@ class _HomeScreenState extends State<HomeScreen>
       (provider) => provider.isSearching,
     );
     final isLoading = status == ConnectionStatus.connecting || isSearching;
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
+    final metrics = HomeLayoutMetrics.of(context);
+    final heroCompact = metrics.isLandscape && !metrics.isTablet;
 
     return PopScope(
       canPop: false,
@@ -307,9 +328,14 @@ class _HomeScreenState extends State<HomeScreen>
                 opacity: _fadeIn,
                 child: SlideTransition(
                   position: _slideIn,
-                  child: isLandscape
-                      ? _buildLandscapeBody(context)
-                      : _buildPortraitBody(context),
+                  child: ModeHomeScreenLayout(
+                    accent: AppTheme.gold,
+                    topBar: _buildTopBar(context),
+                    hero: _buildHeroSection(compact: heroCompact),
+                    primaryAction: _buildPrimaryAction(context),
+                    multiplayerSection: _buildMultiplayerGrid(context),
+                    extraSection: _buildTrainingSection(context),
+                  ),
                 ),
               ),
             ),
@@ -328,79 +354,6 @@ class _HomeScreenState extends State<HomeScreen>
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPortraitBody(BuildContext context) {
-    return Column(
-      children: [
-        _buildTopBar(context),
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeroSection(),
-                const SizedBox(height: 22),
-                _buildPrimaryAction(context),
-                const SizedBox(height: 18),
-                _buildMultiplayerGrid(context),
-                const SizedBox(height: 22),
-                _buildTrainingSection(context),
-              ],
-            ),
-          ),
-        ),
-        const ModeHomeSuitFooter(),
-      ],
-    );
-  }
-
-  Widget _buildLandscapeBody(BuildContext context) {
-    return Column(
-      children: [
-        _buildTopBar(context),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildHeroSection(compact: true),
-                      const SizedBox(height: 20),
-                      _buildPrimaryAction(context),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                const ModeHomeLandscapeDivider(accent: AppTheme.gold),
-                const SizedBox(width: 20),
-                Expanded(
-                  flex: 6,
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      children: [
-                        _buildMultiplayerGrid(context),
-                        const SizedBox(height: 16),
-                        _buildTrainingSection(context),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const ModeHomeSuitFooter(),
-      ],
     );
   }
 
@@ -533,26 +486,33 @@ class _HomeScreenState extends State<HomeScreen>
         final countdown = gate.remainingLabel;
         final showCountdown = blocked && countdown.isNotEmpty;
         final canReturn = gate.canReturnToOngoingGame;
+        final activeElsewhere = gate.status.activeOnAnotherDevice;
         return Column(
           children: [
-            const RecoverOngoingGameBanner(),
-            const OnlineBanNotice(),
             ModeHomeActionButton(
-              label: showCountdown
-                  ? 'لعب أونلاين ($countdown)'
-                  : 'لعب أونلاين',
+              label: activeElsewhere
+                  ? 'مباراة جارية على جهاز آخر'
+                  : canReturn
+                      ? showCountdown
+                          ? 'العودة للمباراة ($countdown)'
+                          : 'العودة إلى المباراة'
+                      : showCountdown
+                          ? 'لعب أونلاين ($countdown)'
+                          : 'لعب أونلاين',
               subtitle: blocked
-                  ? (canReturn
+                  ? (activeElsewhere
+                      ? 'الحساب مستخدم الآن — اخرج من المباراة على الجهاز الآخر'
+                      : canReturn
                       ? 'اضغط للخيارات: انتظر أو عد للمباراة'
                       : 'المباراة السابقة انتهت — انتظر انتهاء المهلة')
                   : null,
               icon: AppIcons.groups,
               gradient: const [Color(0xFF11998E), Color(0xFF0D7377)],
               isLarge: true,
-              enabled: true,
-              onTap: blocked
-                  ? () => _tap(() => guardOnlineMatchmaking(context))
-                  : () => _tap(() => _startOnlineMatchmaking(context)),
+              enabled: _onlineGateReady && !activeElsewhere,
+              onTap: _onlineGateReady && !activeElsewhere
+                  ? () => _handleOnlineTap(context)
+                  : null,
             ),
             const SizedBox(height: 10),
             ModeHomeActionButton(

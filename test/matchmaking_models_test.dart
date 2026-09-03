@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:estimation/features/lobby/domain/models/game_room.dart';
+import 'package:estimation/features/lobby/domain/models/online_play_status.dart';
 import 'package:estimation/features/lobby/domain/models/room_player.dart';
 import 'package:estimation/features/matchmaking/domain/models/bot_fill_vote_result.dart';
 import 'package:estimation/features/matchmaking/domain/models/matchmaking_join_result.dart';
@@ -106,14 +107,68 @@ void main() {
         isFalse,
       );
     });
+
+    test('stable seat order keeps host first and breaks timestamp ties by id', () {
+      final joined = DateTime.utc(2026, 8, 28);
+      final guestB = _player('b', joinedAt: joined);
+      final guestA = _player('a', joinedAt: joined);
+      final host = _player('host', joinedAt: joined, isHost: true);
+
+      final first = RoomPlayer.stableSeatOrder([guestB, host, guestA]);
+      final replay = RoomPlayer.stableSeatOrder([guestA, guestB, host]);
+
+      expect(first.map((p) => p.playerId), ['host', 'a', 'b']);
+      expect(replay.map((p) => p.playerId), ['host', 'a', 'b']);
+      expect(RoomPlayer.sameSeatPresentation(first, replay), isTrue);
+    });
+  });
+
+  group('device-scoped online gate', () {
+    test('active seat on another phone has no timer or recovery action', () {
+      final status = OnlinePlayStatus.fromJson({
+        'can_join_new_online': false,
+        'has_active_membership': true,
+        'active_on_another_device': true,
+        'recovery_available': false,
+        'room_id': 'room-id',
+        'room_status': 'playing',
+      });
+
+      expect(status.activeOnAnotherDevice, isTrue);
+      expect(status.canReturnToOngoingGame, isFalse);
+      expect(status.remainingBlock(), Duration.zero);
+      expect(status.isStaleBlock, isFalse);
+    });
+
+    test('offline seat exposes the shared recovery countdown', () {
+      final status = OnlinePlayStatus.fromJson({
+        'can_join_new_online': false,
+        'has_active_membership': true,
+        'active_on_another_device': false,
+        'recovery_available': true,
+        'grace_ends_at':
+            DateTime.now().toUtc().add(const Duration(minutes: 4)).toIso8601String(),
+        'room_id': 'room-id',
+        'room_status': 'playing',
+      });
+
+      expect(status.canReturnToOngoingGame, isTrue);
+      expect(status.remainingBlock().inMinutes, greaterThanOrEqualTo(3));
+    });
   });
 }
 
-RoomPlayer _player(String playerId) => RoomPlayer(
+RoomPlayer _player(
+  String playerId, {
+  DateTime? joinedAt,
+  bool isHost = false,
+}) =>
+    RoomPlayer(
       id: 'row-$playerId',
       roomId: 'room-id',
       playerId: playerId,
       playerName: playerId,
-      isHost: false,
-      joinedAt: DateTime.utc(2026, 8, 28),
+      isHost: isHost,
+      joinedAt: joinedAt ?? DateTime.utc(2026, 8, 28),
+      lastSeen: joinedAt ?? DateTime.utc(2026, 8, 28),
     );

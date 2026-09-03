@@ -7,6 +7,17 @@ import '../domain/models/online_play_status.dart';
 import '../domain/models/room_player.dart';
 import '../../../core/models/card.dart';
 import '../../../core/utils/google_online_auth.dart';
+import '../../../services/device_identity_service.dart';
+
+class HeartbeatResult {
+  final bool botTakeoverStarted;
+  final bool deviceConflict;
+
+  const HeartbeatResult({
+    this.botTakeoverStarted = false,
+    this.deviceConflict = false,
+  });
+}
 
 class LobbyRepository {
   final SupabaseClient _client = Supabase.instance.client;
@@ -100,6 +111,26 @@ class LobbyRepository {
         .map((events) => events.map((e) => RoomPlayer.fromJson(e)).toList());
   }
 
+  /// One-shot roster fetch — used to backfill when Realtime misses INSERT/DELETE.
+  Future<List<RoomPlayer>> fetchRoomPlayers(
+    String roomId, {
+    bool activeOnly = false,
+  }) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return [];
+    }
+    var query = _client.from('room_players').select().eq('room_id', roomId);
+    if (activeOnly) {
+      final cutoff =
+          DateTime.now().toUtc().subtract(const Duration(seconds: 45));
+      query = query.or(
+        'is_online.eq.true,last_seen.gte.${cutoff.toIso8601String()}',
+      );
+    }
+    final rows = await query.order('joined_at');
+    return rows.map((e) => RoomPlayer.fromJson(e)).toList();
+  }
+
   Future<void> startGame(String roomId) async {
     if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
     await _client.rpc('start_game_room', params: {
@@ -116,6 +147,9 @@ class LobbyRepository {
           .delete()
           .eq('room_id', roomId)
           .eq('player_id', uid);
+      // If this was the last seated human, close the room immediately instead
+      // of leaving it in `playing` until a later heartbeat sweep.
+      await processRoomAbsences(roomId);
     }
   }
 
@@ -127,10 +161,23 @@ class LobbyRepository {
   // ── Reconnection & heartbeat ──────────────────────────────────────────
 
   /// Mark the current user online and refresh last_seen.
-  Future<void> pingHeartbeat(String roomId) async {
-    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return;
+  Future<HeartbeatResult> pingHeartbeat(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) {
+      return const HeartbeatResult();
+    }
     try {
-      await _client.rpc('player_heartbeat', params: {'p_room_id': roomId});
+      final deviceId = await DeviceIdentityService.getId();
+      final raw = await _client.rpc(
+        'player_heartbeat',
+        params: {'p_room_id': roomId, 'p_device_id': deviceId},
+      );
+      if (raw is Map) {
+        return HeartbeatResult(
+          botTakeoverStarted:
+              ((raw['bot_takeovers'] as num?)?.toInt() ?? 0) > 0,
+          deviceConflict: raw['device_conflict'] == true,
+        );
+      }
     } catch (e) {
       final errorStr = e.toString();
       if (!errorStr.contains('SocketException') &&
@@ -138,12 +185,17 @@ class LobbyRepository {
         debugPrint('[Lobby] pingHeartbeat failed: $e');
       }
     }
+    return const HeartbeatResult();
   }
 
   /// Mark the current user offline (called on app pause / background).
   Future<void> markOffline(String roomId) async {
     try {
-      await _client.rpc('player_go_offline', params: {'p_room_id': roomId});
+      final deviceId = await DeviceIdentityService.getId();
+      await _client.rpc('player_go_offline', params: {
+        'p_room_id': roomId,
+        'p_device_id': deviceId,
+      });
     } catch (e) {
       final errorStr = e.toString();
       if (!errorStr.contains('SocketException') &&
@@ -170,16 +222,55 @@ class LobbyRepository {
   }
 
   /// Server-side gate for online matchmaking (grace, ban, active membership).
-  Future<OnlinePlayStatus> getOnlinePlayStatus() async {
+  ///
+  /// Returns null when the RPC fails so callers can keep the last known status
+  /// instead of optimistically allowing new online play.
+  Future<OnlinePlayStatus?> getOnlinePlayStatus() async {
     try {
-      final raw = await _client.rpc('get_online_play_status');
+      final deviceId = await DeviceIdentityService.getId();
+      final raw = await _client.rpc(
+        'get_online_play_status',
+        params: {'p_device_id': deviceId},
+      );
       if (raw is Map<String, dynamic>) {
         return OnlinePlayStatus.fromJson(raw);
       }
     } catch (e) {
       debugPrint('[Lobby] getOnlinePlayStatus failed: $e');
     }
-    return const OnlinePlayStatus(canJoinNewOnline: true);
+    return null;
+  }
+
+  /// Atomically moves an offline/recoverable seat to this installation.
+  Future<bool> claimRoomDevice(String roomId) async {
+    try {
+      final deviceId = await DeviceIdentityService.getId();
+      final raw = await _client.rpc('claim_room_device', params: {
+        'p_room_id': roomId,
+        'p_device_id': deviceId,
+      });
+      return raw is Map && raw['claimed'] == true;
+    } catch (e) {
+      debugPrint('[Lobby] claimRoomDevice failed: $e');
+      return false;
+    }
+  }
+
+  Future<RoomPlayer?> fetchCurrentPlayer(String roomId) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return null;
+    try {
+      final row = await _client
+          .from('room_players')
+          .select()
+          .eq('room_id', roomId)
+          .eq('player_id', uid)
+          .maybeSingle();
+      return row == null ? null : RoomPlayer.fromJson(row);
+    } catch (e) {
+      debugPrint('[Lobby] fetchCurrentPlayer failed: $e');
+      return null;
+    }
   }
 
   /// Sweep absent players for a room (no-op when not a member).
@@ -206,6 +297,22 @@ class LobbyRepository {
       return Map<String, dynamic>.from(state as Map);
     } catch (e) {
       debugPrint('[Lobby] getGameStateSnapshot failed: $e');
+      return null;
+    }
+  }
+
+  /// Latest public table with only the caller's real hand merged server-side.
+  Future<Map<String, dynamic>?> getMyGameState(String roomId) async {
+    if (roomId.startsWith('test_') || roomId.startsWith('local_')) return null;
+    try {
+      final raw = await _client.rpc(
+        'get_my_game_state',
+        params: {'p_room_id': roomId},
+      );
+      if (raw is! Map) return null;
+      return Map<String, dynamic>.from(raw);
+    } catch (e) {
+      debugPrint('[Lobby] getMyGameState failed: $e');
       return null;
     }
   }

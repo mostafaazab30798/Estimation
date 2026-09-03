@@ -34,6 +34,7 @@ import '../widgets/hud/turn_timer_badge.dart';
 import '../widgets/hud/reaction_bubble_widget.dart';
 import '../widgets/hud/reaction_picker_sheet.dart';
 import '../services/reconnection_manager.dart';
+import '../services/online_play_gate.dart';
 import 'scoring_screen.dart';
 import 'match_end_screen.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -402,10 +403,13 @@ class _GameScreenState extends State<GameScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   if (showTurnTimer) ...[
-                                    TurnTimerBadge(
-                                      state: prov.state!,
-                                      isMyTurn: true,
-                                      compact: true,
+                                    Transform.translate(
+                                      offset: const Offset(0, -10),
+                                      child: TurnTimerBadge(
+                                        state: prov.state!,
+                                        isMyTurn: true,
+                                        compact: true,
+                                      ),
                                     ),
                                     const SizedBox(height: 6),
                                   ],
@@ -425,10 +429,13 @@ class _GameScreenState extends State<GameScreen> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 if (showTurnTimer) ...[
-                                  TurnTimerBadge(
-                                    state: prov.state!,
-                                    isMyTurn: true,
-                                    compact: true,
+                                  Transform.translate(
+                                    offset: const Offset(0, -10),
+                                    child: TurnTimerBadge(
+                                      state: prov.state!,
+                                      isMyTurn: true,
+                                      compact: true,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                 ],
@@ -484,7 +491,11 @@ class _GameScreenState extends State<GameScreen> {
                     // ── Reconnection banner ───────────────────────────
                     Consumer<ReconnectionManager>(
                       builder: (ctx, reconnect, _) => ReconnectionBanner(
-                        reconnectionState: reconnect.reconnectionState,
+                        reconnectionState:
+                            ctx.watch<GameProvider>().status ==
+                                    ConnectionStatus.connected
+                                ? ReconnectionState.idle
+                                : reconnect.reconnectionState,
                         onRetry: reconnect.retry,
                         onGoHome: () async {
                           await reconnect.dismissAndGoHome();
@@ -832,6 +843,9 @@ class _GameScreenState extends State<GameScreen> {
     LeaveGameDialog.show(
       context,
       onLeave: () async {
+        final gate = context.read<OnlinePlayGate>();
+        gate.stopPolling();
+        gate.resumeAfterLeavingMatch();
         if (provider.isTestMode || provider.isLocal) {
           await provider.reset();
         } else {

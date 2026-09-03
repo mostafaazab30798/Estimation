@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/utils/stale_game_route.dart';
+import '../core/utils/home_layout_metrics.dart';
 import '../core/models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../theme/app_theme.dart';
@@ -162,7 +163,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
       });
     }
 
-    final isPortrait = MediaQuery.of(context).size.width < 800;
+    final metrics = HomeLayoutMetrics.of(context);
+    final useStackedLayout = metrics.isTablet
+        ? metrics.width < 800
+        : metrics.usePhoneStackedMenuLayout;
 
     final leftControls = Column(
       mainAxisSize: MainAxisSize.min,
@@ -200,7 +204,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       children: [
         if (provider.isHost) ...[
           _buildThemeSelector(provider),
-          if (!isPortrait) ...[
+          if (!useStackedLayout) ...[
             const SizedBox(height: 24),
             Row(
               children: [
@@ -218,7 +222,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ],
         ] else ...[
           _buildWaitingText(context),
-          if (!isPortrait) ...[
+          if (!useStackedLayout) ...[
             const SizedBox(height: 24),
             _buildCancelButton(context, provider),
           ],
@@ -226,7 +230,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       ],
     );
 
-    final contentWidget = isPortrait
+    final contentWidget = useStackedLayout
         ? SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             physics: const BouncingScrollPhysics(),
@@ -327,7 +331,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   children: [
                     Expanded(child: contentWidget),
 
-                    if (isPortrait)
+                    if (useStackedLayout)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                         child: Row(

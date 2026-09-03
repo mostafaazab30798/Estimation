@@ -42,8 +42,8 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
   Timer? _ticker;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
-  int _remainingSeconds = 15;
-  int _totalDurationSeconds = 15;
+  int _remainingSeconds = 60;
+  int _totalDurationSeconds = 60;
   int? _lastWarnedSecond;
 
   @override
@@ -96,7 +96,7 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
     } else {
       // Fallback if no server timestamp yet
       final fallback = _defaultDurationForPhase(widget.state?.phase);
-      if (_remainingSeconds != fallback && _remainingSeconds == 0) {
+      if (_remainingSeconds != fallback) {
         setState(() {
           _remainingSeconds = fallback;
         });
