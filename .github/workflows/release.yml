@@ -183,11 +183,11 @@ jobs:
           APK_DIR="build/app/outputs/flutter-apk"
 
           # If flavored APKs were generated, create non-flavor aliases for standard release download URLs
-          if [ -f "$APK_DIR/app-prod-arm64-v8a-release.apk" ]; then
+          if [ -f "$APK_DIR/app-arm64-v8a-prod-release.apk" ]; then
             echo "Creating standard aliases for prod APKs..."
-            cp -f "$APK_DIR/app-prod-arm64-v8a-release.apk" "$APK_DIR/app-arm64-v8a-release.apk"
-            cp -f "$APK_DIR/app-prod-armeabi-v7a-release.apk" "$APK_DIR/app-armeabi-v7a-release.apk"
-            cp -f "$APK_DIR/app-prod-x86_64-release.apk" "$APK_DIR/app-x86_64-release.apk"
+            cp -f "$APK_DIR/app-arm64-v8a-prod-release.apk" "$APK_DIR/app-arm64-v8a-release.apk"
+            cp -f "$APK_DIR/app-armeabi-v7a-prod-release.apk" "$APK_DIR/app-armeabi-v7a-release.apk"
+            cp -f "$APK_DIR/app-x86_64-prod-release.apk" "$APK_DIR/app-x86_64-release.apk"
           fi
 
           ARM64_APK="$APK_DIR/app-arm64-v8a-release.apk"
@@ -217,9 +217,9 @@ jobs:
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             build/app/outputs/flutter-apk/app-x86_64-release.apk
-            build/app/outputs/flutter-apk/app-prod-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-prod-armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/app-prod-x86_64-release.apk
+            build/app/outputs/flutter-apk/app-arm64-v8a-prod-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-prod-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-prod-release.apk
 
       # ============================================================
       # 10. Update Supabase
