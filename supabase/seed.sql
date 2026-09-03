@@ -126,7 +126,11 @@ language plpgsql
 as $$
 begin
   perform set_config('role', 'service_role', true);
-  perform set_config('request.jwt.claims', null, true);
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('role', 'service_role')::text,
+    true
+  );
 end;
 $$;
 
