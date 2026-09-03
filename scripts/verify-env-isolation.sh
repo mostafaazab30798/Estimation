@@ -30,6 +30,16 @@ if ! grep -q 'SUPABASE_URL' .github/workflows/play-release.yml; then
   FAIL=1
 fi
 
+if ! grep -q '\-\-flavor prod' .github/workflows/release.yml; then
+  echo "ERROR: release.yml must build with --flavor prod"
+  FAIL=1
+fi
+
+if ! grep -q 'SUPABASE_URL' .github/workflows/release.yml; then
+  echo "ERROR: release.yml must pass SUPABASE_URL dart-define"
+  FAIL=1
+fi
+
 if ! grep -q 'AppConfig' lib/main.dart; then
   echo "ERROR: main.dart must initialize Supabase via AppConfig"
   FAIL=1

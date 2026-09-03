@@ -35,6 +35,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.8'
           channel: stable
           cache: true
 
@@ -154,7 +155,24 @@ jobs:
       # 7. Build Split-per-ABI Release APKs
       # ============================================================
       - name: Build Split-per-ABI Release APKs
-        run: flutter build apk --release --split-per-abi
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          BUILD_FLAGS="--release --flavor prod --split-per-abi --android-skip-build-dependency-validation"
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            flutter build apk $BUILD_FLAGS \
+              --dart-define=APP_ENV=production \
+              --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+              --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+              --dart-define=PROD_PROJECT_REF=eqmkbfxerxqihforsgvx \
+              --dart-define=SERVER_AUTHORITY=true
+          elif [ -f config/env.prod.json ]; then
+            flutter build apk $BUILD_FLAGS \
+              --dart-define-from-file=config/env.prod.json
+          else
+            flutter build apk $BUILD_FLAGS
+          fi
 
       # ============================================================
       # 8. Verify APKs
@@ -163,6 +181,15 @@ jobs:
         shell: bash
         run: |
           APK_DIR="build/app/outputs/flutter-apk"
+
+          # If flavored APKs were generated, create non-flavor aliases for standard release download URLs
+          if [ -f "$APK_DIR/app-prod-arm64-v8a-release.apk" ]; then
+            echo "Creating standard aliases for prod APKs..."
+            cp -f "$APK_DIR/app-prod-arm64-v8a-release.apk" "$APK_DIR/app-arm64-v8a-release.apk"
+            cp -f "$APK_DIR/app-prod-armeabi-v7a-release.apk" "$APK_DIR/app-armeabi-v7a-release.apk"
+            cp -f "$APK_DIR/app-prod-x86_64-release.apk" "$APK_DIR/app-x86_64-release.apk"
+          fi
+
           ARM64_APK="$APK_DIR/app-arm64-v8a-release.apk"
 
           echo "Checking APKs..."
@@ -190,6 +217,9 @@ jobs:
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
             build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
             build/app/outputs/flutter-apk/app-x86_64-release.apk
+            build/app/outputs/flutter-apk/app-prod-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-prod-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-prod-x86_64-release.apk
 
       # ============================================================
       # 10. Update Supabase
@@ -325,6 +355,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.38.8'
           channel: stable
           cache: true
 
@@ -340,7 +371,23 @@ jobs:
       # 5. Build Flutter Web (release, no source maps)
       # ============================================================
       - name: Build Flutter Web
-        run: flutter build web --release --no-source-maps
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            flutter build web --release --no-source-maps \
+              --dart-define=APP_ENV=production \
+              --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+              --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+              --dart-define=PROD_PROJECT_REF=eqmkbfxerxqihforsgvx \
+              --dart-define=SERVER_AUTHORITY=true
+          elif [ -f config/env.prod.json ]; then
+            flutter build web --release --no-source-maps \
+              --dart-define-from-file=config/env.prod.json
+          else
+            flutter build web --release --no-source-maps
+          fi
 
 
       # ============================================================
