@@ -2,7 +2,7 @@
 
 ## 1. Objective
 
-Implement a complete **Basra (باصرة)** game mode in the existing game.
+Implement a complete **Basra (بصرة)** game mode in the existing game.
 
 This document is the source of truth for the game rules. The implementation must preserve the existing game's architecture, UI conventions, player/session model, localization, sound system, animations, and persistence patterns wherever possible.
 
@@ -106,21 +106,21 @@ The cards remaining on the table are then awarded according to the final-table r
 
 For capture calculations:
 
-| Card | Numeric Value |
-|---|---:|
-| A | 1 |
-| 2 | 2 |
-| 3 | 3 |
-| 4 | 4 |
-| 5 | 5 |
-| 6 | 6 |
-| 7 | 7 |
-| 8 | 8 |
-| 9 | 9 |
-| 10 | 10 |
-| J | No numeric value |
-| Q | No numeric value |
-| K | No numeric value |
+| Card |    Numeric Value |
+| ---- | ---------------: |
+| A    |                1 |
+| 2    |                2 |
+| 3    |                3 |
+| 4    |                4 |
+| 5    |                5 |
+| 6    |                6 |
+| 7    |                7 |
+| 8    |                8 |
+| 9    |                9 |
+| 10   |               10 |
+| J    | No numeric value |
+| Q    | No numeric value |
+| K    | No numeric value |
 
 ### Important
 
@@ -817,15 +817,15 @@ Use a dedicated event/result rather than relying on UI-side inference.
 
 Possible labels:
 
-- `باصرة!`
+- `بصرة!`
 - `Basra!`
 
 The displayed language must follow the existing localization system.
 
 For 7♦:
 
-- Show a distinct label such as `باصرة 7 ديناري` only if the current product language/UI already supports detailed feedback.
-- Otherwise standard `باصرة!` is sufficient.
+- Show a distinct label such as `بصرة 7 ديناري` only if the current product language/UI already supports detailed feedback.
+- Otherwise standard `بصرة!` is sufficient.
 
 Do not show Basra when the conditions are not satisfied.
 

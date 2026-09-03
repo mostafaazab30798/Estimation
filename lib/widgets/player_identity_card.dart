@@ -3,7 +3,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/share_card_service.dart';
 import '../models/playstyle_models.dart';
@@ -366,7 +365,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                           ),
                           child: Text(
                             '♠️ بطاقة اللاعب',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: theme.borderColor,
@@ -394,7 +393,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                               const SizedBox(width: 5),
                               Text(
                                 'Lv $level',
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
@@ -450,7 +449,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                                 name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 21,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
@@ -462,7 +461,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                                 widget.config.selectedTitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
                                   color:
@@ -494,7 +493,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                                     const SizedBox(width: 5),
                                     Text(
                                       archetype.titleAr,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w700,
                                         color: Colors.white,
@@ -584,7 +583,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                         const SizedBox(width: 5),
                         Text(
                           'اضغط لقلب البطاقة',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 10.5,
                             color: Colors.white.withValues(alpha: 0.45),
                             fontWeight: FontWeight.w600,
@@ -670,7 +669,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                       ),
                       child: Text(
                         'تحليل تكتيكي',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: accent,
@@ -680,7 +679,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     const Spacer(),
                     Text(
                       '${metrics.confidenceLabelAr} · ${metrics.profileConfidence.toStringAsFixed(0)}%',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                         color: Colors.white60,
@@ -713,7 +712,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                             archetype.titleAr,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 17,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
@@ -725,7 +724,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                             archetype.taglineAr,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 11,
                               color: Colors.white60,
                             ),
@@ -744,7 +743,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                       ),
                       child: Text(
                         '${secondary.emoji} ${secondary.titleAr}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: Colors.white70,
@@ -768,7 +767,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                       '«${profile.signatureBehavior}»',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         fontStyle: FontStyle.italic,
@@ -802,7 +801,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                         ),
                         child: Text(
                           s,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Colors.white.withValues(alpha: 0.9),
@@ -832,7 +831,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                           tip,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11,
                             height: 1.3,
                             color: Colors.white.withValues(alpha: 0.85),
@@ -851,7 +850,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                     const SizedBox(width: 5),
                     Text(
                       'اضغط للعودة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 10,
                         color: Colors.white.withValues(alpha: 0.4),
                         fontWeight: FontWeight.w600,
@@ -879,7 +878,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
           width: 54,
           child: Text(
             label,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: Colors.white70,
@@ -915,7 +914,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
           child: Text(
             value.toStringAsFixed(0),
             textAlign: TextAlign.end,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               color: color,
@@ -958,7 +957,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -969,7 +968,7 @@ class _PlayerIdentityCardState extends State<PlayerIdentityCard>
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Colors.white60,
@@ -1060,7 +1059,7 @@ class _IdentityCardCustomizerSheetState
                   children: [
                     Text(
                       'تخصيص البطاقة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.cream,
@@ -1068,7 +1067,7 @@ class _IdentityCardCustomizerSheetState
                     ),
                     Text(
                       'المظهر واللقب والخصوصية',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 12,
                         color: AppTheme.steelBlue,
                       ),
@@ -1101,7 +1100,7 @@ class _IdentityCardCustomizerSheetState
           const SizedBox(height: 20),
           Text(
             'مظهر البطاقة',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppTheme.goldLight,
@@ -1152,7 +1151,7 @@ class _IdentityCardCustomizerSheetState
                       alignment: Alignment.center,
                       child: Text(
                         theme.titleAr,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -1167,7 +1166,7 @@ class _IdentityCardCustomizerSheetState
           const SizedBox(height: 20),
           Text(
             'اللقب على البطاقة',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: AppTheme.goldLight,
@@ -1207,7 +1206,7 @@ class _IdentityCardCustomizerSheetState
                     ),
                     child: Text(
                       title,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11.5,
                         fontWeight:
                             isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -1250,7 +1249,7 @@ class _IdentityCardCustomizerSheetState
                     children: [
                       Text(
                         'إتاحة البطاقة للعامة',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -1260,7 +1259,7 @@ class _IdentityCardCustomizerSheetState
                         _isPublic
                             ? 'يمكن للاعبين رؤية بطاقتك وشخصيتك'
                             : 'بطاقتك خاصة ومخفية عن الآخرين',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11,
                           color: Colors.white54,
                         ),

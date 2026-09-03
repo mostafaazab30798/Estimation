@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../networking/local/local_discovery_service.dart';
@@ -342,7 +341,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                   children: [
                     Text(
                       'البحث عن مباراة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.cream,
@@ -375,7 +374,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                           const SizedBox(width: 4),
                           Text(
                             _isSearching ? 'جاري المسح...' : 'مستعد',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               color: _isSearching ? AppTheme.gold : Colors.greenAccent,
@@ -388,7 +387,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                 ),
                 Text(
                   'الألعاب القريبة على شبكة الـ Wi-Fi / LAN',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 11,
                     color: AppTheme.steelBlue,
                   ),
@@ -438,14 +437,14 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
               children: [
                 Text(
                   'عنوان IP الخاص بك (للشبكة المحلية):',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 11,
                     color: AppTheme.steelBlue,
                   ),
                 ),
                 Text(
                   _myLocalIp ?? 'جاري التحديد...',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.cream,
@@ -476,7 +475,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
       {'label': 'الكل', 'icon': AppIcons.gridView, 'color': AppTheme.gold},
       {'label': 'إستميشن ♠', 'icon': AppIcons.style, 'color': AppTheme.goldLight},
       {'label': 'مود الـ 99 🔥', 'icon': AppIcons.localFireDepartment, 'color': const Color(0xFFEF4444)},
-      {'label': 'باصرة ♦', 'icon': AppIcons.style, 'color': const Color(0xFFE8B923)},
+      {'label': 'بصرة ♦', 'icon': AppIcons.style, 'color': const Color(0xFFE8B923)},
     ];
 
     return Row(
@@ -521,7 +520,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                     child: Center(
                       child: Text(
                         filters[index]['label'] as String,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 12,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected ? AppTheme.cream : AppTheme.steelBlue,
@@ -577,7 +576,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             const SizedBox(height: 20),
             Text(
               'جاري البحث عن ألعاب قريبة...',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.cream,
@@ -587,7 +586,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             Text(
               'يرجى التأكد من تشغيل الواي فاي أو الهوتسبوت وأن المضيف أنشأ غرفة',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 12,
                 color: AppTheme.steelBlue,
               ),
@@ -622,7 +621,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             const SizedBox(height: 16),
             Text(
               'لم يتم العثور على ألعاب متاحة',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.cream,
@@ -632,7 +631,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
             Text(
               'تأكد أن المضيف قد أنشأ غرفة أوفلاين وهو متصل بـ Wi-Fi أو Hotspot معك',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 12,
                 color: AppTheme.steelBlue,
               ),
@@ -643,7 +642,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
               icon: const AppIcon(AppIcons.refresh, size: 18),
               label: Text(
                 'إعادة البحث الآن',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.gold,
@@ -668,7 +667,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
               const SizedBox(width: 8),
               Text(
                 'الغرف المكتشفة (${rooms.length})',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.cream,
@@ -771,7 +770,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                             Flexible(
                               child: Text(
                                 room.hostName,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   color: AppTheme.cream,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -788,8 +787,8 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                                 border: Border.all(color: accentColor.withValues(alpha: 0.3)),
                               ),
                               child: Text(
-                                is99 ? 'مود الـ 99' : isBasra ? 'باصرة' : 'إستميشن',
-                                style: GoogleFonts.cairo(
+                                is99 ? 'مود الـ 99' : isBasra ? 'بصرة' : 'إستميشن',
+                                style: AppFonts.cooper(
                                   color: accentColor,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -805,7 +804,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                             const SizedBox(width: 4),
                             Text(
                               'IP: ${room.ip}:${room.port}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.steelBlue,
                                 fontSize: 12,
                               ),
@@ -836,7 +835,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                             const SizedBox(width: 4),
                             Text(
                               '${room.currentPlayers}/${room.maxPlayers}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.cream,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -868,7 +867,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                                 )
                               : Text(
                                   'انضمام',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
@@ -916,7 +915,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                   children: [
                     Text(
                       'الاتصال المباشر عبر IP',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.cream,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -924,7 +923,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                     ),
                     Text(
                       'استخدم هذا النموذج إذا لم تظهر الغرفة تلقائياً',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.steelBlue,
                         fontSize: 11,
                       ),
@@ -941,13 +940,13 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                 flex: 7,
                 child: TextField(
                   controller: _ipController,
-                  style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
+                  style: AppFonts.cooper(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     prefixIcon: const AppIcon(AppIcons.lan, color: AppTheme.steelBlue, size: 18),
                     labelText: 'عنوان IP',
                     hintText: '192.168.1.10',
-                    labelStyle: GoogleFonts.cairo(color: AppTheme.steelBlue, fontSize: 12),
-                    hintStyle: GoogleFonts.cairo(color: AppTheme.steelBlue.withValues(alpha: 0.4), fontSize: 12),
+                    labelStyle: AppFonts.cooper(color: AppTheme.steelBlue, fontSize: 12),
+                    hintStyle: AppFonts.cooper(color: AppTheme.steelBlue.withValues(alpha: 0.4), fontSize: 12),
                     filled: true,
                     fillColor: AppTheme.surface2.withValues(alpha: 0.6),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -968,12 +967,12 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                 child: TextField(
                   controller: _portController,
                   keyboardType: TextInputType.number,
-                  style: GoogleFonts.cairo(color: Colors.white, fontSize: 13),
+                  style: AppFonts.cooper(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     labelText: 'المنفذ',
                     hintText: '7890',
-                    labelStyle: GoogleFonts.cairo(color: AppTheme.steelBlue, fontSize: 12),
-                    hintStyle: GoogleFonts.cairo(color: AppTheme.steelBlue.withValues(alpha: 0.4), fontSize: 12),
+                    labelStyle: AppFonts.cooper(color: AppTheme.steelBlue, fontSize: 12),
+                    hintStyle: AppFonts.cooper(color: AppTheme.steelBlue.withValues(alpha: 0.4), fontSize: 12),
                     filled: true,
                     fillColor: AppTheme.surface2.withValues(alpha: 0.6),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -1002,7 +1001,7 @@ class _LocalDiscoveryScreenState extends State<LocalDiscoveryScreen>
                 alignment: Alignment.center,
                 child: Text(
                   'اتصال مباشر بالغرفة',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     height: 1.1,

@@ -1,7 +1,7 @@
 // lib/widgets/rank_tier_badge.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:estimation/theme/app_theme.dart';
 import '../models/rank_tier.dart';
 
 class RankTierBadge extends StatelessWidget {
@@ -68,7 +68,7 @@ class RankTierBadge extends StatelessWidget {
                 children: [
                   Text(
                     tier.titleAr,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: compact ? 10 : 12,
                       fontWeight: FontWeight.w900,
                       color: tier.primaryColor,
@@ -78,7 +78,7 @@ class RankTierBadge extends StatelessWidget {
                   if (level != null)
                     Text(
                       'مستوى $level',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: compact ? 8.5 : 10,
                         fontWeight: FontWeight.w600,
                         color: Colors.white70,

@@ -64,7 +64,7 @@ class LocalBasraGameClient {
       if (_isReconnecting) {
         _attemptReconnect();
       } else {
-        onError('فشل الاتصال بغرفة الباصرة المحلية: $e');
+        onError('فشل الاتصال بغرفة البصرة المحلية: $e');
       }
     }
   }

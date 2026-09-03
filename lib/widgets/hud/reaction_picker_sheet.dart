@@ -5,7 +5,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_reaction.dart';
 import '../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -121,7 +120,7 @@ class _ReactionPickerSheetState extends State<ReactionPickerSheet>
                         const SizedBox(width: 8),
                         Text(
                           'تفاعل في اللعبة',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -167,11 +166,11 @@ class _ReactionPickerSheetState extends State<ReactionPickerSheet>
               indicatorSize: TabBarIndicatorSize.tab,
               labelColor: AppTheme.navyDark,
               unselectedLabelColor: Colors.white70,
-              labelStyle: GoogleFonts.cairo(
+              labelStyle: AppFonts.cooper(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
-              unselectedLabelStyle: GoogleFonts.cairo(
+              unselectedLabelStyle: AppFonts.cooper(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -280,7 +279,7 @@ class _ReactionPickerSheetState extends State<ReactionPickerSheet>
                     const SizedBox(width: 8),
                     Text(
                       preset.text ?? '',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.white,
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

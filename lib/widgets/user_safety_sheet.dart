@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import '../core/widgets/app_dialog.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ugc_service.dart';
@@ -45,7 +44,7 @@ Future<void> showUserSafetySheet(
             const SizedBox(height: 16),
             Text(
               displayName,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.cream,
@@ -55,15 +54,15 @@ Future<void> showUserSafetySheet(
             Text(
               'الإبلاغ أو الحظر يخفي هذا اللاعب عنك في التصنيف والغرف.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(fontSize: 12, color: AppTheme.steelBlue),
+              style: AppFonts.cooper(fontSize: 12, color: AppTheme.steelBlue),
             ),
             const SizedBox(height: 18),
             ListTile(
               leading: const AppIcon(AppIcons.flag, color: AppTheme.gold),
               title: Text('إبلاغ عن لاعب',
-                  style: GoogleFonts.cairo(color: AppTheme.cream)),
+                  style: AppFonts.cooper(color: AppTheme.cream)),
               subtitle: Text('اسم مسيء أو صورة غير لائقة',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                       fontSize: 11, color: AppTheme.steelBlue)),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -79,9 +78,9 @@ Future<void> showUserSafetySheet(
             ListTile(
               leading: const AppIcon(AppIcons.block, color: AppTheme.errorRed),
               title: Text('حظر اللاعب',
-                  style: GoogleFonts.cairo(color: AppTheme.cream)),
+                  style: AppFonts.cooper(color: AppTheme.cream)),
               subtitle: Text('لن تراه في التصنيف أو تتفاعل معه',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                       fontSize: 11, color: AppTheme.steelBlue)),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -105,7 +104,7 @@ Future<void> showUserSafetySheet(
             ListTile(
               leading: const AppIcon(AppIcons.infoOutline, color: AppTheme.mintSoft),
               title: Text('إرشادات المجتمع',
-                  style: GoogleFonts.cairo(color: AppTheme.cream)),
+                  style: AppFonts.cooper(color: AppTheme.cream)),
               onTap: () {
                 Navigator.pop(ctx);
                 launchUrl(Uri.parse(kTermsOfServiceUrl),
@@ -138,7 +137,7 @@ Future<void> _submitReport(
           return AppAlertDialog(
             title: Text(
               'إبلاغ عن $displayName',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontWeight: FontWeight.bold,
                 color: AppTheme.cream,
               ),
@@ -150,11 +149,11 @@ Future<void> _submitReport(
                   DropdownButtonFormField<String>(
                     initialValue: selectedReason,
                     dropdownColor: AppTheme.navyDark,
-                    style: GoogleFonts.cairo(color: AppTheme.cream),
+                    style: AppFonts.cooper(color: AppTheme.cream),
                     decoration: InputDecoration(
                       labelText: 'سبب الإبلاغ',
                       labelStyle:
-                          GoogleFonts.cairo(color: AppTheme.steelBlue),
+                          AppFonts.cooper(color: AppTheme.steelBlue),
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -182,11 +181,11 @@ Future<void> _submitReport(
                   TextField(
                     controller: detailsController,
                     maxLines: 3,
-                    style: GoogleFonts.cairo(color: AppTheme.cream),
+                    style: AppFonts.cooper(color: AppTheme.cream),
                     decoration: InputDecoration(
                       labelText: 'تفاصيل إضافية (اختياري)',
                       labelStyle:
-                          GoogleFonts.cairo(color: AppTheme.steelBlue),
+                          AppFonts.cooper(color: AppTheme.steelBlue),
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -197,7 +196,7 @@ Future<void> _submitReport(
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text('إلغاء',
-                    style: GoogleFonts.cairo(color: Colors.white60)),
+                    style: AppFonts.cooper(color: Colors.white60)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -206,7 +205,7 @@ Future<void> _submitReport(
                 ),
                 onPressed: () => Navigator.pop(ctx, true),
                 child: Text('إرسال',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                    style: AppFonts.cooper(fontWeight: FontWeight.bold)),
               ),
             ],
           );

@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
@@ -211,7 +210,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                           widget.type == ShareCardType.matchVictory
                               ? 'مشاركة بطاقة الانتصار'
                               : 'مشاركة بطاقة إستميشن',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: layout.isTablet ? 17 : 16,
                             fontWeight: FontWeight.w900,
                             color: AppTheme.cream,
@@ -268,7 +267,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                           : const AppIcon(AppIcons.share, size: 18),
                       label: Text(
                         _isSharing ? 'جاري التجهيز...' : 'مشاركة بالخارج',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
                         ),
@@ -294,7 +293,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                           size: 16, color: AppTheme.goldLight),
                       label: Text(
                         'نسخ',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -374,7 +373,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     children: [
                       Text(
                         'MY ESTIMATION • إستميشن',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                           color: theme.borderColor,
@@ -391,7 +390,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                         ),
                         child: Text(
                           '${tier.badgeEmoji} مستوى $level',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -427,7 +426,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                     widget.playerName.isNotEmpty
                         ? widget.playerName
                         : kDefaultPlayerName,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
@@ -435,7 +434,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   ),
                   Text(
                     widget.config?.selectedTitle ?? 'أستاذ الإستميشن',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: theme.borderColor,
@@ -461,7 +460,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                         const SizedBox(width: 6),
                         Text(
                           archetype.titleAr,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -500,7 +499,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
                   Text(
                     '$kAppName • لعبة الذكاء والتكتيك ♠️',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 10,
                       color: Colors.white54,
                     ),
@@ -563,7 +562,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   const SizedBox(width: 8),
                   Text(
                     'انتصار ساحق • ESTIMATION VICTORY',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.gold,
@@ -586,7 +585,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                 widget.playerName.isNotEmpty
                     ? widget.playerName
                     : kDefaultPlayerName,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -594,7 +593,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
               ),
               Text(
                 rankTitle,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.gold,
@@ -617,14 +616,14 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
                   children: [
                     Text(
                       'السكور النهائي',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11,
                         color: Colors.white70,
                       ),
                     ),
                     Text(
                       '$finalScore نقطة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         color: AppTheme.gold,
@@ -655,7 +654,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
 
               Text(
                 '$kAppName • بطل البولة ♠️',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 10,
                   color: Colors.white54,
                 ),
@@ -672,7 +671,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
       children: [
         Text(
           value,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 14,
             fontWeight: FontWeight.w900,
             color: color,
@@ -680,7 +679,7 @@ class _ShareMyEstimationDialogState extends State<ShareMyEstimationDialog> {
         ),
         Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 10,
             color: Colors.white60,
           ),

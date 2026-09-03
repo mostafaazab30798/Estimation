@@ -3,7 +3,6 @@
 // Animated score section with count-up animation on value change.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 
 /// Shows [score] as a large animated number with a small caption below.
@@ -40,7 +39,7 @@ class ScoreDisplay extends StatelessWidget {
           child: Text(
             '$score',
             key: ValueKey(score),
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream,
               fontSize: numberSize,
               fontWeight: FontWeight.w800,
@@ -50,7 +49,7 @@ class ScoreDisplay extends StatelessWidget {
         ),
         Text(
           'نقطة',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: captionSize,
             fontWeight: FontWeight.w600,

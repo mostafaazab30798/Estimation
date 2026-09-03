@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../icons/app_icons.dart';
 import '../../theme/app_theme.dart';
@@ -215,7 +214,7 @@ class AppIconCapsule extends StatelessWidget {
               SizedBox(width: dense ? 6 : 8),
               Text(
                 label,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: accent == AppTheme.gold ? AppTheme.goldLight : AppTheme.white,
                   fontWeight: FontWeight.w700,
                   fontSize: dense ? 11.5 : 12.5,
@@ -300,7 +299,7 @@ class AppIconChip extends StatelessWidget {
               const SizedBox(width: 7),
               Text(
                 label,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: emphasized ? accent : AppTheme.cream,

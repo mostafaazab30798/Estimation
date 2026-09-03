@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:delightful_toast/delight_toast.dart';
 import 'package:delightful_toast/toast/utils/enums.dart';
 import '../../theme/app_theme.dart';
@@ -94,7 +93,7 @@ class SnackbarHelper {
                     if (title != null) ...[
                       Text(
                         title,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.white,
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -104,7 +103,7 @@ class SnackbarHelper {
                     ],
                     Text(
                       message,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.cream.withValues(alpha: 0.85),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

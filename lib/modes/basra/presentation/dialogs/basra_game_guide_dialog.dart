@@ -1,7 +1,6 @@
 // lib/modes/basra/presentation/dialogs/basra_game_guide_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/utils/game_layout_metrics.dart';
 import '../../../../core/widgets/app_buttons.dart';
 import '../../../../theme/app_theme.dart';
@@ -52,8 +51,8 @@ class BasraGameGuideDialog extends StatelessWidget {
                   ),
                   SizedBox(width: layout.isTablet ? 12 : 8),
                   Text(
-                    'دليل الباصرة',
-                    style: GoogleFonts.cairo(
+                    'دليل البصرة',
+                    style: AppFonts.cooper(
                       color: AppTheme.cream,
                       fontSize: layout.isTablet ? 20 : 18,
                       fontWeight: FontWeight.w900,
@@ -81,9 +80,9 @@ class BasraGameGuideDialog extends StatelessWidget {
                           'خذ بنفس الرتبة، أو بمجموع أوراق رقمية يساوي ورقتك. Q و K بلا قيمة رقمية ويأخذان مثيلهما فقط. الولد (J) و7 ديناري يكنسان الطاولة.',
                     ),
                     _GuideBlock(
-                      title: 'الباصرة',
+                      title: 'البصرة',
                       body:
-                          'إذا أخذت كل أوراق الطاولة بورقة عادية تحصل على باصرة (+10). الولد لا يعطي باصرة. 7 ديناري يعطي باصرة فقط إذا مجموع الطاولة ≤ 10 ولا توجد Q أو K.',
+                          'إذا أخذت كل أوراق الطاولة بورقة عادية تحصل على بصرة (+10). الولد لا يعطي بصرة. 7 ديناري يعطي بصرة فقط إذا مجموع الطاولة ≤ 10 ولا توجد Q أو K.',
                     ),
                     _GuideBlock(
                       title: 'النقاط والفوز',
@@ -115,7 +114,7 @@ class _GuideBlock extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.gold,
               fontWeight: FontWeight.w800,
               fontSize: 14,
@@ -124,7 +123,7 @@ class _GuideBlock extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             body,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: Colors.white70,
               fontSize: 13,
               height: 1.55,

@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
@@ -197,7 +196,7 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
       ),
       child: Text(
         text,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: Colors.white,
           fontSize: 9,
           fontWeight: FontWeight.w900,
@@ -210,7 +209,7 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
     if (!widget.isMyTurn) {
       return Text(
         'في انتظار دور الخصم...',
-        style: GoogleFonts.cairo(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
+        style: AppFonts.cooper(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
       );
     }
     if (selected != null) {
@@ -223,7 +222,7 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
                 : selected.isSevenOfDiamonds
                     ? '7 ديناري — كنس خاص'
                     : 'إلعب الورقة',
-            style: GoogleFonts.cairo(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
+            style: AppFonts.cooper(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
           ),
           const SizedBox(width: 8),
           InkWell(
@@ -241,7 +240,7 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
                 children: [
                   const AppIcon(AppIcons.playArrow, color: Colors.white, size: 16),
                   const SizedBox(width: 4),
-                  Text('إلعب', style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+                  Text('إلعب', style: AppFonts.cooper(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
                 ],
               ),
             ),
@@ -251,7 +250,7 @@ class _BasraPlayerHandState extends State<BasraPlayerHand> {
     }
     return Text(
       'دورك — اختر ورقة من يدك',
-      style: GoogleFonts.cairo(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
+      style: AppFonts.cooper(color: AppTheme.gold, fontWeight: FontWeight.bold, fontSize: 12),
     );
   }
 }

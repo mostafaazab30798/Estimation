@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/icons/app_icons.dart';
 import '../core/models/card.dart';
@@ -68,7 +67,7 @@ class TakenTricksDialog extends StatelessWidget {
               Expanded(
                 child: Text(
                   'اللمّات التي أخذتها',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.dg(
                     fontSize: layout.isTablet ? 21 : 19,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.cream,
@@ -91,7 +90,7 @@ class TakenTricksDialog extends StatelessWidget {
               child: Text(
                 'لم تأخذ أي لمّات حتى الآن',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 15,
                   color: AppTheme.steelBlue,
                   fontWeight: FontWeight.w600,
@@ -118,7 +117,7 @@ class TakenTricksDialog extends StatelessWidget {
                     children: [
                       Text(
                         'لمّة ${index + 1}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.gold,
@@ -143,7 +142,7 @@ class TakenTricksDialog extends StatelessWidget {
             ),
             child: Text(
               'إغلاق',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.w800, fontSize: 14),
+              style: AppFonts.cooper(fontWeight: FontWeight.w800, fontSize: 14),
             ),
           ),
         ],
@@ -182,7 +181,7 @@ class LatestTrickDialog extends StatelessWidget {
               Expanded(
                 child: Text(
                   'آخر لمّة ($playerName)',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: layout.isTablet ? 20 : 18,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.cream,
@@ -203,7 +202,7 @@ class LatestTrickDialog extends StatelessWidget {
                 ? Text(
                     'لم يأخذ أي لمّات حتى الآن',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 15,
                       color: AppTheme.steelBlue,
                       fontWeight: FontWeight.w600,
@@ -223,7 +222,7 @@ class LatestTrickDialog extends StatelessWidget {
             ),
             child: Text(
               'إغلاق',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.w800, fontSize: 14),
+              style: AppFonts.cooper(fontWeight: FontWeight.w800, fontSize: 14),
             ),
           ),
         ],

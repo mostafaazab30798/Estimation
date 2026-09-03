@@ -3,7 +3,6 @@
 // Post-auction declaration dialog for non-Bidder & Bidder players.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
@@ -92,7 +91,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
             children: [
               Text(
                 'كم لمة تتوقع؟',
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   color: AppTheme.cream,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -112,7 +111,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
             alignment: AlignmentDirectional.centerStart,
             child: Text(
               'حدد عدد اللمات التي ستربحها هذه الجولة',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -357,7 +356,7 @@ class _DeclarationDialogState extends State<DeclarationDialog> {
                           },
                           child: Text(
                             'تأكيد: $declared لمة',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                             ),

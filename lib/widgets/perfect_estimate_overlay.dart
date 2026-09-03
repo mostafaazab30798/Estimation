@@ -5,7 +5,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/icons/app_icons.dart';
 import '../core/utils/game_layout_metrics.dart';
@@ -204,7 +203,7 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                                   ),
                                   child: Text(
                                     eyebrow,
-                                    style: GoogleFonts.cairo(
+                                    style: AppFonts.cooper(
                                       color: _accent,
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
@@ -218,7 +217,7 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                             Text(
                               title,
                               textAlign: TextAlign.right,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.cream,
                                 fontSize: layout.isTablet ? 27 : 25,
                                 fontWeight: FontWeight.w900,
@@ -229,7 +228,7 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                             Text(
                               description,
                               textAlign: TextAlign.right,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.steelBlue,
                                 fontSize: layout.isTablet ? 14.5 : 13.5,
                                 fontWeight: FontWeight.w500,
@@ -300,7 +299,7 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                                       const SizedBox(width: 6),
                                       Text(
                                         '+${widget.xpBonus ?? 20} XP BONUS',
-                                        style: GoogleFonts.cairo(
+                                        style: AppFonts.cooper(
                                           color: AppTheme.goldLight,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800,
@@ -312,7 +311,7 @@ class _PerfectEstimateOverlayState extends State<PerfectEstimateOverlay>
                                 const Spacer(),
                                 Text(
                                   'اضغط للمتابعة',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     color: AppTheme.steelBlue.withValues(
                                       alpha: 0.7,
                                     ),
@@ -351,7 +350,7 @@ class _Stat extends StatelessWidget {
       children: [
         Text(
           value,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: color,
             fontSize: 23,
             fontWeight: FontWeight.w900,
@@ -361,7 +360,7 @@ class _Stat extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: 10.5,
             fontWeight: FontWeight.w600,

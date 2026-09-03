@@ -1,7 +1,6 @@
 // lib/screens/leaderboard_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/widgets/player_avatar.dart';
 import '../services/auth_service.dart';
@@ -176,7 +175,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
               const SizedBox(width: 4),
               Text(
                 title,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                   color: isSelected ? AppTheme.goldLight : Colors.white70,
@@ -289,7 +288,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
         Text(
           player.username,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: isFirst ? 13 : 11,
             fontWeight: FontWeight.w900,
             color: isFirst ? AppTheme.cream : Colors.white70,
@@ -301,7 +300,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           _currentSort == LeaderboardSort.wins
               ? '${player.gamesWon} فوز'
               : '${player.xp} XP',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: color,
@@ -330,7 +329,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           child: Center(
             child: Text(
               '#$place',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
                 color: color,
@@ -381,7 +380,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
               width: 34,
               child: Text(
                 '#${player.rankPosition}',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: isTop10 ? AppTheme.gold : Colors.white60,
@@ -407,7 +406,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                         child: Text(
                           player.username,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                             color: isMe ? AppTheme.goldLight : AppTheme.cream,
@@ -424,7 +423,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                           ),
                           child: Text(
                             'أنت',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.navyDark,
@@ -445,7 +444,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                       const SizedBox(width: 8),
                       Text(
                         'نسبة الفوز: ${player.winRate.toStringAsFixed(0)}%',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 10,
                           color: AppTheme.steelBlue,
                         ),
@@ -464,7 +463,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                   _currentSort == LeaderboardSort.wins
                       ? '${player.gamesWon} فوز'
                       : '${player.xp} XP',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.gold,
@@ -472,7 +471,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                 ),
                 Text(
                   '${player.gamesPlayed} مباراة',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 10,
                     color: Colors.white54,
                   ),
@@ -505,7 +504,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                 Expanded(
                   child: Text(
                     'سجّل الدخول بحساب Google للظهور في لوحة الصدارة والتنافس!',
-                    style: GoogleFonts.cairo(fontSize: 11, color: Colors.white70),
+                    style: AppFonts.cooper(fontSize: 11, color: Colors.white70),
                   ),
                 ),
               ],
@@ -540,7 +539,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                 ),
                 child: Text(
                   _myRank != null ? '#$_myRank' : 'غير مصنف',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.gold,
@@ -562,7 +561,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                     Text(
                       'ترتيبك الحالي: ${profile.username}',
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.cream,
@@ -570,7 +569,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                     ),
                     Text(
                       'المستوى ${profile.level} • ${profile.rankTier.titleAr}',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 10,
                         color: profile.rankTier.primaryColor,
                       ),
@@ -582,7 +581,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
               // Total XP
               Text(
                 '${profile.xp} XP',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.goldLight,
@@ -604,13 +603,13 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           const SizedBox(height: 12),
           Text(
             'لا يوجد لاعبون مسجلون في لوحة المتصدرين بعد',
-            style: GoogleFonts.cairo(fontSize: 14, color: Colors.white60),
+            style: AppFonts.cooper(fontSize: 14, color: Colors.white60),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: _loadLeaderboard,
             icon: const AppIcon(AppIcons.refresh, color: AppTheme.gold, size: 18),
-            label: Text('تحديث', style: GoogleFonts.cairo(color: AppTheme.gold)),
+            label: Text('تحديث', style: AppFonts.cooper(color: AppTheme.gold)),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppTheme.gold),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -633,7 +632,7 @@ class LeaderboardScreen extends StatelessWidget {
         backgroundColor: AppTheme.navyDark,
         title: Text(
           'لوحة المتصدرين العالمية',
-          style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: AppTheme.cream),
+          style: AppFonts.dg(fontWeight: FontWeight.bold, color: AppTheme.cream),
         ),
         centerTitle: true,
         elevation: 0,

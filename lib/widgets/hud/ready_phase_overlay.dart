@@ -4,7 +4,6 @@
 // info chip with a visual progress display and glass-styled prompt.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_state.dart';
 import '../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -72,7 +71,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   "انتظار اللاعبين ($readyCount/$totalCount)",
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.cream,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -116,7 +115,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               "اضغط 'جاهز للعب' للبدء",
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue.withValues(alpha: 0.85),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -173,7 +172,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${declarer.name} لديه سويتة فاضية!',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -183,7 +182,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'لو لاعب واحد اختار إعادة التوزيع هتتوزع الكروت تاني',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue.withValues(alpha: 0.9),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -194,7 +193,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
             if (hasRejected)
               Text(
                 'في انتظار باقي اللاعبين... ($rejectCount/$totalCount اختاروا الإكمال)',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.steelBlue,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -245,7 +244,7 @@ class ReadyPhaseOverlay extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: color,
             fontSize: 12,
             fontWeight: FontWeight.w700,

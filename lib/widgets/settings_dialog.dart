@@ -1,7 +1,6 @@
 // lib/widgets/settings_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/utils/game_layout_metrics.dart';
 import '../models/earthquake_effect.dart';
 import '../services/settings_service.dart';
@@ -84,7 +83,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                               children: [
                                 Text(
                                   'الإعدادات',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.dg(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.cream,
@@ -218,7 +217,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                             ),
                             child: Text(
                               'تم',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -263,7 +262,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.cream,
@@ -272,7 +271,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                 Text(
                   subtitle,
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 11,
                     color: AppTheme.steelBlue,
                   ),
@@ -313,7 +312,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           Text(
             'مؤثر ضربة الزلزال',
             textAlign: TextAlign.right,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppTheme.cream,
@@ -374,7 +373,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     effect.arabicLabel,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: selected ? AppTheme.cream : AppTheme.steelBlue,
                       fontSize: 11,
                       fontWeight: selected ? FontWeight.bold : FontWeight.w600,

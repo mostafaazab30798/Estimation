@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/icons/app_icons.dart';
 import '../../../../core/widgets/app_buttons.dart';
@@ -74,7 +73,7 @@ class _BotFillDialogState extends State<BotFillDialog> {
                         children: [
                           Text(
                             'اقتراح سريع',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.steelBlue,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -85,7 +84,7 @@ class _BotFillDialogState extends State<BotFillDialog> {
                           const SizedBox(height: 4),
                           Text(
                             title,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.dg(
                               color: AppTheme.cream,
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -100,7 +99,7 @@ class _BotFillDialogState extends State<BotFillDialog> {
                 const SizedBox(height: 16),
                 Text(
                   body,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 14.5,
                     height: 1.55,
@@ -127,7 +126,7 @@ class _BotFillDialogState extends State<BotFillDialog> {
                         )
                       : Text(
                           two ? 'ابدأ مع البوتات' : 'ابدأ مع بوت',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
                           ),
@@ -142,7 +141,7 @@ class _BotFillDialogState extends State<BotFillDialog> {
                   ),
                   child: Text(
                     'استمر في البحث',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),

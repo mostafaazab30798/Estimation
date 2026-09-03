@@ -3,7 +3,6 @@
 // End-of-round score display.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
 import '../core/models/comeback_event.dart';
 import '../core/utils/game_layout_metrics.dart';
@@ -188,7 +187,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                 const SizedBox(width: 12),
                 Text(
                   'الجولة ${state.roundNumber}',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.accentLight.withValues(alpha: 0.9),
                     fontSize: layout.isLargeTablet ? 16 : 14,
                     fontWeight: FontWeight.w700,
@@ -209,7 +208,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                 child: Text(
                   'نهاية الجولة',
                   textAlign: isLargeScreen && layout.isPortrait ? TextAlign.center : TextAlign.start,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.dg(
                     fontSize: titleSize,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -565,7 +564,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
                 children: [
                   Text(
                     'صاحب المزاد',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.gold.withValues(alpha: 0.85),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -579,7 +578,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
               const SizedBox(height: 2),
               Text(
                 bidder.name,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -609,7 +608,7 @@ class _ScoringScreenState extends State<ScoringScreen> with SingleTickerProvider
               ),
               child: Text(
                 bid.arabicLabel,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.gold,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -719,7 +718,7 @@ class _PrimaryActionButtonState extends State<_PrimaryActionButton> {
               ? 'تبدأ الجولة التالية تلقائياً خلال ${widget.secondsRemaining} ث'
               : 'جاري بدء الجولة التالية...',
           textAlign: TextAlign.center,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -827,7 +826,7 @@ class _WaitingForHostChipState extends State<_WaitingForHostChip> with SingleTic
           Text(
             'يبدأ المضيف الجولة التالية خلال ${widget.secondsRemaining} ث',
             textAlign: TextAlign.center,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: 12,
               fontWeight: FontWeight.w600,

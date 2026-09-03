@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../theme/app_theme.dart';
@@ -193,7 +192,7 @@ class _GoogleSignInButtonState extends State<GoogleSignInButton>
 
         final label = Text(
           widget.isLoading ? 'جاري تسجيل الدخول...' : widget.label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: widget.compact ? 12.5 : 14,
             fontWeight: FontWeight.w700,
             color: _labelColor,

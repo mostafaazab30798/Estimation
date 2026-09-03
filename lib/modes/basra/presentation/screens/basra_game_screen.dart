@@ -1,7 +1,6 @@
 // lib/modes/basra/presentation/screens/basra_game_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:estimation/core/icons/app_icons.dart';
@@ -162,9 +161,9 @@ class _BasraGameScreenState extends State<BasraGameScreen>
                       child: Text(
                         game.lastTurnResult?.basraType ==
                                 BasraType.sevenOfDiamonds
-                            ? 'باصرة 7 ديناري!'
-                            : 'باصرة!',
-                        style: GoogleFonts.cairo(
+                            ? 'بصرة 7 ديناري!'
+                            : 'بصرة!',
+                        style: AppFonts.cooper(
                           color: AppTheme.gold,
                           fontSize: 42,
                           fontWeight: FontWeight.w900,
@@ -413,7 +412,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
             SizedBox(height: layout.isTablet ? 18 : 14),
             Text(
               'نهاية المباراة!',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.gold,
                 fontSize: layout.isTablet ? 26 : 24,
                 fontWeight: FontWeight.w900,
@@ -422,7 +421,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
             SizedBox(height: layout.isTablet ? 10 : 8),
             Text(
               'الفائز: ${winner.name}',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream,
                 fontSize: layout.isTablet ? 20 : 22,
                 fontWeight: FontWeight.w900,
@@ -431,7 +430,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
             ),
             Text(
               '${winner.totalScore} نقطة',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: layout.isTablet ? 17 : 16,
               ),
@@ -449,7 +448,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
                 ),
                 child: Text(
                   '+${_xp!.totalXp} XP',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.gold,
                     fontWeight: FontWeight.w900,
                     fontSize: layout.isTablet ? 16 : 15,
@@ -478,7 +477,7 @@ class _BasraGameScreenState extends State<BasraGameScreen>
                 ),
                 child: Text(
                   'العودة للرئيسية',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontWeight: FontWeight.bold,
                     fontSize: layout.isTablet ? 16 : 15,
                   ),

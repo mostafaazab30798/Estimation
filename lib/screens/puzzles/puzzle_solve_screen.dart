@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/puzzle_models.dart';
 import '../../core/constants.dart';
@@ -130,12 +129,12 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
         backgroundColor: AppTheme.deepNavy,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
-          title: Text('اللغز غير موجود', style: GoogleFonts.cairo(color: Colors.white)),
+          title: Text('اللغز غير موجود', style: AppFonts.cooper(color: Colors.white)),
         ),
         body: Center(
           child: Text(
             'لم يتم العثور على هذا اللغز.',
-            style: GoogleFonts.cairo(color: Colors.white70),
+            style: AppFonts.cooper(color: Colors.white70),
           ),
         ),
       );
@@ -279,7 +278,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                         ),
                         child: Text(
                           'لغز اليوم 🧩',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: const Color(0xFFF472B6),
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -290,7 +289,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                     Flexible(
                       child: Text(
                         puzzle.title,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.white,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -302,7 +301,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                 ),
                 Text(
                   '${puzzle.category.icon} ${puzzle.category.arabicTitle} • ${puzzle.difficulty.arabicLabel}',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -327,7 +326,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                 const SizedBox(width: 2),
                 Text(
                   '+${puzzle.xpReward} XP',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.goldLight,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -419,7 +418,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
             const SizedBox(height: 10),
             Text(
               'الورق الملعوب على الأرض في هذه اللمة:',
-              style: GoogleFonts.cairo(color: AppTheme.steelBlue, fontSize: 11),
+              style: AppFonts.cooper(color: AppTheme.steelBlue, fontSize: 11),
             ),
             const SizedBox(height: 6),
             Row(
@@ -432,7 +431,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                       const SizedBox(height: 2),
                       Text(
                         tc.playerId,
-                        style: GoogleFonts.cairo(color: Colors.white70, fontSize: 10),
+                        style: AppFonts.cooper(color: Colors.white70, fontSize: 10),
                       ),
                     ],
                   ),
@@ -451,11 +450,11 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.cairo(color: AppTheme.steelBlue, fontSize: 10.5),
+          style: AppFonts.cooper(color: AppTheme.steelBlue, fontSize: 10.5),
         ),
         Text(
           value,
-          style: GoogleFonts.cairo(color: color, fontSize: 12.5, fontWeight: FontWeight.bold),
+          style: AppFonts.cooper(color: color, fontSize: 12.5, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -476,7 +475,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
           const SizedBox(width: 4),
           Text(
             text,
-            style: GoogleFonts.cairo(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+            style: AppFonts.cooper(color: color, fontSize: 11, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -502,7 +501,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
             children: [
               Text(
                 'يدك الحالية (${hand.length} ورقة):',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -516,7 +515,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                 ),
                 child: Text(
                   'اسحب لرؤية باقي الأوراق ←',
-                  style: GoogleFonts.cairo(color: Colors.white54, fontSize: 9.5),
+                  style: AppFonts.cooper(color: Colors.white54, fontSize: 9.5),
                 ),
               ),
             ],
@@ -576,7 +575,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                   children: [
                     Text(
                       puzzle.scenarioText,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: Colors.white70,
                         fontSize: 12.5,
                         height: 1.4,
@@ -585,7 +584,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                     const SizedBox(height: 6),
                     Text(
                       puzzle.prompt,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.white,
                         fontSize: 14.5,
                         fontWeight: FontWeight.bold,
@@ -666,7 +665,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                   Expanded(
                     child: Text(
                       option.label,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: isSelected ? AppTheme.white : Colors.white70,
                         fontSize: 13.5,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -708,7 +707,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                 const SizedBox(width: 8),
                 Text(
                   'تأكيد الإجابة',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.navyDark,
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -756,7 +755,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                 ),
                 child: Text(
                   result.arabicLabel,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -767,7 +766,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
               if (result.isSuccessful) ...[
                 Text(
                   '+${puzzle.xpReward} XP ⚡',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.goldLight,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -782,7 +781,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
           // Option Feedback
           Text(
             selectedOption.feedback,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: Colors.white,
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
@@ -795,7 +794,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
           // Tactical Rationale
           Text(
             '🧠 التحليل التكتيكي الشامل:',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.goldLight,
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -804,7 +803,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
           const SizedBox(height: 4),
           Text(
             puzzle.tacticalRationale,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: Colors.white70,
               fontSize: 12,
               height: 1.4,
@@ -828,7 +827,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                     ),
                     child: Text(
                       'إعادة المحاولة 🔄',
-                      style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: AppFonts.cooper(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -845,7 +844,7 @@ class _PuzzleSolveScreenState extends State<PuzzleSolveScreen> {
                   ),
                   child: Text(
                     result.isSuccessful ? 'اللغز التالي ⏭️' : 'العودة للقائمة',
-                    style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: AppFonts.cooper(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

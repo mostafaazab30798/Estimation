@@ -1,7 +1,6 @@
 // lib/widgets/game_guide_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/utils/game_layout_metrics.dart';
 import '../theme/app_theme.dart';
 import '../core/constants.dart';
@@ -149,7 +148,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               children: [
                 Text(
                   'دليل وقواعد لعبة الإستميشن',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -160,7 +159,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 const SizedBox(height: 2),
                 Text(
                   'شرح كامل لقواعد اللعب، المزاد، والاحتساب',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.accentLight.withValues(alpha: 0.8),
                     fontSize: 11,
                   ),
@@ -199,11 +198,11 @@ class _GameGuideDialogState extends State<GameGuideDialog>
         unselectedLabelColor: Colors.white60,
         tabAlignment: TabAlignment.start,
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        labelStyle: GoogleFonts.cairo(
+        labelStyle: AppFonts.cooper(
           fontWeight: FontWeight.bold,
           fontSize: 12.5,
         ),
-        unselectedLabelStyle: GoogleFonts.cairo(
+        unselectedLabelStyle: AppFonts.cooper(
           fontWeight: FontWeight.w500,
           fontSize: 12.5,
         ),
@@ -258,7 +257,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
             children: [
               Text(
                 'ترتيب قوة الألوان في مزاد الحكم من الأقوى للأضعف:',
-                style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12.5),
+                style: AppFonts.cooper(color: Colors.white70, fontSize: 12.5),
               ),
               const SizedBox(height: 12),
               // Responsive Wrap layout for suit badges to prevent overflow
@@ -278,7 +277,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               const SizedBox(height: 14),
               Text(
                 'ترتيب قوة الكروت داخل اللون الواحد:',
-                style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12.5),
+                style: AppFonts.cooper(color: Colors.white70, fontSize: 12.5),
               ),
               const SizedBox(height: 8),
               Container(
@@ -292,7 +291,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 child: Text(
                   'A (الآس) > K (الشايب) > Q (البنت) > J (الولد) > 10 > 9 > 8 > 7 > 6 > 5 > 4 > 3 > 2',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.gold,
                     fontWeight: FontWeight.bold,
                     fontSize: 11.5,
@@ -507,7 +506,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 14.5,
@@ -523,7 +522,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
                   text,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white.withValues(alpha: 0.88),
                     fontSize: 12.5,
                     height: 1.45,
@@ -565,7 +564,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               const SizedBox(width: 5),
               Text(
                 suit.arabicName,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 11.5,
@@ -577,7 +576,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
         const SizedBox(height: 3),
         Text(
           subtitle,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: Colors.white54,
             fontSize: 10,
           ),
@@ -603,7 +602,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
         children: [
           Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: color,
               fontWeight: FontWeight.bold,
               fontSize: 12.5,
@@ -612,7 +611,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
           const SizedBox(height: 3),
           Text(
             description,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 11.5,
               height: 1.4,
@@ -658,7 +657,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                       ),
                       child: Text(
                         isSuccess ? 'نجاح ✅' : 'فشل ❌',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: statusColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 10.5,
@@ -667,7 +666,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                     ),
                     Text(
                       resultText,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
@@ -678,7 +677,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 const SizedBox(height: 4),
                 Text(
                   '$round • $role (طلب $declared / حقق $actual)',
-                  style: GoogleFonts.cairo(color: Colors.white70, fontSize: 11),
+                  style: AppFonts.cooper(color: Colors.white70, fontSize: 11),
                 ),
               ],
             );
@@ -694,7 +693,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
                 ),
                 child: Text(
                   isSuccess ? 'نجاح ✅' : 'فشل ❌',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: statusColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 10.5,
@@ -705,7 +704,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               Expanded(
                 child: Text(
                   '$round • $role (طلب $declared / حقق $actual)',
-                  style: GoogleFonts.cairo(color: Colors.white70, fontSize: 11),
+                  style: AppFonts.cooper(color: Colors.white70, fontSize: 11),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -713,7 +712,7 @@ class _GameGuideDialogState extends State<GameGuideDialog>
               const SizedBox(width: 6),
               Text(
                 resultText,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: statusColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,

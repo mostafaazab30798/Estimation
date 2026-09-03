@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/puzzle_models.dart';
 import '../../services/puzzle_service.dart';
@@ -142,7 +141,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                                   children: [
                                     Text(
                                       'قائمة الألغاز والتحديات (${filteredPuzzles.length})',
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         color: AppTheme.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -158,7 +157,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                                         },
                                         child: Text(
                                           'إعادة ضبط الفلتر ✕',
-                                          style: GoogleFonts.cairo(
+                                          style: AppFonts.cooper(
                                             color: AppTheme.gold,
                                             fontSize: 12,
                                           ),
@@ -212,7 +211,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
             children: [
               Text(
                 'ألغاز الإستميشن',
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.white,
@@ -239,7 +238,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                 const SizedBox(width: 4),
                 Text(
                   '${progress.totalXpEarned} XP',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.gold,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w900,
@@ -325,7 +324,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
             const SizedBox(width: 3),
             Text(
               value,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -335,7 +334,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
         ),
         Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: 9.5,
             fontWeight: FontWeight.w500,
@@ -396,7 +395,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                       children: [
                         Text(
                           'لغز اليوم (Daily Puzzle) 🧩',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
@@ -404,7 +403,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                         ),
                         Text(
                           'لغز موحد لجميع اللاعبين يومياً • مكافأة إضافية +25 XP',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.cream.withValues(alpha: 0.7),
                             fontSize: 10.5,
                           ),
@@ -428,7 +427,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                         const SizedBox(width: 4),
                         Text(
                           'تم الحل اليوم ✅',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: const Color(0xFF10B981),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -457,7 +456,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                       children: [
                         Text(
                           dailyPuzzle.title,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.white,
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,
@@ -465,7 +464,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                         ),
                         Text(
                           '${dailyPuzzle.category.arabicTitle} • ${dailyPuzzle.difficulty.arabicLabel}',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.steelBlue,
                             fontSize: 11,
                           ),
@@ -483,7 +482,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                     ),
                     child: Text(
                       isSolved ? 'مراجعة اللغز 👁️' : 'حل اللغز الآن 🔥',
-                      style: GoogleFonts.cairo(fontSize: 12.5, fontWeight: FontWeight.bold),
+                      style: AppFonts.cooper(fontSize: 12.5, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -572,7 +571,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: isSelected ? activeColor : Colors.white70,
             fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -599,7 +598,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
             const SizedBox(height: 8),
             Text(
               'لا توجد ألغاز تطابق هذا الفلتر',
-              style: GoogleFonts.cairo(color: Colors.white70, fontSize: 14),
+              style: AppFonts.cooper(color: Colors.white70, fontSize: 14),
             ),
           ],
         ),
@@ -691,7 +690,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                       Flexible(
                         child: Text(
                           puzzle.title,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.white,
                             fontSize: 13.5,
                             fontWeight: FontWeight.bold,
@@ -712,7 +711,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '${puzzle.category.arabicTitle} • ${puzzle.difficulty.arabicLabel}',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.steelBlue,
                       fontSize: 11,
                     ),
@@ -720,7 +719,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                   if (attempts > 0) ...[
                     Text(
                       'أفضل نتيجة: $bestScore نقطة ($attempts محاولات)',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: Colors.white54,
                         fontSize: 10,
                       ),
@@ -743,7 +742,7 @@ class _PuzzlesHomeScreenState extends State<PuzzlesHomeScreen> {
                   ),
                   child: Text(
                     '+${puzzle.xpReward} XP',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.goldLight,
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,

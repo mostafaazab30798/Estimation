@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -248,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 8),
                   Text(
                     'نظام الرتب والمستويات',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.cream,
@@ -260,7 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(
                 'ارتقِ بمستواك من خلال الفوز بالمباريات وحصد نقاط الخبرة XP لفتح رتب أعلى',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 12,
                   color: AppTheme.steelBlue,
                 ),
@@ -295,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               tier.titleAr,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: tier.primaryColor,
@@ -305,7 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               tier.maxLevel >= 9999
                                   ? 'المستوى ${tier.minLevel}+'
                                   : 'المستويات ${tier.minLevel} - ${tier.maxLevel}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 11,
                                 color: Colors.white60,
                               ),
@@ -323,7 +322,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Text(
                             'رتبتك الحالية',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.navyDark,
@@ -428,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return AppAlertDialog(
           title: Text(
             'إرشادات المجتمع',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontWeight: FontWeight.bold,
               color: AppTheme.cream,
             ),
@@ -437,18 +436,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             forGalleryUpload
                 ? 'رفع صورة من المعرض يعرض محتوى من إنشائك للاعبين الآخرين. بموافقتك، تلتزم بعدم نشر محتوى مسيء أو غير لائق، ويمكن للاعبين الإبلاغ عنك أو حظرك.'
                 : 'لتعديل اسمك أو صورتك الشخصية، يجب قبول إرشادات المجتمع وسياسة الخصوصية.',
-            style: GoogleFonts.cairo(color: Colors.white70, height: 1.5),
+            style: AppFonts.cooper(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text('إلغاء',
-                  style: GoogleFonts.cairo(color: Colors.white60)),
+                  style: AppFonts.cooper(color: Colors.white60)),
             ),
             TextButton(
               onPressed: () => _openPolicyPage(_termsOfServiceUri),
               child: Text('قراءة الإرشادات',
-                  style: GoogleFonts.cairo(color: AppTheme.mintSoft)),
+                  style: AppFonts.cooper(color: AppTheme.mintSoft)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -457,7 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               onPressed: () => Navigator.pop(ctx, true),
               child: Text('أوافق',
-                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                  style: AppFonts.cooper(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -590,17 +589,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AppAlertDialog(
         title: Text('حذف الحساب نهائياً',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
                 fontWeight: FontWeight.bold, color: AppTheme.errorRed)),
         content: Text(
           'سيتم حذف حسابك وبياناتك (الاسم، الصورة، XP، الإحصائيات، العضويات) بشكل دائم. لا يمكن التراجع عن هذا الإجراء.',
-          style: GoogleFonts.cairo(color: Colors.white70, height: 1.5),
+          style: AppFonts.cooper(color: Colors.white70, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child:
-                Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white60)),
+                Text('إلغاء', style: AppFonts.cooper(color: Colors.white60)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -609,7 +608,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('متابعة',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -622,7 +621,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final controller = TextEditingController();
         return AppAlertDialog(
           title: Text('تأكيد الحذف',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                   fontWeight: FontWeight.bold, color: AppTheme.cream)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -630,12 +629,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 'اكتب DELETE للتأكيد، ثم سنعيد التحقق من حساب Google.',
-                style: GoogleFonts.cairo(color: Colors.white70),
+                style: AppFonts.cooper(color: Colors.white70),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
-                style: GoogleFonts.cairo(color: AppTheme.cream),
+                style: AppFonts.cooper(color: AppTheme.cream),
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'DELETE',
@@ -647,7 +646,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text('إلغاء',
-                  style: GoogleFonts.cairo(color: Colors.white60)),
+                  style: AppFonts.cooper(color: Colors.white60)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -656,7 +655,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               onPressed: () => Navigator.pop(ctx, controller.text.trim()),
               child: Text('حذف',
-                  style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                  style: AppFonts.cooper(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -704,18 +703,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AppAlertDialog(
         title: Text(
           'تسجيل الخروج',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
               fontWeight: FontWeight.bold, color: AppTheme.cream),
         ),
         content: Text(
           'هل أنت متأكد من رغبتك في تسجيل الخروج من حساب Google؟ سيظل تقدمك محفوظاً في السحابة.',
-          style: GoogleFonts.cairo(color: Colors.white70),
+          style: AppFonts.cooper(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child:
-                Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white60)),
+                Text('إلغاء', style: AppFonts.cooper(color: Colors.white60)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -726,7 +725,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('تسجيل الخروج',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -784,7 +783,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'اختر صورة الملف الشخصي',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.mintSoft,
@@ -864,7 +863,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: AppTheme.accentLight),
                       label: Text(
                         'اختيار صورة من المعرض',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.accentLight,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1022,7 +1021,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const SizedBox(height: 14),
                                 Text(
                                   'جاري تحميل ملفك...',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     color: AppTheme.steelBlue,
                                     fontSize: 13,
                                   ),
@@ -1123,7 +1122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           Text(
                             _tabTitle(vm.currentTab),
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.dg(
                               fontSize: compact ? 17 : 20,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.cream,
@@ -1134,7 +1133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 2),
                             Text(
                               _tabSubtitle(vm.currentTab),
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color:
@@ -1281,7 +1280,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       label,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: 10,
                                         fontWeight: isSelected
                                             ? FontWeight.w800
@@ -1389,7 +1388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(width: 6),
                         Text(
                           label,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 12.5,
                             fontWeight:
                                 isSelected ? FontWeight.w800 : FontWeight.w600,
@@ -1809,7 +1808,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               tier.titleAr,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: tier.primaryColor,
@@ -1819,7 +1818,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               tier.maxLevel >= 9999
                                   ? 'المستوى ${tier.minLevel}+'
                                   : 'المستويات ${tier.minLevel} - ${tier.maxLevel}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 11,
                                 color: Colors.white60,
                               ),
@@ -1837,7 +1836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Text(
                             'رتبتك الحالية',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.navyDark,
@@ -1944,7 +1943,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'الاسم الظاهر',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.steelBlue,
@@ -1957,7 +1956,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             : kDefaultPlayerName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.cream,
@@ -1996,7 +1995,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const SizedBox(width: 6),
                                 Text(
                                   'تعديل الاسم',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: AppTheme.goldLight,
@@ -2015,14 +2014,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: TextField(
                           controller: _nameController,
                           focusNode: _nameFocus,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
                           decoration: InputDecoration(
                             hintText: 'اكتب اسمك هنا...',
-                            hintStyle: GoogleFonts.cairo(
+                            hintStyle: AppFonts.cooper(
                               color: Colors.white38,
                               fontSize: 13,
                             ),
@@ -2151,7 +2150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           'تطور أسلوب اللعب التكتيكي! 🔥',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -2159,7 +2158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         Text(
                           profile.evolutionMessage,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11,
                             color: Colors.white.withValues(alpha: 0.9),
                           ),
@@ -2194,7 +2193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           primary.titleAr,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -2211,7 +2210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Text(
                             'النمط الأساسي',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               color: primary.primaryColor,
@@ -2222,7 +2221,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Text(
                       primary.descriptionAr,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11.5,
                         color: Colors.white70,
                       ),
@@ -2250,11 +2249,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   'النمط الثانوي المساعد: ',
                   style:
-                      GoogleFonts.cairo(fontSize: 11.5, color: Colors.white60),
+                      AppFonts.cooper(fontSize: 11.5, color: Colors.white60),
                 ),
                 Text(
                   secondary.titleAr,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: secondary.primaryColor,
@@ -2288,12 +2287,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const AppIcon(AppIcons.checkCircle,
                               size: 14, color: Color(0xFF10B981)),
                           const SizedBox(width: 6),
-                          Text(
-                            'نقاط القوة التكتيكية',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF10B981),
+                          Expanded(
+                            child: Text(
+                              'نقاط القوة التكتيكية',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppFonts.cooper(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF10B981),
+                              ),
                             ),
                           ),
                         ],
@@ -2303,7 +2306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
                               '• $s',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                   fontSize: 11, color: Colors.white),
                             ),
                           )),
@@ -2330,12 +2333,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const AppIcon(AppIcons.trendingUp,
                               size: 14, color: Color(0xFFF59E0B)),
                           const SizedBox(width: 6),
-                          Text(
-                            'فرص التطوير والتحسين',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFF59E0B),
+                          Expanded(
+                            child: Text(
+                              'فرص التطوير والتحسين',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppFonts.cooper(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFF59E0B),
+                              ),
                             ),
                           ),
                         ],
@@ -2345,7 +2352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
                               '• $w',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                   fontSize: 11, color: Colors.white),
                             ),
                           )),
@@ -2378,7 +2385,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'النصيحة الذهبية لأسلوبك:',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.gold,
@@ -2387,7 +2394,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 2),
                       Text(
                         profile.recommendation,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11.5,
                           color: Colors.white,
                         ),
@@ -2464,7 +2471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Text(
                           'دقة التقدير',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: AppTheme.cream,
@@ -2482,7 +2489,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Text(
                             'المعيار الذهبي',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.goldLight,
@@ -2493,7 +2500,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Text(
                       'نسبة إصابة التقدير الدقيق من إجمالي الجولات',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11,
                         color: AppTheme.steelBlue,
                       ),
@@ -2503,7 +2510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Text(
                 '$accuracyStr%',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.gold,
@@ -2527,7 +2534,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 '🎯 تقديرات دقيقة: ${stats.perfectEstimates}',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF4CAF50),
@@ -2535,7 +2542,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Text(
                 'إجمالي التصريحات: ${stats.totalDeclarations}',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Colors.white60,
@@ -2565,7 +2572,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 15,
               fontWeight: FontWeight.w800,
               color: AppTheme.cream,
@@ -2615,7 +2622,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.cream,
@@ -2624,7 +2631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 11,
                     color: AppTheme.steelBlue,
                     height: 1.3,
@@ -2636,7 +2643,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 10),
           Text(
             value,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: color,
@@ -2692,7 +2699,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'حفظ التقدم السحابي',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.cream,
@@ -2700,7 +2707,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       Text(
                         'اربط حسابك بحساب Google لمزامنة مستواك ونقاط الخبرة XP',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11,
                           color: AppTheme.steelBlue,
                         ),
@@ -2753,7 +2760,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fit: BoxFit.scaleDown,
                               child: Text(
                                 'تسجيل الدخول عبر Google',
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: AppTheme.navyDark,
@@ -2823,7 +2830,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             profile.username,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.cream,
@@ -2848,7 +2855,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(width: 2),
                               Text(
                                 'المستوى ${profile.level}',
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
                                   color: AppTheme.gold,
@@ -2862,7 +2869,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text(
                       profile.email,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11,
                         color: AppTheme.steelBlue,
                       ),
@@ -2902,7 +2909,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text(
                         'دليل الرتب',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.gold,
@@ -2926,7 +2933,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 'نقاط الخبرة (XP)',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.steelBlue,
@@ -2934,7 +2941,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               Text(
                 '${profile.xp} / ${profile.nextLevelTargetXp} XP',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.goldLight,
@@ -2956,7 +2963,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             'باقي ${neededLevelXp - currentLevelXp} XP للوصول إلى المستوى ${profile.level + 1}',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 10,
               color: Colors.white38,
             ),
@@ -3005,7 +3012,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 14),
           Text(
             value,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 24,
               fontWeight: FontWeight.w900,
               color: AppTheme.cream,
@@ -3015,7 +3022,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppTheme.steelBlue,
@@ -3060,7 +3067,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildFilterChip(
-                      label: '♦ باصرة',
+                      label: '♦ بصرة',
                       isSelected: vm.selectedModeFilter == 2,
                       onTap: () => vm.setModeFilter(2),
                     ),
@@ -3105,7 +3112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             'السجل للحسابات المسجّلة',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.cream,
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
@@ -3115,7 +3122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             'سجّل الدخول بـ Google لحفظ مبارياتك ومزامنتها سحابياً.',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.steelBlue,
                               fontSize: 13,
                               height: 1.45,
@@ -3127,7 +3134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: const AppIcon(AppIcons.login, size: 18),
                             label: Text(
                               'الانتقال لتسجيل الدخول',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                   fontWeight: FontWeight.w800),
                             ),
                             style: FilledButton.styleFrom(
@@ -3168,7 +3175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 14),
                           Text(
                             'لا توجد مباريات مسجّلة بعد',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.steelBlue,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -3229,7 +3236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Text(
             label,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: isSelected ? AppTheme.goldLight : Colors.white70,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
               fontSize: 13,
@@ -3334,7 +3341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     _settings.earthquakeEffect.arabicDescription,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.steelBlue,
                       fontSize: 12,
                     ),
@@ -3446,7 +3453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           Text(
                             kAppName,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.cream,
                               fontWeight: FontWeight.w800,
                               fontSize: 13.5,
@@ -3454,7 +3461,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           Text(
                             'إصدار الإنتاج الرسمي 2026',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.steelBlue,
                               fontSize: 12,
                             ),
@@ -3510,7 +3517,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(width: 10),
               Text(
                 title,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.cream,
@@ -3539,7 +3546,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 title,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.cream,
@@ -3548,7 +3555,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 12,
                   color: AppTheme.steelBlue,
                   height: 1.3,
@@ -3605,7 +3612,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: isDestructive ? accent : AppTheme.cream,
@@ -3614,7 +3621,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 12,
                         color: AppTheme.steelBlue,
                         height: 1.3,
@@ -3683,7 +3690,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   effect.arabicLabel,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: selected ? AppTheme.cream : AppTheme.steelBlue,
                     fontSize: 12,
                     fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
@@ -3864,7 +3871,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.cream,
@@ -3879,7 +3886,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 b,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 13,
                   color: AppTheme.steelBlue.withValues(alpha: 0.95),
                   height: 1.55,
@@ -3972,9 +3979,9 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
             item.gameType == 'ninety_nine'
                 ? 'مباراة 99 سريعة'
                 : item.gameType == 'basra'
-                    ? 'مباراة باصرة'
+                    ? 'مباراة بصرة'
                     : 'مباراة إستميشن كلاسيك',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream,
               fontWeight: FontWeight.w800,
               fontSize: 14,
@@ -3987,14 +3994,14 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
               const SizedBox(height: 2),
               Text(
                 'الفائز: ${item.winnerName} · ${item.winnerScore} نقطة',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.steelBlue,
                   fontSize: 12,
                 ),
               ),
               Text(
                 formattedDate,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: Colors.white38,
                   fontSize: 11,
                 ),
@@ -4020,7 +4027,7 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   'لا توجد تفاصيل إضافية للاعبين في هذه المباراة',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 12,
                   ),
@@ -4068,7 +4075,7 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
                               ),
                               child: Text(
                                 p.rankTitle,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   color: isTopWinner
                                       ? AppTheme.gold
                                       : Colors.white70,
@@ -4086,7 +4093,7 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
                                   child: Text(
                                     p.name,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.cairo(
+                                    style: AppFonts.cooper(
                                       color: isSelf
                                           ? AppTheme.goldLight
                                           : Colors.white,
@@ -4111,7 +4118,7 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
                                     ),
                                     child: Text(
                                       'أنت',
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         color: AppTheme.gold,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -4124,7 +4131,7 @@ class _ExpandableMatchCardState extends State<_ExpandableMatchCard> {
                           ),
                           Text(
                             '${p.score}',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color:
                                   isTopWinner ? AppTheme.gold : Colors.white70,
                               fontWeight: FontWeight.w800,

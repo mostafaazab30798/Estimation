@@ -4,7 +4,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:estimation/theme/app_theme.dart';
 
 import '../models/playstyle_models.dart';
 import '../models/estimation_statistics.dart';
@@ -206,7 +206,7 @@ class EstimationPosterCard extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           '$kAppName • إستميشن',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: goldLight,
@@ -226,7 +226,7 @@ class EstimationPosterCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 '♦ لعبة الذكاء والتكتيك ♦',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 9.0,
                   fontWeight: FontWeight.bold,
                   color: gold,
@@ -294,7 +294,7 @@ class EstimationPosterCard extends StatelessWidget {
                 ),
                 child: Text(
                   'اللاعب',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 8.5,
                     fontWeight: FontWeight.w900,
                     color: Colors.black,
@@ -316,7 +316,7 @@ class EstimationPosterCard extends StatelessWidget {
                 displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -342,7 +342,7 @@ class EstimationPosterCard extends StatelessWidget {
                 ),
                 child: Text(
                   title,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w900,
                     color: goldLight,
@@ -354,7 +354,7 @@ class EstimationPosterCard extends StatelessWidget {
                 tagline,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w600,
                   fontStyle: FontStyle.italic,
@@ -392,7 +392,7 @@ class EstimationPosterCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'المستوى',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 8.0,
                           fontWeight: FontWeight.w900,
                           color: goldLight,
@@ -400,7 +400,7 @@ class EstimationPosterCard extends StatelessWidget {
                       ),
                       Text(
                         level.toString().padLeft(2, '0'),
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
@@ -438,7 +438,7 @@ class EstimationPosterCard extends StatelessWidget {
                     ),
                     child: Text(
                       'خبرة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 7.0,
                         fontWeight: FontWeight.w900,
                         color: Colors.black,
@@ -448,7 +448,7 @@ class EstimationPosterCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     '${currentXp.toString().padLeft(4, '0')} / ${nextLevelTargetXp.toString().padLeft(4, '0')}',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 7.5,
                       fontWeight: FontWeight.bold,
                       color: goldLight,
@@ -502,7 +502,7 @@ class EstimationPosterCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               title,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 8.0,
                 fontWeight: FontWeight.bold,
                 color: goldLight,
@@ -513,7 +513,7 @@ class EstimationPosterCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               value,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -624,7 +624,7 @@ class EstimationPosterCard extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 9.5,
               fontWeight: FontWeight.w600,
               color: const Color(0xFFD1D5DB),
@@ -646,7 +646,7 @@ class EstimationPosterCard extends StatelessWidget {
           ),
           Text(
             value,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 10.5,
               fontWeight: FontWeight.w900,
               color: goldLight,
@@ -728,7 +728,7 @@ class EstimationPosterCard extends StatelessWidget {
               ),
               Text(
                 tier,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 7.0,
                   fontWeight: FontWeight.w900,
                   color: isUnlocked ? gold : Colors.white38,
@@ -742,7 +742,7 @@ class EstimationPosterCard extends StatelessWidget {
           fit: BoxFit.scaleDown,
           child: Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 7.0,
               fontWeight: FontWeight.bold,
               color: isUnlocked ? Colors.white70 : Colors.white38,
@@ -785,7 +785,7 @@ class EstimationPosterCard extends StatelessWidget {
                   children: [
                     Text(
                       'بولة كاملة 18 جولة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -793,7 +793,7 @@ class EstimationPosterCard extends StatelessWidget {
                     ),
                     Text(
                       '85% من المباريات',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 8.5,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF34D399),
@@ -823,7 +823,7 @@ class EstimationPosterCard extends StatelessWidget {
       ),
       child: Text(
         title,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           fontSize: 9.0,
           fontWeight: FontWeight.w900,
           color: goldLight,
@@ -854,7 +854,7 @@ class EstimationPosterCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 'فخور بأنني لاعب إستميشن!',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 10.0,
                   fontWeight: FontWeight.w900,
                   color: goldLight,
@@ -887,7 +887,7 @@ class EstimationPosterCard extends StatelessWidget {
 
         Text(
           'يلا نلعب سوا!  #سهرة_ورق',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 9.0,
             fontWeight: FontWeight.bold,
             color: Colors.white70,
@@ -1001,7 +1001,7 @@ class _RadarChartPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: labels[i],
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           fontSize: 7.5,
           fontWeight: FontWeight.bold,
           color: const Color(0xFFD1D5DB),

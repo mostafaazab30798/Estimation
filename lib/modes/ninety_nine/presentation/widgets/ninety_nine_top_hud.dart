@@ -1,7 +1,6 @@
 // lib/modes/ninety_nine/presentation/widgets/ninety_nine_top_hud.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/theme/app_theme.dart';
 import 'package:estimation/widgets/hud/split_hud_panel.dart';
@@ -238,7 +237,7 @@ class _RoundPhaseCenter extends StatelessWidget {
       children: [
         Text(
           'الجولة $roundNumber',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.goldLight,
             fontSize: enlarged ? 16 : 13.5,
             fontWeight: FontWeight.bold,
@@ -257,7 +256,7 @@ class _RoundPhaseCenter extends StatelessWidget {
           ),
           child: Text(
             phaseText,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: phaseColor,
               fontSize: enlarged ? 12 : 11,
               fontWeight: FontWeight.w700,
@@ -301,7 +300,7 @@ class _DirectionBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             isClockwise ? 'مع العقارب ↻' : 'عكس العقارب ↺',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: color,
               fontSize: enlarged ? 12.5 : 11.5,
               fontWeight: FontWeight.w600,

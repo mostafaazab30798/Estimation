@@ -115,6 +115,12 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    packaging {
+        jniLibs {
+            keepDebugSymbols += "**/libflutter.so"
+        }
+    }
 }
 
 flutter {

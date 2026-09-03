@@ -2,7 +2,6 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 // Removed unused import
@@ -432,7 +431,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                     child: Center(
                       child: Text(
                         'الأرض 🎴',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: Colors.white38,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -523,7 +522,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                         children: [
                           Text(
                             'مجموع الأرض: ',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: Colors.white70,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -531,7 +530,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                           ),
                           Text(
                             '$total',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: totalColor,
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
@@ -539,7 +538,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                           ),
                           Text(
                             ' / 99',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: Colors.white54,
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -550,7 +549,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                       if (game.lastPlayedCard != null)
                         Text(
                           '${game.lastPlayedPlayerName ?? ''}: ${game.lastPlayedCard!.rank.label}',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.goldLight,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -663,7 +662,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             const SizedBox(height: 12),
             Text(
               'الجولة ${game.currentRoundNumber} انتهت!',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -672,7 +671,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             const SizedBox(height: 8),
             Text(
               'خسر الجولة: ${loser.name} 💔',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: const Color(0xFFEF4444),
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
@@ -685,7 +684,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             // Scoreboard table
             Text(
               'جدول الخسائر في المباراة (الخاسر في 5 جولات يستبعد):',
-              style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12),
+              style: AppFonts.cooper(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 12),
             Column(
@@ -698,14 +697,14 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                     children: [
                       Text(
                         p.name,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         '💔 $losses / 5 جولات خسرها',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: losses >= 4
                               ? const Color(0xFFEF4444)
                               : AppTheme.gold,
@@ -725,7 +724,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
               icon: const AppIcon(AppIcons.arrowForward, size: 18),
               label: Text(
                 'الجولة التالية',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ),
@@ -846,7 +845,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             SizedBox(height: layout.isTablet ? 18 : 14),
             Text(
               'نهاية المباراة!',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.gold,
                 fontSize: layout.isTablet ? 26 : 24,
                 fontWeight: FontWeight.w900,
@@ -855,7 +854,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             SizedBox(height: layout.isTablet ? 12 : 8),
             Text(
               'الفائز البطل: ${winner.name}',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream,
                 fontSize: layout.isTablet ? 19 : 18,
                 fontWeight: FontWeight.bold,
@@ -864,7 +863,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             ),
             Text(
               'استبعد بخسارة 5 جولات: ${loser.name}',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.playerRed,
                 fontSize: layout.isTablet ? 15 : 14,
               ),
@@ -895,7 +894,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                     const SizedBox(width: 8),
                     Text(
                       '+${_ninetyNineXp!.totalXp} XP مكافأة 99',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.gold,
                         fontSize: layout.isTablet ? 15 : 14,
                         fontWeight: FontWeight.w900,
@@ -937,7 +936,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
                 ),
                 child: Text(
                   'العودة للرئيسية',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: layout.isTablet ? 17 : 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1121,7 +1120,7 @@ class _NinetyNineGameScreenState extends State<NinetyNineGameScreen>
             const SizedBox(width: 6),
             Text(
               'تفاعل 🔥',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.white,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,

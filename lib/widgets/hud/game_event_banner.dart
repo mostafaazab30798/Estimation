@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/events/estimation_event_bus.dart';
 import '../../core/events/estimation_game_events.dart';
@@ -187,7 +186,7 @@ class _GameEventBannerState extends State<GameEventBanner>
               Flexible(
                 child: Text(
                   event.messageAr,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.cream,
                     fontWeight: FontWeight.w700,
                     fontSize: 12.5,

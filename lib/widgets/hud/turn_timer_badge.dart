@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_state.dart';
 import '../../theme/app_theme.dart';
 import '../../services/settings_service.dart';
@@ -251,7 +250,7 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
                 // ── Phase Label Header (Arabic) ────────────────────────
                 Text(
                   phaseLabel,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: isWarning ? Colors.white : AppTheme.cream,
                     fontSize: fontSize,
                     fontWeight: FontWeight.w800,
@@ -291,7 +290,7 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
           ),
           Text(
             '$_remainingSeconds',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: const Color(0xFFFFE082), // Amber Warning text
               fontSize: fontSize + 1.0,
               fontWeight: FontWeight.w900,
@@ -303,7 +302,7 @@ class _TurnTimerBadgeState extends State<TurnTimerBadge>
 
     return Text(
       '$_remainingSeconds ث',
-      style: GoogleFonts.cairo(
+      style: AppFonts.cooper(
         color: primaryColor,
         fontSize: fontSize,
         fontWeight: FontWeight.w800,

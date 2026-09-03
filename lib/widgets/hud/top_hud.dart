@@ -5,7 +5,6 @@
 // Visual layout is completely redesigned into a premium floating glass panel.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/utils/game_layout_metrics.dart';
 import '../../core/models/game_state.dart';
 import '../../core/constants.dart';
@@ -475,7 +474,7 @@ class _RoundPhaseCenter extends StatelessWidget {
       children: [
         Text(
           'الجولة ${state.roundNumber}',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.goldLight,
             fontSize: roundSize,
             fontWeight: FontWeight.w800,
@@ -496,7 +495,7 @@ class _RoundPhaseCenter extends StatelessWidget {
           ),
           child: Text(
             phaseText,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: phaseColor,
               fontSize: phaseSize,
               fontWeight: FontWeight.w700,
@@ -537,7 +536,7 @@ class _TrumpBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               'سانز',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: const Color(0xFFDDD6FE),
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -575,7 +574,7 @@ class _TrumpBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             suit.arabicName,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -607,7 +606,7 @@ class _BidderBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             name,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.goldLight,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -656,7 +655,7 @@ class _UnderOverBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 data.statusText,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: data.color,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -676,7 +675,7 @@ class _UnderOverBadge extends StatelessWidget {
             ),
             child: Text(
               data.funnyText!,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -756,7 +755,7 @@ class _DoubleRoundBadgeState extends State<_DoubleRoundBadge>
               const SizedBox(width: 3),
               Text(
                 '×2 ROUND',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: const Color(0xFFFFD54F),
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
@@ -829,7 +828,7 @@ class _FixedTrumpBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             '${_suitSymbol()} ${_nameEn()}',
-            style: GoogleFonts.cinzel(
+            style: AppFonts.cinzel(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.w900,

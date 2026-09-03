@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/academy_models.dart';
 import '../../core/constants.dart';
 import '../../core/models/card.dart';
@@ -244,7 +243,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 children: [
                   Text(
                     '${topic.icon} ${topic.title}',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 11,
                       color: topic.accentColor,
                       fontWeight: FontWeight.bold,
@@ -254,7 +253,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                   ),
                   Text(
                     lesson.title,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.white,
@@ -280,7 +279,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
             ),
             child: Text(
               lesson.difficulty.arabicLabel,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: lesson.difficulty.color,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
@@ -318,7 +317,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
               const SizedBox(width: 8),
               Text(
                 'الشرح والنظرية التكتيكية',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.goldLight,
@@ -329,7 +328,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
           const SizedBox(height: 8),
           Text(
             lesson.theoryExplanation,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 13,
               color: AppTheme.cream,
               height: 1.5,
@@ -350,7 +349,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                   Expanded(
                     child: Text(
                       concept,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 12,
                         color: AppTheme.steelBlue,
                         height: 1.35,
@@ -383,7 +382,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 Expanded(
                   child: Text(
                     lesson.proTip,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.goldLight,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -439,7 +438,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                   const SizedBox(width: 8),
                   Text(
                     'المحاكاة التفاعلية لليد',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.white,
@@ -459,7 +458,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 ),
                 child: Text(
                   scenario.type.arabicTitle,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.accentBlue,
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
@@ -479,7 +478,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
           // Player Hand View (Cards)
           Text(
             'ورق يدك (Hand):',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.goldLight,
               fontSize: 12,
               fontWeight: FontWeight.bold,
@@ -505,7 +504,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 Expanded(
                   child: Text(
                     scenario.prompt,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -572,7 +571,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
       children: [
         Text(
           '$label: ',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: 11,
             fontWeight: FontWeight.w500,
@@ -580,7 +579,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
         ),
         Text(
           value,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: color ?? AppTheme.cream,
             fontSize: 11,
             fontWeight: FontWeight.bold,
@@ -676,7 +675,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
             Expanded(
               child: Text(
                 option.label,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: isSelected ? AppTheme.white : AppTheme.cream,
@@ -694,7 +693,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 ),
                 child: Text(
                   option.quality.arabicLabel,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: option.quality.color,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -750,7 +749,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                   const SizedBox(width: 8),
                   Text(
                     chosenOption.quality.arabicLabel,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                       color: chosenOption.quality.color,
@@ -773,7 +772,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                       const SizedBox(width: 4),
                       Text(
                         '+${lesson.xpReward} XP',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.gold,
                           fontWeight: FontWeight.w900,
                           fontSize: 12,
@@ -790,7 +789,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
           // Chosen Option Feedback
           Text(
             chosenOption.feedback,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 13,
               color: AppTheme.white,
               fontWeight: FontWeight.w600,
@@ -817,7 +816,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                     const SizedBox(width: 6),
                     Text(
                       'التحليل والتفسير التكتيكي:',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.goldLight,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -828,7 +827,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                 const SizedBox(height: 4),
                 Text(
                   scenario.tacticalRationale,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.cream,
                     fontSize: 12,
                     height: 1.4,
@@ -864,7 +863,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                     icon: const AppIcon(AppIcons.refresh, size: 18),
                     label: Text(
                       'إعادة المحاولة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -887,7 +886,7 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
                   icon: const AppIcon(AppIcons.arrowForward, size: 18),
                   label: Text(
                     'الدرس التالي ➡️',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
                     ),

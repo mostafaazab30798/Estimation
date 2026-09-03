@@ -4,7 +4,6 @@
 // numbers, labeled current-round stats, and a readable round history.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 
 import '../core/constants.dart';
@@ -133,7 +132,7 @@ class RoundScoresDialog extends StatelessWidget {
             children: [
               Text(
                 'لوحة النتائج',
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.cream,
@@ -142,7 +141,7 @@ class RoundScoresDialog extends StatelessWidget {
               ),
               Text(
                 'الجولة ${state.roundNumber} من ${state.totalRounds}',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11.5,
                   color: AppTheme.gold,
                   fontWeight: FontWeight.w700,
@@ -201,7 +200,7 @@ class RoundScoresDialog extends StatelessWidget {
             child: Text(
               'المجموع',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.gold,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -214,7 +213,7 @@ class RoundScoresDialog extends StatelessWidget {
             child: Text(
               'هذه الجولة',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -224,7 +223,7 @@ class RoundScoresDialog extends StatelessWidget {
           const Spacer(),
           Text(
             'اللاعب',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -293,7 +292,7 @@ class RoundScoresDialog extends StatelessWidget {
                         : Text(
                             '—',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: AppTheme.steelBlue.withValues(alpha: 0.55),
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -326,7 +325,7 @@ class RoundScoresDialog extends StatelessWidget {
                             padding: const EdgeInsets.only(left: 3),
                             child: Text(
                               'داش',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.warningGlow,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -338,7 +337,7 @@ class RoundScoresDialog extends StatelessWidget {
                             padding: const EdgeInsets.only(left: 3),
                             child: Text(
                               'ريسك',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.playerRed,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -352,7 +351,7 @@ class RoundScoresDialog extends StatelessWidget {
                             child: Text(
                               _firstName(p.name),
                               maxLines: 1,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color:
                                     isLeader ? AppTheme.gold : AppTheme.cream,
                                 fontWeight: FontWeight.w800,
@@ -419,7 +418,7 @@ class RoundScoresDialog extends StatelessWidget {
             child: Text(
               'بعد انتهاء أول جولة، هتظهر هنا نقاط كل جولة والمجموع بعد كل جولة.',
               textAlign: TextAlign.right,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.textSecondary,
                 fontSize: 12,
                 height: 1.45,
@@ -486,7 +485,7 @@ class RoundScoresDialog extends StatelessWidget {
                           trump.isSans
                               ? 'سانس'
                               : '${trump.arabicName}${record.winningBid != null ? ' ${record.winningBid!.trickCount}' : ''}',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: trumpColor,
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
@@ -498,7 +497,7 @@ class RoundScoresDialog extends StatelessWidget {
                     const Spacer(),
                     Text(
                       'الجولة ${record.roundNumber}',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.gold,
                         fontWeight: FontWeight.w800,
                         fontSize: 12.5,
@@ -536,7 +535,7 @@ class RoundScoresDialog extends StatelessWidget {
                               child: Text(
                                 '${pr.totalScoreAfterRound}',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   color: AppTheme.cream,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 13,
@@ -552,7 +551,7 @@ class RoundScoresDialog extends StatelessWidget {
                             const Spacer(),
                             Text(
                               '${pr.declared} / ${pr.actual}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: pr.isSuccess
                                     ? AppTheme.playerGreen
                                     : AppTheme.textSecondary,
@@ -570,7 +569,7 @@ class RoundScoresDialog extends StatelessWidget {
                                   _firstName(pr.playerName),
                                   maxLines: 1,
                                   textAlign: TextAlign.right,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     color: AppTheme.cream,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 12,
@@ -596,7 +595,7 @@ class RoundScoresDialog extends StatelessWidget {
     final text = Text(
       label,
       textAlign: TextAlign.center,
-      style: GoogleFonts.cairo(
+      style: AppFonts.cooper(
         color: AppTheme.steelBlue.withValues(alpha: 0.85),
         fontSize: 9.5,
         fontWeight: FontWeight.w700,
@@ -622,7 +621,7 @@ class _SectionLabel extends StatelessWidget {
       children: [
         Text(
           title,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 14,
             fontWeight: FontWeight.w900,
             color: AppTheme.cream,
@@ -630,7 +629,7 @@ class _SectionLabel extends StatelessWidget {
         ),
         Text(
           subtitle,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: AppTheme.steelBlue,
@@ -673,7 +672,7 @@ class _TotalPointsPill extends StatelessWidget {
         children: [
           Text(
             'نقاط',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: 9,
               fontWeight: FontWeight.w700,
@@ -684,7 +683,7 @@ class _TotalPointsPill extends StatelessWidget {
           Text(
             '$score',
             textAlign: TextAlign.center,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: color,
               fontWeight: FontWeight.w900,
               fontSize: 18,
@@ -732,7 +731,7 @@ class _CurrentRoundCell extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: '$declared',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.steelBlue,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -740,7 +739,7 @@ class _CurrentRoundCell extends StatelessWidget {
                   ),
                   TextSpan(
                     text: ' / ',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.steelBlue.withValues(alpha: 0.55),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -748,7 +747,7 @@ class _CurrentRoundCell extends StatelessWidget {
                   ),
                   TextSpan(
                     text: '$actual',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: onTrack
                           ? AppTheme.playerGreen
                           : over
@@ -798,7 +797,7 @@ class _DeltaChip extends StatelessWidget {
       child: Text(
         '${positive ? '+' : ''}$delta',
         textAlign: TextAlign.center,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: color,
           fontWeight: FontWeight.w900,
           fontSize: compact ? 11 : 12.5,

@@ -42,6 +42,7 @@ import 'core/widgets/device_orientation_locker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppFonts.loadFonts();
 
   // Enable full-screen edge-to-edge mode for status & navigation bars
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

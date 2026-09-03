@@ -4,7 +4,6 @@
 // Used for round-start announcements and major phase transitions.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 
 /// Shows a full-width cinematic banner that slides in from the top,
@@ -121,7 +120,7 @@ class GamePhaseBannerState extends State<GamePhaseBanner>
                         const SizedBox(width: 12),
                         Text(
                           data.message,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: data.color,
                             fontSize: 15,
                             fontWeight: FontWeight.w800,

@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import '../core/widgets/app_dialog.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/game_provider.dart';
@@ -32,7 +31,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
+    with SingleTickerProviderStateMixin {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WallpaperPrecache.warmModeFlow(context);
+  }
+
   final _playerName = ValueNotifier<String>('');
   final _codeController = TextEditingController();
   late AnimationController _animController;
@@ -97,23 +102,23 @@ class _HomeScreenState extends State<HomeScreen>
           builder: (dialogContext) => AppAlertDialog(
             title: Text(
               'العودة إلى المباراة؟',
-              style: GoogleFonts.cairo(
+              style: AppFonts.dg(
                 color: AppTheme.gold,
                 fontWeight: FontWeight.w800,
               ),
             ),
             content: Text(
               'لديك مباراة ما زالت جارية. لا يمكنك بدء مباراة أو دخول طابور جديد حتى تنتهي أو تُفصل تلقائياً بعد 5 دقائق. البوت يلعب مكانك بعد 30 ثانية. يمكنك العودة واستعادة مقعدك خلال 5 دقائق.',
-              style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
+              style: AppFonts.cooper(color: AppTheme.cream, height: 1.5),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text('لاحقاً', style: GoogleFonts.cairo()),
+                child: Text('لاحقاً', style: AppFonts.cooper()),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text('العودة الآن', style: GoogleFonts.cairo()),
+                child: Text('العودة الآن', style: AppFonts.cooper()),
               ),
             ],
           ),
@@ -469,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: Text(
           label,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 13,
             fontWeight: FontWeight.bold,
             color: selected ? AppTheme.white : AppTheme.steelBlue,
@@ -644,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               label: Text(
                 'دخول الغرفة',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF11998E),
@@ -687,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             label: Text(
               'البحث عن غرف محلية',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              style: AppFonts.cooper(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.cream,
@@ -727,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen>
           const SizedBox(height: 16),
           Text(
             msg,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.mintSoft,
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -744,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             label: Text(
               'إلغاء',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              style: AppFonts.cooper(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.errorRed,
@@ -788,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen>
               const SizedBox(height: 16),
               Text(
                 'الخروج من التطبيق',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.mintSoft,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -798,7 +803,7 @@ class _HomeScreenState extends State<HomeScreen>
               const SizedBox(height: 8),
               Text(
                 'هل أنت متأكد أنك تريد الخروج من لعبة كوتشينة؟',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.accentLight.withValues(alpha: 0.8),
                   fontSize: 13,
                 ),
@@ -822,7 +827,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       child: Text(
                         'إلغاء',
-                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                        style: AppFonts.cooper(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -844,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       child: Text(
                         'خروج',
-                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                        style: AppFonts.cooper(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

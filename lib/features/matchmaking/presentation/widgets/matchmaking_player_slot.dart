@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/icons/app_icons.dart';
 import '../../../../core/widgets/app_buttons.dart';
@@ -154,7 +153,7 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
                             )
                           : Text(
                               _initial ?? '…',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.cream,
@@ -183,7 +182,7 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
                     ),
                     child: Text(
                       'أنت',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.white,
                         fontSize: 8,
                         fontWeight: FontWeight.w700,
@@ -215,7 +214,7 @@ class _MatchmakingPlayerSlotState extends State<MatchmakingPlayerSlot>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: _occupied
                 ? AppTheme.cream.withValues(alpha: 0.88)
                 : AppTheme.steelBlue.withValues(alpha: 0.65),

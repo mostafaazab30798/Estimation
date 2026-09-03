@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/academy_models.dart';
 import '../../services/academy_service.dart';
 import '../../theme/app_theme.dart';
@@ -194,7 +193,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
             children: [
               Text(
                 'أكاديمية الإستميشن',
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.white,
@@ -226,7 +225,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                     const SizedBox(width: 4),
                     Text(
                       '${progress.totalXpEarned} XP',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.gold,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w900,
@@ -305,7 +304,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                   children: [
                     Text(
                       'مستوى الإتقان الأكاديمي',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 11,
                         color: AppTheme.steelBlue,
                         fontWeight: FontWeight.w600,
@@ -313,7 +312,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                     ),
                     Text(
                       tier.title,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: tier.color,
@@ -334,7 +333,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                 ),
                 child: Text(
                   '${(masteryPercentage * 100).toInt()}%',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
@@ -375,7 +374,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                   const SizedBox(width: 6),
                   Text(
                     '$completedCount من أصل $totalLessons درس مكتمل',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.cream,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -399,7 +398,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                 icon: const AppIcon(AppIcons.playArrow, size: 18),
                 label: Text(
                   completedCount == totalLessons ? 'مراجعة الدروس 🔄' : 'استئناف ⚡',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
@@ -424,7 +423,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
             if (i > 0) const SizedBox(width: 8),
             ChoiceChip(
               label: Text(filters[i]),
-              labelStyle: GoogleFonts.cairo(
+              labelStyle: AppFonts.cooper(
                 fontSize: 11.5,
                 fontWeight: FontWeight.bold,
                 color: _selectedFilter == i ? Colors.black : AppTheme.cream,
@@ -520,7 +519,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                             Flexible(
                               child: Text(
                                 topic.title,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w900,
                                   color: AppTheme.white,
@@ -539,7 +538,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                                 ),
                                 child: Text(
                                   'مكتمل ⭐',
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     color: AppTheme.gold,
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
@@ -552,7 +551,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                         const SizedBox(height: 2),
                         Text(
                           topic.subtitle,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11,
                             color: AppTheme.steelBlue,
                             fontWeight: FontWeight.w500,
@@ -570,7 +569,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                     children: [
                       Text(
                         '${(topicProgress * topic.lessons.length).toInt()}/${topic.lessons.length}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: isCompleted ? AppTheme.gold : AppTheme.cream,
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
@@ -671,7 +670,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                 children: [
                   Text(
                     lesson.title,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: isDone ? AppTheme.white : AppTheme.cream,
@@ -690,7 +689,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                         ),
                         child: Text(
                           lesson.difficulty.arabicLabel,
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: lesson.difficulty.color,
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
@@ -700,7 +699,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '⏱️ ${lesson.estimatedDuration}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.steelBlue,
                           fontSize: 10,
                         ),
@@ -721,7 +720,7 @@ class _AcademyHomeScreenState extends State<AcademyHomeScreen> {
               ),
               child: Text(
                 '+${lesson.xpReward} XP',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.goldLight,

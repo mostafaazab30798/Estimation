@@ -1,7 +1,6 @@
 // lib/modes/basra/presentation/widgets/basra_top_hud.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/icons/app_icons.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
 import 'package:estimation/core/widgets/app_buttons.dart';
@@ -203,7 +202,7 @@ class _RoundPhaseBlock extends StatelessWidget {
       children: [
         Text(
           'الجولة $roundNumber',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.goldLight,
             fontSize: enlarged ? 16 : 13,
             fontWeight: FontWeight.w800,
@@ -222,7 +221,7 @@ class _RoundPhaseBlock extends StatelessWidget {
           ),
           child: Text(
             phaseText,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: phaseColor,
               fontSize: enlarged ? 12 : 11,
               fontWeight: FontWeight.w700,
@@ -262,7 +261,7 @@ class _HudChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: highlight ? AppTheme.goldLight : AppTheme.cream,
           fontSize: enlarged ? 12 : 11,
           fontWeight: FontWeight.w700,

@@ -3,7 +3,6 @@
 // Arabic bidding dialog shown during the auction phase.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/constants.dart';
 import '../core/models/bid.dart';
 import '../theme/app_theme.dart';
@@ -125,7 +124,7 @@ class _BidDialogState extends State<BidDialog> {
                         children: [
                           Text(
                             'المزاد',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.dg(
                               color: AppTheme.cream,
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
@@ -152,7 +151,7 @@ class _BidDialogState extends State<BidDialog> {
                             ),
                             child: Text(
                               'أعلى: ${widget.currentHighBid!.arabicLabel}${widget.bidderName != null ? ' (${widget.bidderName})' : ''}',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.gold,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 12,
@@ -271,7 +270,7 @@ class _BidDialogState extends State<BidDialog> {
                       if (isPortrait) ...[
                         Text(
                           'عدد اللمات',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.steelBlue,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -285,7 +284,7 @@ class _BidDialogState extends State<BidDialog> {
                         const SizedBox(height: 14),
                         Text(
                           'نوع الحكم / القطوع',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             color: AppTheme.steelBlue,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -309,7 +308,7 @@ class _BidDialogState extends State<BidDialog> {
                                 children: [
                                   Text(
                                     'عدد اللمات',
-                                    style: GoogleFonts.cairo(
+                                    style: AppFonts.cooper(
                                       color: AppTheme.steelBlue,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
@@ -336,7 +335,7 @@ class _BidDialogState extends State<BidDialog> {
                                 children: [
                                   Text(
                                     'نوع الحكم / القطوع',
-                                    style: GoogleFonts.cairo(
+                                    style: AppFonts.cooper(
                                       color: AppTheme.steelBlue,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,

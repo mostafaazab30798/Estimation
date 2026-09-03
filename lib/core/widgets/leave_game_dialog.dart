@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../icons/app_icons.dart';
 import '../utils/game_layout_metrics.dart';
@@ -52,7 +51,7 @@ class LeaveGameDialog extends StatelessWidget {
           SizedBox(height: layout.isTablet ? 18 : 16),
           Text(
             'مغادرة اللعبة',
-            style: GoogleFonts.cairo(
+            style: AppFonts.dg(
               color: AppTheme.cream,
               fontSize: layout.isTablet ? 20 : 18,
               fontWeight: FontWeight.w800,
@@ -62,7 +61,7 @@ class LeaveGameDialog extends StatelessWidget {
           SizedBox(height: layout.isTablet ? 10 : 8),
           Text(
             'هل أنت متأكد أنك تريد مغادرة اللعبة والعودة للرئيسية؟ سيتم فصلك من الغرفة.',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: layout.isTablet ? 13.5 : 12.5,
               height: 1.45,
@@ -89,7 +88,7 @@ class LeaveGameDialog extends StatelessWidget {
                     ),
                     child: Text(
                       'إلغاء',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.cream,
                         fontSize: layout.isTablet ? 15 : 14,
                         fontWeight: FontWeight.w700,
@@ -127,7 +126,7 @@ class LeaveGameDialog extends StatelessWidget {
                     ),
                     child: Text(
                       'مغادرة',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: Colors.white,
                         fontSize: layout.isTablet ? 15 : 14,
                         fontWeight: FontWeight.w700,

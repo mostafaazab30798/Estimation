@@ -3,7 +3,6 @@
 // Final match results screen with XP awards, level progression, and ranking tiers.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/models/game_state.dart';
 import '../core/models/player.dart';
 import '../core/models/comeback_event.dart';
@@ -263,7 +262,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
             ).createShader(bounds),
             child: Text(
               'الفائز: ${winner.name}!',
-              style: GoogleFonts.cairo(
+              style: AppFonts.dg(
                 fontSize: compact ? 22 : 26,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -274,7 +273,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
           const SizedBox(height: 4),
           Text(
             '${winner.totalScore} نقطة',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.gold,
               fontSize: compact ? 15 : 17,
               fontWeight: FontWeight.bold,
@@ -288,7 +287,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
   Widget _buildStandingsHeader() {
     return Text(
       'الترتيب النهائي',
-      style: GoogleFonts.cairo(
+      style: AppFonts.dg(
         fontSize: 18,
         fontWeight: FontWeight.w900,
         color: AppTheme.cream,
@@ -331,7 +330,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
               width: 72,
               child: Text(
                 matchRank.titleAr,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: rankColor,
@@ -345,7 +344,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                     child: Text(
                       player.name,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: isMe ? AppTheme.goldLight : rankColor,
@@ -365,7 +364,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                       ),
                       child: Text(
                         'أنت',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           color: AppTheme.navyDark,
@@ -378,7 +377,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
             ),
             Text(
               '${player.totalScore} نقطة',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: rankColor,
@@ -456,7 +455,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                   const SizedBox(width: 8),
                   Text(
                     'مشاركة نتيجة الانتصار 🏆',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
@@ -491,7 +490,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
         },
         child: Text(
           'العودة للقائمة الرئيسية',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: 15,
             fontWeight: FontWeight.w900,
           ),
@@ -533,7 +532,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                   const SizedBox(width: 8),
                   Text(
                     '+${breakdown.totalXp} XP مكافأة الجولة',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.gold,
@@ -615,7 +614,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
               children: [
                 Text(
                   'المستوى $currentLevel',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                     color: Colors.white70,
@@ -623,7 +622,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                 ),
                 Text(
                   '${profile.xp} / ${profile.nextLevelTargetXp} XP',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.goldLight,
@@ -651,7 +650,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
       ),
       child: Text(
         '$label (+$xp XP)',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           fontSize: 10,
           fontWeight: FontWeight.bold,
           color: color,
@@ -698,7 +697,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                   const SizedBox(width: 8),
                   Text(
                     'أبرز أحداث وريمونتادات المباراة',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       color: const Color(0xFFFFAB91),
@@ -745,7 +744,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                         ),
                         child: Text(
                           'ج ${event.roundNumber}',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
                             color: accentColor,
@@ -763,7 +762,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                               children: [
                                 Text(
                                   event.playerName,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                     color: isMe ? AppTheme.goldLight : Colors.white,
@@ -779,7 +778,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                                     ),
                                     child: Text(
                                       'أنت',
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w900,
                                         color: AppTheme.navyDark,
@@ -791,7 +790,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                             ),
                             Text(
                               event.subtitleAr,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: 11.5,
                                 color: Colors.white70,
                               ),
@@ -802,7 +801,7 @@ class _MatchEndScreenState extends State<MatchEndScreen>
                       if (event.pointsDeficitOvercome > 0)
                         Text(
                           '+${event.pointsDeficitOvercome} نقطة',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: accentColor,

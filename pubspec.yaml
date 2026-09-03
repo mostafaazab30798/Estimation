@@ -1,7 +1,7 @@
 name: estimation
 description: "سهرة ورق — لعبة ورق تنافسية للشبكة المحلية"
 publish_to: 'none'
-version: 1.12.1+24
+version: 1.13.0+25
 environment:
   sdk: ^3.5.0
 
@@ -62,6 +62,67 @@ flutter:
     - assets/google.png
     - assets/logo.png
     - assets/login.png
+    - assets/fonts/
+
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 500
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 600
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 700
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 800
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 900
+    - family: CooperArabic
+      fonts:
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 400
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 500
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 600
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 700
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 800
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 900
+    - family: Cooper Arabic
+      fonts:
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 400
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 500
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 600
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 700
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 800
+        - asset: assets/fonts/CooperArabic.ttf
+          weight: 900
+    - family: DGGhayaty
+      fonts:
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 400
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 700
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 900
+    - family: DG Ghayaty
+      fonts:
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 400
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 700
+        - asset: assets/fonts/DGGhayaty.ttf
+          weight: 900
 
 flutter_launcher_icons:
   android: "launcher_icon"

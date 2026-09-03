@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../core/icons/app_icons.dart';
@@ -55,7 +54,7 @@ class _GoogleOnlinePlayDialog extends StatelessWidget {
           Expanded(
             child: Text(
               'تسجيل الدخول مطلوب',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.gold,
                 fontWeight: FontWeight.w800,
               ),
@@ -65,12 +64,12 @@ class _GoogleOnlinePlayDialog extends StatelessWidget {
       ),
       content: Text(
         kGoogleOnlineRequiredMessage,
-        style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
+        style: AppFonts.cooper(color: AppTheme.cream, height: 1.5),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white60)),
+          child: Text('إلغاء', style: AppFonts.cooper(color: Colors.white60)),
         ),
         Consumer<AuthService>(
           builder: (context, auth, _) {
@@ -92,7 +91,7 @@ class _GoogleOnlinePlayDialog extends StatelessWidget {
                     ),
               label: Text(
                 'تسجيل الدخول بـ Google',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.w800),
+                style: AppFonts.cooper(fontWeight: FontWeight.w800),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.cream,

@@ -74,7 +74,7 @@ class LobbyRepository {
       final targetModeLabel = switch (room.gameType) {
         'kotchina' => 'كوتشينة',
         'ninety_nine' => 'الـ99',
-        'basra' => 'باصرة',
+        'basra' => 'بصرة',
         _ => room.gameType,
       };
       throw Exception('هذا الكود مخصص لروم $targetModeLabel');

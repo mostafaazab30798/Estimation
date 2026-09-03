@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/game_provider.dart';
@@ -18,20 +17,20 @@ Future<bool> guardAgainstOngoingGame(BuildContext context) async {
         barrierDismissible: false,
         builder: (dialogContext) => AppAlertDialog(
           title: Text('لديك مباراة جارية',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                   color: AppTheme.gold, fontWeight: FontWeight.w800)),
           content: Text(
             'لا يمكنك إنشاء غرفة، الانضمام إلى غرفة، أو بدء طابور جديد حتى تنتهي مباراتك الحالية. البوت يلعب بعد 30 ثانية؛ لديك 5 دقائق للعودة واستعادة مقعدك.',
-            style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
+            style: AppFonts.cooper(color: AppTheme.cream, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text('لاحقاً', style: GoogleFonts.cairo()),
+              child: Text('لاحقاً', style: AppFonts.cooper()),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text('العودة إلى المباراة', style: GoogleFonts.cairo()),
+              child: Text('العودة إلى المباراة', style: AppFonts.cooper()),
             ),
           ],
         ),

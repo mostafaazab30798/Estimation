@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/utils/wallpaper_precache.dart';
@@ -24,7 +23,13 @@ class BasraHomeScreen extends StatefulWidget {
 }
 
 class _BasraHomeScreenState extends State<BasraHomeScreen>
-    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
+    with SingleTickerProviderStateMixin {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WallpaperPrecache.warmModeFlow(context);
+  }
+
   static const _gold = Color(0xFFE8B923);
   static const _goldDark = Color(0xFFB45309);
   static const _teal = Color(0xFF0F766E);
@@ -263,7 +268,7 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
   Widget _buildHeroSection({bool compact = false}) {
     return ModeHomeHero(
       compact: compact,
-      title: 'باصرة',
+      title: 'بصرة',
       subtitle: 'اقتناص الأرض حتى 121 نقطة',
       emblem: ModeHomeArtEmblem.responsive(
         context,
@@ -347,7 +352,7 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
                   icon: const AppIcon(AppIcons.playArrow, size: 20),
                   label: Text(
                     'ابدأ ($_selectedPlayerCount لاعبين)',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                    style: AppFonts.cooper(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _teal,
@@ -398,7 +403,7 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
                   icon: const AppIcon(AppIcons.wifiTethering, size: 18),
                   label: Text(
                     'إنشاء الغرفة',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                    style: AppFonts.cooper(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _gold,
@@ -438,7 +443,7 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
               icon: const AppIcon(AppIcons.login, size: 18),
               label: Text(
                 'دخول الغرفة',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF11998E),
@@ -477,9 +482,9 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
           const SizedBox(height: 16),
           Text(
             provider.isSearching
-                ? 'جاري البحث عن غرفة باصرة...'
+                ? 'جاري البحث عن غرفة بصرة...'
                 : 'جاري الاتصال بالغرفة...',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.mintSoft,
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -492,7 +497,7 @@ class _BasraHomeScreenState extends State<BasraHomeScreen>
             icon: const AppIcon(AppIcons.close, size: 18),
             label: Text(
               'إلغاء',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              style: AppFonts.cooper(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.errorRed,

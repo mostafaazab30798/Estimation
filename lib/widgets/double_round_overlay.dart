@@ -7,7 +7,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/icons/app_icons.dart';
 import '../core/utils/game_layout_metrics.dart';
@@ -174,7 +173,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                     ),
                                     child: Text(
                                       'ALL PASS',
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         color: _accentLight,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -188,7 +187,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                               Text(
                                 'EVERYONE PASSED',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.cinzel(
+                                style: AppFonts.cinzel(
                                   fontSize: layout.isTablet ? 24 : 21,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.6,
@@ -200,7 +199,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                               Text(
                                 'الجميع مرر المزاد (Pass)',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: layout.isTablet ? 14 : 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.steelBlue,
@@ -232,7 +231,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                     Text(
                                       'DOUBLE ROUND NEXT',
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: layout.isTablet ? 16 : 14,
                                         fontWeight: FontWeight.w900,
                                         color: AppTheme.cream,
@@ -244,7 +243,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                     Text(
                                       'جولة مضاعفة تالية',
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: layout.isTablet ? 13 : 12,
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.cream.withValues(alpha: 0.9),
@@ -268,7 +267,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                     Text(
                                       'All scores in the next round\nwill be multiplied ×2.',
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: layout.isTablet ? 14 : 13,
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.cream,
@@ -279,7 +278,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                     Text(
                                       'ستتم مضاعفة جميع النقاط في الجولة القادمة ×2.',
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.cairo(
+                                      style: AppFonts.cooper(
                                         fontSize: layout.isTablet ? 12 : 11,
                                         fontWeight: FontWeight.w600,
                                         color: AppTheme.steelBlue,
@@ -315,7 +314,7 @@ class _DoubleRoundOverlayState extends State<DoubleRoundOverlay>
                                       const SizedBox(width: 6),
                                       Text(
                                         '×2 ROUND ACTIVE',
-                                        style: GoogleFonts.cairo(
+                                        style: AppFonts.cooper(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                           color: AppTheme.gold,

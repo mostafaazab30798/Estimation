@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../features/lobby/domain/models/online_play_status.dart';
@@ -63,7 +62,7 @@ Future<bool> showOnlinePlayBlockDialog(
           SnackBar(
             content: Text(
               'تعذر العودة — المباراة لم تعد متاحة.',
-              style: GoogleFonts.cairo(),
+              style: AppFonts.cooper(),
             ),
           ),
         );
@@ -125,7 +124,7 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
     return AppAlertDialog(
       title: Text(
         'لا يمكن بدء مباراة جديدة الآن',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: AppTheme.gold,
           fontWeight: FontWeight.w800,
         ),
@@ -140,7 +139,7 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
                 : widget.canReturnToGame
                 ? 'لديك مباراة ما زالت جارية. بعد 30 ثانية يلعب البوت مكانك. لديك حتى 5 دقائق للعودة واستعادة مقعدك قبل أن تُفصل تلقائياً.'
                 : 'تم فصلك من مباراة سابقة. انتظر حتى ينتهي الحظر قبل دخول طابور أونلاين جديد.',
-            style: GoogleFonts.cairo(color: AppTheme.cream, height: 1.5),
+            style: AppFonts.cooper(color: AppTheme.cream, height: 1.5),
           ),
           if (!activeElsewhere && _remaining.inSeconds > 0)
             const SizedBox(height: 16),
@@ -156,7 +155,7 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
               children: [
                 Text(
                   'الوقت المتبقي',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 13,
                   ),
@@ -164,7 +163,7 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
                 const SizedBox(height: 4),
                 Text(
                   _countdownLabel,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.gold,
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
@@ -181,13 +180,13 @@ class _OnlinePlayBlockDialogState extends State<_OnlinePlayBlockDialog> {
           onPressed: () =>
               Navigator.pop(context, _OnlinePlayBlockChoice.wait),
           child: Text(activeElsewhere ? 'حسناً' : 'انتظر',
-              style: GoogleFonts.cairo()),
+              style: AppFonts.cooper()),
         ),
         if (widget.canReturnToGame)
           FilledButton(
             onPressed: () =>
                 Navigator.pop(context, _OnlinePlayBlockChoice.returnToGame),
-            child: Text('العودة إلى المباراة', style: GoogleFonts.cairo()),
+            child: Text('العودة إلى المباراة', style: AppFonts.cooper()),
           ),
       ],
     );

@@ -1,7 +1,6 @@
 // lib/modes/ninety_nine/presentation/dialogs/ninety_nine_game_guide_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/utils/game_layout_metrics.dart';
 import '../../../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -101,7 +100,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                           children: [
                             Text(
                               'دليل قواعد لعبة الـ 99 🔥',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: Colors.white,
                                 fontSize: isMobile ? 16 : 18,
                                 fontWeight: FontWeight.bold,
@@ -109,7 +108,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                             ),
                             Text(
                               'تعلم كيفية اللعب والأوراق المنقذة لتجنب الخسارة',
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: AppTheme.steelBlue,
                                 fontSize: isMobile ? 11 : 12,
                               ),
@@ -135,7 +134,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                     indicatorWeight: 3,
                     labelColor: const Color(0xFFEF4444),
                     unselectedLabelColor: AppTheme.steelBlue,
-                    labelStyle: GoogleFonts.cairo(
+                    labelStyle: AppFonts.cooper(
                       fontSize: isMobile ? 12 : 14,
                       fontWeight: FontWeight.bold,
                     ),
@@ -219,7 +218,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
         children: [
           Text(
             '🎴 الأوراق الخاصة وتأثيراتها:',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream,
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -322,7 +321,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
         children: [
           Text(
             title,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: accentColor,
               fontSize: 15,
               fontWeight: FontWeight.bold,
@@ -331,7 +330,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
           const SizedBox(height: 6),
           Text(
             description,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream,
               fontSize: 13,
               height: 1.5,
@@ -365,7 +364,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
               children: [
                 Text(
                   cardName,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -374,7 +373,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
                 const SizedBox(height: 2),
                 Text(
                   effect,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 12,
                   ),
@@ -392,7 +391,7 @@ class _NinetyNineGameGuideDialogState extends State<NinetyNineGameGuideDialog>
             ),
             child: Text(
               badge,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: Colors.white,
                 fontSize: 10,
                 fontWeight: FontWeight.bold,

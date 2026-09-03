@@ -1,7 +1,8 @@
 // lib/theme/app_theme.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+export 'app_fonts.dart';
+import 'app_fonts.dart';
 
 class AppTheme {
   // ── Core Palette (user-specified) ─────────────────────────────
@@ -244,9 +245,19 @@ class AppTheme {
     return playerBlue;
   }
 
+  // ── Typography ───────────────────────────────────────────────
+  static const String fontRegular = AppFonts.tajawalFont;
+  static const String fontTitle = AppFonts.dgGhayatyFont;
+  static const String fontTajawal = AppFonts.tajawalFont;
+  static const String fontCooper = AppFonts.tajawalFont;
+  static const String fontDG = AppFonts.dgGhayatyFont;
+
   // ── Theme ─────────────────────────────────────────────────────
   static ThemeData get theme {
-    final base = ThemeData.dark();
+    final base = ThemeData(
+      brightness: Brightness.dark,
+      fontFamily: AppFonts.tajawalFont,
+    );
     return base.copyWith(
       scaffoldBackgroundColor: deepNavy,
       colorScheme: const ColorScheme.dark(
@@ -258,37 +269,112 @@ class AppTheme {
         onSecondary: deepNavy,
         onSurface: cream,
       ),
-      textTheme: GoogleFonts.cairoTextTheme(base.textTheme).copyWith(
-        displayLarge: GoogleFonts.cairo(
+      textTheme: TextTheme(
+        // ── Main Titles (DG Ghayaty) ─────────────────────────
+        displayLarge: AppFonts.dg(
           color: cream,
           fontSize: 36,
           fontWeight: FontWeight.w900,
           letterSpacing: -0.5,
         ),
-        displayMedium: GoogleFonts.cairo(
+        displayMedium: AppFonts.dg(
           color: cream,
           fontSize: 26,
           fontWeight: FontWeight.w700,
         ),
-        headlineMedium: GoogleFonts.cairo(
+        displaySmall: AppFonts.dg(
+          color: cream,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ),
+        headlineLarge: AppFonts.dg(
+          color: cream,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+        ),
+        headlineMedium: AppFonts.dg(
           color: cream,
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
-        bodyLarge: GoogleFonts.cairo(
+        headlineSmall: AppFonts.dg(
+          color: cream,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: AppFonts.dg(
+          color: cream,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+        titleMedium: AppFonts.dg(
+          color: cream,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+        ),
+
+        // ── Regular Text App-Wide (Cooper) ───────────────────
+        titleSmall: AppFonts.cooper(
+          color: cream,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        bodyLarge: AppFonts.cooper(
           color: cream,
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
-        bodyMedium: GoogleFonts.cairo(
+        bodyMedium: AppFonts.cooper(
           color: steelBlue,
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
-        labelLarge: GoogleFonts.cairo(
+        bodySmall: AppFonts.cooper(
+          color: steelBlue,
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+        ),
+        labelLarge: AppFonts.cooper(
           color: white,
           fontSize: 16,
           fontWeight: FontWeight.w700,
+        ),
+        labelMedium: AppFonts.cooper(
+          color: white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        labelSmall: AppFonts.cooper(
+          color: steelBlue,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: deepNavy,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: AppFonts.dg(
+          color: cream,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+        iconTheme: const IconThemeData(color: steelBlue),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface2,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(24)),
+        ),
+        titleTextStyle: AppFonts.dg(
+          color: cream,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
+        contentTextStyle: AppFonts.cooper(
+          color: cream,
+          fontSize: 14,
+          height: 1.5,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -301,7 +387,7 @@ class AppTheme {
           ),
           elevation: 0,
           shadowColor: Colors.transparent,
-          textStyle: GoogleFonts.cairo(
+          textStyle: AppFonts.cooper(
             fontSize: 16,
             fontWeight: FontWeight.w700,
             height: 1.15,
@@ -316,7 +402,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: GoogleFonts.cairo(
+          textStyle: AppFonts.cooper(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             height: 1.15,
@@ -329,7 +415,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: GoogleFonts.cairo(
+          textStyle: AppFonts.cooper(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             height: 1.15,
@@ -351,15 +437,9 @@ class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
-      dialogTheme: const DialogThemeData(
+      snackBarTheme: SnackBarThemeData(
         backgroundColor: surface2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(24)),
-        ),
-      ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: surface2,
-        contentTextStyle: TextStyle(color: cream),
+        contentTextStyle: AppFonts.cooper(color: cream),
       ),
       dividerColor: Colors.white12,
       iconTheme: const IconThemeData(color: steelBlue),

@@ -4,7 +4,6 @@
 // framed medallion with glow and optional title.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/match_rank.dart';
 import '../../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -49,7 +48,7 @@ class MatchRankBadge extends StatelessWidget {
         SizedBox(height: dims.labelGap),
         Text(
           rank.titleAr,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: dims.labelSize,
             fontWeight: FontWeight.w900,
             color: rank.accentColor,
@@ -249,7 +248,7 @@ class MatchRankChip extends StatelessWidget {
             SizedBox(width: gap),
             Text(
               rank.titleAr,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w900,
                 color: rank.accentColor,

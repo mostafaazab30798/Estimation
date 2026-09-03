@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -150,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 16),
                             Text(
                               kAppName,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.dg(
                                 fontSize: 34,
                                 fontWeight: FontWeight.w900,
                                 color: _LoginPalette.deepViolet,
@@ -232,7 +231,7 @@ class _LoginAuthPanel extends StatelessWidget {
               Text(
                 'مرحباً بك',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   color: _LoginPalette.deepViolet,
@@ -279,7 +278,7 @@ class _OrDivider extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'أو',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: _LoginPalette.softViolet,
@@ -355,7 +354,7 @@ class _GuestButtonState extends State<_GuestButton> {
                     const SizedBox(width: 8),
                     Text(
                       'متابعة كضيف',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: _LoginPalette.deepViolet,

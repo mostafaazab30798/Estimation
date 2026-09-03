@@ -1,7 +1,6 @@
 // lib/widgets/level_up_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/utils/game_layout_metrics.dart';
 import '../models/rank_tier.dart';
 import '../theme/app_theme.dart';
@@ -125,7 +124,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                 SizedBox(height: layout.isTablet ? 18 : 16),
                 Text(
                   isTierUp ? 'ترقية رتبة جديدة!' : 'ارتقاء في المستوى!',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.dg(
                     fontSize: layout.isTablet ? 24 : 22,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.cream,
@@ -137,7 +136,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                   isTierUp
                       ? 'تهانينا! لقد بلغت رتبة ${widget.newTier.titleAr}'
                       : 'أداء رائع ومميز في الجولة!',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: layout.isTablet ? 14 : 13,
                     color: AppTheme.steelBlue,
                     height: 1.4,
@@ -162,7 +161,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                     children: [
                       Text(
                         'مستوى ${widget.oldLevel}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: layout.isTablet ? 17 : 16,
                           color: Colors.white60,
                           fontWeight: FontWeight.bold,
@@ -177,7 +176,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                       SizedBox(width: layout.isTablet ? 16 : 14),
                       Text(
                         'مستوى ${widget.newLevel}',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: layout.isTablet ? 22 : 20,
                           color: AppTheme.gold,
                           fontWeight: FontWeight.w900,
@@ -210,7 +209,7 @@ class _LevelUpDialogState extends State<LevelUpDialog>
                     ),
                     child: Text(
                       'استمرار اللعب',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         fontSize: layout.isTablet ? 16 : 15,
                         fontWeight: FontWeight.w900,
                       ),

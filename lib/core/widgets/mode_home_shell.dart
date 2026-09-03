@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
 import '../utils/home_layout_metrics.dart';
@@ -217,27 +216,59 @@ class ModeHomeProfileChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(6, 5, 12, 5),
-        decoration: BoxDecoration(
-          color: AppTheme.navyDark.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.steelBlue.withValues(alpha: 0.25)),
-        ),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            PlayerAvatar(photoData: photo, size: 28, borderWidth: 2),
-            const SizedBox(width: 8),
-            Text(
-              name,
-              style: GoogleFonts.cairo(
-                color: AppTheme.cream,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
+            // Floating Avatar with subtle golden halo and deep ambient shadow
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.50),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                  BoxShadow(
+                    color: AppTheme.gold.withValues(alpha: 0.25),
+                    blurRadius: 12,
+                    spreadRadius: -1,
+                  ),
+                ],
+              ),
+              child: PlayerAvatar(
+                photoData: photo,
+                size: 36,
+                borderWidth: 2,
+                borderColor: AppTheme.goldLight,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Floating Name directly in the air with soft shadow
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 150),
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppFonts.tajawal(
+                  color: AppTheme.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  letterSpacing: 0.2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.85),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -275,7 +306,7 @@ class ModeHomeSectionLabel extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           text,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: fontSize,
             fontWeight: FontWeight.bold,
             color: AppTheme.cream.withValues(alpha: 0.85),
@@ -696,7 +727,7 @@ class ModeHomeHero extends StatelessWidget {
         SizedBox(height: metrics.modeHomeHeroVerticalSpacing(compact: compact)),
         Text(
           title,
-          style: GoogleFonts.cairo(
+          style: AppFonts.dg(
             fontSize: metrics.modeHomeHeroTitleSize(compact: compact),
             fontWeight: FontWeight.w900,
             color: AppTheme.white,
@@ -707,7 +738,7 @@ class ModeHomeHero extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             fontSize: metrics.modeHomeHeroSubtitleSize(compact: compact),
             color: AppTheme.steelBlue,
             fontWeight: FontWeight.w600,
@@ -971,7 +1002,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
               children: [
                 Text(
                   widget.label,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: Colors.white,
                     fontSize: titleSize,
                     fontWeight: FontWeight.w900,
@@ -982,7 +1013,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
                   const SizedBox(height: 2),
                   Text(
                     widget.subtitle!,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: Colors.white.withValues(alpha: 0.78),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1039,7 +1070,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
           const SizedBox(height: 9),
           Text(
             widget.label,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.white,
               fontSize: 12.5,
               fontWeight: FontWeight.bold,
@@ -1051,7 +1082,7 @@ class _ModeHomeActionButtonState extends State<ModeHomeActionButton> {
             const SizedBox(height: 2),
             Text(
               widget.subtitle!,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -1120,7 +1151,7 @@ class _ModeHomeCompactTileState extends State<ModeHomeCompactTile> {
               const SizedBox(width: 10),
               Text(
                 widget.title,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -1175,7 +1206,7 @@ Future<T?> showModeHomeSheet<T>(
             ),
             Text(
               title,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -1184,7 +1215,7 @@ Future<T?> showModeHomeSheet<T>(
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: 12,
               ),
@@ -1239,7 +1270,7 @@ class PlayerCountTile extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 label,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.white,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -1248,7 +1279,7 @@ class PlayerCountTile extends StatelessWidget {
               ),
               Text(
                 'لاعبين',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.steelBlue,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1344,7 +1375,7 @@ class PlayerCountWrap extends StatelessWidget {
             ),
             child: Text(
               '$count لاعبين',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: isSel ? Colors.white : Colors.white70,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
@@ -1374,7 +1405,7 @@ class ModeHomeJoinTextField extends StatelessWidget {
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
       ],
-      style: GoogleFonts.cairo(
+      style: AppFonts.cooper(
         color: AppTheme.mintSoft,
         fontSize: 20,
         fontWeight: FontWeight.bold,
@@ -1382,7 +1413,7 @@ class ModeHomeJoinTextField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         hintText: 'ABCDEF',
-        hintStyle: GoogleFonts.cairo(
+        hintStyle: AppFonts.cooper(
           color: AppTheme.accentLight.withValues(alpha: 0.4),
           fontSize: 16,
           letterSpacing: 4,

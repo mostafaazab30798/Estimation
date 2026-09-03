@@ -7,7 +7,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/constants.dart';
 import '../core/utils/game_layout_metrics.dart';
@@ -173,7 +172,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                   const SizedBox(width: 6),
                                   Text(
                                     'CHAMPIONSHIP PHASE',
-                                    style: GoogleFonts.cairo(
+                                    style: AppFonts.cooper(
                                       color: AppTheme.gold,
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w900,
@@ -219,7 +218,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                           Text(
                             'ROUND ${widget.roundNumber}',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cinzel(
+                            style: AppFonts.cinzel(
                               fontSize: layout.isTablet ? 24 : 21,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.6,
@@ -230,7 +229,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                           Text(
                             theme.arabicName,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: layout.isTablet ? 14 : 13,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.steelBlue,
@@ -256,7 +255,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                 Text(
                                   theme.englishName,
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: layout.isTablet ? 16 : 14,
                                     fontWeight: FontWeight.w900,
                                     color: AppTheme.cream,
@@ -266,7 +265,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                 Text(
                                   theme.trumpFixedEn,
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: layout.isTablet ? 13 : 12,
                                     fontWeight: FontWeight.w700,
                                     color: AppTheme.cream.withValues(alpha: 0.92),
@@ -276,7 +275,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                 Text(
                                   theme.trumpFixedAr,
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: layout.isTablet ? 12 : 11,
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.steelBlue,
@@ -300,7 +299,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                 Text(
                                   'Bid 8+ to override the fixed contract.',
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: layout.isTablet ? 13 : 12,
                                     fontWeight: FontWeight.w700,
                                     color: AppTheme.cream,
@@ -310,7 +309,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                                 Text(
                                   'Direct Declarations • Highest Declarer Starts',
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     fontSize: layout.isTablet ? 12 : 11,
                                     fontWeight: FontWeight.w800,
                                     color: theme.accentColor,
@@ -335,7 +334,7 @@ class _FixedTrumpRoundOverlayState extends State<FixedTrumpRoundOverlay>
                               ),
                               child: Text(
                                 'FIXED CONTRACT ACTIVE',
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   color: theme.accentColor,

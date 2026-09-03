@@ -3,7 +3,6 @@
 // Modern floating rank cards score breakdown — no heavy back container box.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/models/player.dart';
 import '../core/widgets/player_avatar.dart';
 import '../models/match_rank.dart';
@@ -60,7 +59,7 @@ class ScoreTable extends StatelessWidget {
                 child: Text(
                   'اللاعب',
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.gold,
                     fontSize: headerSize,
                     fontWeight: FontWeight.bold,
@@ -192,7 +191,7 @@ class ScoreTable extends StatelessWidget {
                               alignment: Alignment.centerRight,
                               child: Text(
                                 player.name,
-                                style: GoogleFonts.cairo(
+                                style: AppFonts.cooper(
                                   color: rankIndex == 0 ? AppTheme.gold : AppTheme.cream,
                                   fontSize: nameSize,
                                   fontWeight: FontWeight.bold,
@@ -266,7 +265,7 @@ class ScoreTable extends StatelessWidget {
                 child: Text(
                   positive ? '+$delta' : '$delta',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: positive ? const Color(0xFF00E676) : AppTheme.errorRed,
                     fontWeight: FontWeight.bold,
                     fontSize: deltaSize,
@@ -282,7 +281,7 @@ class ScoreTable extends StatelessWidget {
             child: Text(
               '${player.totalScore}',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.gold,
                 fontWeight: FontWeight.w900,
                 fontSize: totalSize,
@@ -297,7 +296,7 @@ class ScoreTable extends StatelessWidget {
   Widget _header(String text, double fontSize) => Text(
         text,
         textAlign: TextAlign.center,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: AppTheme.gold,
           fontWeight: FontWeight.bold,
           fontSize: fontSize,
@@ -307,7 +306,7 @@ class ScoreTable extends StatelessWidget {
   Widget _cell(String text, double fontSize, {Color? color}) => Text(
         text,
         textAlign: TextAlign.center,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: color ?? AppTheme.cream.withValues(alpha: 0.9),
           fontSize: fontSize,
           fontWeight: FontWeight.w600,

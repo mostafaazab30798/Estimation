@@ -6,7 +6,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../core/models/comeback_event.dart';
 import '../core/utils/game_layout_metrics.dart';
 import '../theme/app_theme.dart';
@@ -263,7 +262,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                           Text(
                             event.titleEn,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cinzel(
+                            style: AppFonts.cinzel(
                               fontSize: layout.isTablet ? 24 : 22,
                               fontWeight: FontWeight.w900,
                               color: accent,
@@ -273,7 +272,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                           Text(
                             event.titleAr,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.dg(
                               fontSize: layout.isTablet ? 21 : 20,
                               fontWeight: FontWeight.w900,
                               color: AppTheme.cream,
@@ -321,7 +320,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                           Text(
                             event.subtitleAr,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: layout.isTablet ? 15 : 14,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.cream.withValues(alpha: 0.9),
@@ -332,7 +331,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                             Text(
                               'تم تعويض فارق +${event.pointsDeficitOvercome} نقطة!',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 fontSize: layout.isTablet ? 14 : 13,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.goldLight,
@@ -342,7 +341,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
                           SizedBox(height: layout.isTablet ? 18 : 16),
                           Text(
                             'المس للمتابعة',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.steelBlue.withValues(alpha: 0.75),
@@ -384,7 +383,7 @@ class _ComebackOverlayState extends State<ComebackOverlay>
       ),
       child: Text(
         rankText,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           fontSize: 15,
           fontWeight: FontWeight.w900,
           color: isFirst

@@ -4,7 +4,6 @@
 // Color responds to player declaration state; segments animate independently.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 
 /// A segmented bar showing [actual] tricks won out of 13 possible tricks
@@ -197,7 +196,7 @@ class _TrickProgressIndicatorState extends State<TrickProgressIndicator>
         // ── Fraction label ─────────────────────────────────────────
         AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 300),
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: color,
             fontSize: labelSize,
             fontWeight: FontWeight.w700,

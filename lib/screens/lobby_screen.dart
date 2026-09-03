@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../core/utils/stale_game_route.dart';
 import '../core/utils/home_layout_metrics.dart';
@@ -400,7 +399,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         foregroundColor: AppTheme.textPrimary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text('إلغاء', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
+                      child: Text('إلغاء', style: AppFonts.cooper(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -417,7 +416,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: Text('مغادرة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 15)),
+                      child: Text('مغادرة', style: AppFonts.cooper(fontWeight: FontWeight.bold, fontSize: 15)),
                     ),
                   ),
                 ],
@@ -465,7 +464,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               const SizedBox(width: 8),
               Text(
                 'كود الغرفة — شاركه مع أصدقائك',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.mintSoft,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -498,7 +497,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     char,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: AppTheme.white,
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
@@ -519,7 +518,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               ),
               child: SelectableText(
                 'عنوان IP المحلي: ${provider.localHostIp}:${provider.localPort}',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: Colors.amber,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -563,7 +562,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           const AppIcon(AppIcons.checkCircle, color: Colors.greenAccent, size: 20),
           const SizedBox(width: 10),
           Text('متصل بالغرفة بنجاح ✓',
-              style: GoogleFonts.cairo(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+              style: AppFonts.cooper(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -583,7 +582,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           const AppIcon(AppIcons.smartToy, size: 18, color: AppTheme.mintSoft),
           const SizedBox(width: 8),
           Text('وضع التجربة — البوتات تلعب عنك',
-              style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.w600)),
+              style: AppFonts.cooper(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -599,7 +598,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       children: [
         Text(
           'اللاعبون',
-          style: GoogleFonts.cairo(color: AppTheme.white, fontSize: 15, fontWeight: FontWeight.bold),
+          style: AppFonts.cooper(color: AppTheme.white, fontSize: 15, fontWeight: FontWeight.bold),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -612,7 +611,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             botSlots > 0
                 ? '${players.length} / ${provider.expectedPlayers} (المجموع: 4 مع البوت)'
                 : '${players.length} / ${isAlternate ? provider.expectedPlayers : (provider.isTestMode ? 4 : provider.expectedPlayers)}',
-            style: GoogleFonts.cairo(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.bold),
+            style: AppFonts.cooper(color: AppTheme.mintSoft, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -727,7 +726,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               fontSize: 14,
               fontWeight: (occupied || isBotReservedSlot) ? FontWeight.w700 : FontWeight.w500,
               color: occupied
@@ -802,7 +801,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             children: [
               Text(
                 canStart ? 'ابدأ اللعبة الان' : 'في انتظار اللاعبين (${players.length}/${provider.expectedPlayers})...',
-                style: GoogleFonts.cairo(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                style: AppFonts.cooper(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: 0.5),
               ),
               const SizedBox(width: 12),
               AppIconWell(
@@ -845,7 +844,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               const SizedBox(width: 8),
               Text(
                 'شكل البطاقات:',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -930,7 +929,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                             const SizedBox(height: 10),
                             Text(
                               name,
-                              style: GoogleFonts.cairo(
+                              style: AppFonts.cooper(
                                 color: isSelected ? AppTheme.white : AppTheme.accentLight.withValues(alpha: 0.7),
                                 fontSize: 13,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -1013,7 +1012,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               const SizedBox(width: 8),
               Text(
                 isHost ? 'إلغاء الغرفة' : 'خروج',
-                style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.bold),
+                style: AppFonts.cooper(fontSize: 15, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1037,7 +1036,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         const SizedBox(width: 10),
         Text(
           'في انتظار المضيف لبدء اللعبة...',
-          style: GoogleFonts.cairo(color: AppTheme.accentLight, fontSize: 14),
+          style: AppFonts.cooper(color: AppTheme.accentLight, fontSize: 14),
         ),
       ],
     );
@@ -1053,7 +1052,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
             color: color, fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );

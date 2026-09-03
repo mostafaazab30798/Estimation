@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/widgets/app_dialog.dart';
 import '../theme/app_theme.dart';
@@ -65,7 +64,7 @@ class _GameReentryLoadingDialog extends StatelessWidget {
             Text(
               'جاري العودة إلى المباراة',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
@@ -75,7 +74,7 @@ class _GameReentryLoadingDialog extends StatelessWidget {
             Text(
               'نستعيد مقعدك وآخر حالة للعب…',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.steelBlue,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,

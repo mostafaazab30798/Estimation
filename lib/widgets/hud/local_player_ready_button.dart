@@ -3,7 +3,6 @@
 // Premium animated ready button for the local player during voidCheck phase.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 import '../../core/widgets/app_buttons.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -234,7 +233,7 @@ class _LocalPlayerReadyButtonState extends State<LocalPlayerReadyButton>
                                 child: Text(
                                   isReady ? 'أنا جاهز' : 'جاهز للعب',
                                   key: ValueKey(isReady),
-                                  style: GoogleFonts.cairo(
+                                  style: AppFonts.cooper(
                                     color: isReady ? _readyColor : AppTheme.deepNavy,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w900,

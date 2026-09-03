@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/icons/app_icons.dart';
@@ -92,7 +91,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         title: Text(
           'مغادرة طابور الانتظار؟',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.cream,
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -100,7 +99,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
         ),
         content: Text(
           'سيتم إلغاء البحث عن لاعبين والعودة إلى الشاشة الرئيسية.',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue,
             fontSize: 13,
             fontWeight: FontWeight.w400,
@@ -112,7 +111,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
               'متابعة الانتظار',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
+              style: AppFonts.cooper(fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
@@ -120,7 +119,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen>
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
             child: Text(
               'مغادرة',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
+              style: AppFonts.cooper(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -420,7 +419,7 @@ class _CancelSearchButton extends StatelessWidget {
             ),
       label: Text(
         leaving ? 'جاري الخروج...' : 'إلغاء البحث',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           fontWeight: FontWeight.w600,
           fontSize: 13,
         ),
@@ -464,7 +463,7 @@ class _MatchmakingHeader extends StatelessWidget {
       children: [
         Text(
           searching ? 'جاري البحث' : 'جاهزون',
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: accent,
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -474,7 +473,7 @@ class _MatchmakingHeader extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           headline,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.cream,
             fontSize: headlineSize,
             fontWeight: FontWeight.w700,
@@ -485,7 +484,7 @@ class _MatchmakingHeader extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           status,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: AppTheme.steelBlue.withValues(alpha: 0.82),
             fontSize: 13,
             fontWeight: FontWeight.w400,
@@ -537,7 +536,7 @@ class _TopBar extends StatelessWidget {
             child: Text(
               'المطابقة',
               textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream.withValues(alpha: 0.72),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -633,7 +632,7 @@ class _LiveBadgeState extends State<_LiveBadge>
           const SizedBox(width: 6),
           Text(
             '${widget.filled}/4',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream.withValues(alpha: 0.82),
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -806,7 +805,7 @@ class _TableSurface extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '$filled',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.cream,
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
@@ -815,7 +814,7 @@ class _TableSurface extends StatelessWidget {
                     ),
                     TextSpan(
                       text: ' / 4',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.steelBlue,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

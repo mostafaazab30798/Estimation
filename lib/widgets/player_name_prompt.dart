@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/icons/app_icons.dart';
 import '../core/utils/display_name_validator.dart';
@@ -147,7 +146,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
               Text(
                 'أهلاً بك 👋',
                 textAlign: TextAlign.right,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 24,
                   height: 1.2,
@@ -158,7 +157,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
               Text(
                 'اختر الاسم الذي سيراه اللاعبون على الطاولة.',
                 textAlign: TextAlign.right,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.steelBlue,
                   fontSize: 13.5,
                   height: 1.55,
@@ -169,7 +168,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
               Text(
                 'اسم اللاعب',
                 textAlign: TextAlign.right,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
@@ -196,14 +195,14 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
                     DisplayNameValidator.maxLength,
                   ),
                 ],
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: InputDecoration(
                   hintText: 'مثال: سامي',
-                  hintStyle: GoogleFonts.cairo(
+                  hintStyle: AppFonts.cooper(
                     color: AppTheme.steelBlue.withValues(alpha: 0.55),
                     fontSize: 14,
                   ),
@@ -217,7 +216,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
                   ),
                   errorText: _error,
                   errorMaxLines: 2,
-                  errorStyle: GoogleFonts.cairo(fontSize: 12, height: 1.3),
+                  errorStyle: AppFonts.cooper(fontSize: 12, height: 1.3),
                   counterText: '',
                   filled: true,
                   fillColor: AppTheme.deepNavy.withValues(alpha: 0.5),
@@ -269,7 +268,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
                       )
                     : Text(
                         'حفظ والدخول',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
@@ -280,7 +279,7 @@ class _PlayerNamePromptDialogState extends State<PlayerNamePromptDialog> {
                 onPressed: _saving ? null : () => Navigator.pop(context),
                 child: Text(
                   'إلغاء',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontWeight: FontWeight.w600,
                   ),

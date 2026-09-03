@@ -7,7 +7,6 @@
 //  • failed       → full-screen modal with retry / go-home buttons
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/reconnection_manager.dart';
 import '../theme/app_theme.dart';
@@ -81,7 +80,7 @@ class ReconnectionBanner extends StatelessWidget {
                     Flexible(
                       child: Text(
                         'جاري إعادة الاتصال…',
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.accentLight,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -156,7 +155,7 @@ class ReconnectionBanner extends StatelessWidget {
                 // Title
                 Text(
                   'انقطع الاتصال',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -168,7 +167,7 @@ class ReconnectionBanner extends StatelessWidget {
                 // Subtitle
                 Text(
                   'تعذّر الاتصال بغرفة اللعب.\nتحقق من اتصالك بالإنترنت وحاول مجدداً.',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.textSecondary,
                     fontSize: 13,
                     height: 1.6,
@@ -190,7 +189,7 @@ class ReconnectionBanner extends StatelessWidget {
                         ),
                         label: Text(
                           'الرئيسية',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -211,7 +210,7 @@ class ReconnectionBanner extends StatelessWidget {
                         icon: const AppIcon(AppIcons.refresh, size: 18),
                         label: Text(
                           'إعادة المحاولة',
-                          style: GoogleFonts.cairo(
+                          style: AppFonts.cooper(
                             fontWeight: FontWeight.w700,
                           ),
                         ),

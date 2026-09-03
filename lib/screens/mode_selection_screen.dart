@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/utils/wallpaper_precache.dart';
 import '../core/widgets/mode_home_shell.dart';
@@ -48,7 +47,13 @@ class ModeSelectionScreen extends StatefulWidget {
 }
 
 class _ModeSelectionScreenState extends State<ModeSelectionScreen>
-    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
+    with SingleTickerProviderStateMixin {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WallpaperPrecache.warmModeFlow(context);
+  }
+
   String _playerName = kDefaultPlayerName;
   String _playerPhoto = ProfileService.presetAvatars.first.id;
   late final AnimationController _animController;
@@ -65,7 +70,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
       artOverflows: true,
     ),
     _MainGameMode(
-      title: 'باصرة',
+      title: 'بصرة',
       subtitle: 'اقتناص الأرض حتى 121 نقطة',
       accent: Color(0xFFE8B923),
       artAsset: 'assets/basra.png',
@@ -176,7 +181,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
 
     return Column(
       children: [
-        SizedBox(height: isLandscape ? 4 : 12),
+        SizedBox(height: isLandscape ? 6 : 24),
         _buildHeroHeader(compact: isLandscape),
         const Spacer(),
         Padding(
@@ -202,7 +207,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         20,
-        metrics.isLandscape ? 4 : 12,
+        metrics.isLandscape ? 6 : 24,
         20,
         8,
       ),
@@ -249,7 +254,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
 
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
       child: Row(
         children: [
           ModeHomeProfileChip(
@@ -291,7 +296,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
         SizedBox(height: metrics.appHeroSpacing(compact: compact)),
         Text(
           kAppName,
-          style: GoogleFonts.cairo(
+          style: AppFonts.dg(
             fontSize: metrics.appHeroTitleSize(compact: compact),
             fontWeight: FontWeight.w900,
             color: AppTheme.white,
@@ -300,14 +305,14 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          'اختر نمط اللعب',
-          style: GoogleFonts.cairo(
-            fontSize: metrics.appHeroSubtitleSize(compact: compact),
-            color: AppTheme.steelBlue,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        // Text(
+        //   'اختر نمط اللعب',
+        //   style: AppFonts.cooper(
+        //     fontSize: metrics.appHeroSubtitleSize(compact: compact),
+        //     color: AppTheme.steelBlue,
+        //     fontWeight: FontWeight.w600,
+        //   ),
+        // ),
       ],
     );
   }
@@ -482,19 +487,19 @@ class _ModeCardState extends State<_ModeCard> {
             children: [
               Text(
                 mode.title,
-                style: GoogleFonts.cairo(
+                style: AppFonts.dg(
                   fontSize: 21,
                   fontWeight: FontWeight.w900,
                   color: AppTheme.white,
                   height: 1.1,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
               Text(
                 mode.subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cairo(
+                style: AppFonts.tajawal(
                   fontSize: 12.5,
                   color: Colors.white.withValues(alpha: 0.62),
                   fontWeight: FontWeight.w600,
@@ -525,7 +530,7 @@ class _ModeCardState extends State<_ModeCard> {
         ),
         Text(
           mode.title,
-          style: GoogleFonts.cairo(
+          style: AppFonts.dg(
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: AppTheme.white,
@@ -533,10 +538,10 @@ class _ModeCardState extends State<_ModeCard> {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         Text(
           mode.subtitle,
-          style: GoogleFonts.cairo(
+          style: AppFonts.tajawal(
             fontSize: 12.5,
             color: Colors.white.withValues(alpha: 0.62),
             fontWeight: FontWeight.w600,

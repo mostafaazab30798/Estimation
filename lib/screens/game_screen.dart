@@ -6,7 +6,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/models/game_state.dart';
 import '../core/game_engine.dart';
@@ -685,7 +684,7 @@ class _GameScreenState extends State<GameScreen> {
               const SizedBox(width: 5),
               Text(
                 'تفاعل',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.cream,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -1092,7 +1091,7 @@ class HiddenCardFan extends StatelessWidget {
       ),
       child: Text(
         '$count',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: AppTheme.cream,
           fontSize: fontSize,
           fontWeight: FontWeight.w800,

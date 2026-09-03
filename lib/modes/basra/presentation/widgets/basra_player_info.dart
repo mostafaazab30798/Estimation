@@ -1,7 +1,6 @@
 // lib/modes/basra/presentation/widgets/basra_player_info.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/modes/basra/domain/models/basra_game_state.dart';
 import 'package:estimation/theme/app_theme.dart';
 import 'package:estimation/widgets/hud/glass_player_card.dart';
@@ -63,7 +62,7 @@ class BasraPlayerInfoWidget extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.cream,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w700,
@@ -106,7 +105,7 @@ class BasraPlayerInfoWidget extends StatelessWidget {
         _miniChip('${player.capturedCards.length} ورقة'),
         if (player.basraCount > 0) ...[
           const SizedBox(width: 4),
-          _miniChip('باصرة ${player.basraCount}', gold: true),
+          _miniChip('بصرة ${player.basraCount}', gold: true),
         ],
       ],
     );
@@ -124,7 +123,7 @@ class BasraPlayerInfoWidget extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: gold ? AppTheme.gold : AppTheme.cream,
           fontSize: 8.5,
           fontWeight: FontWeight.w800,

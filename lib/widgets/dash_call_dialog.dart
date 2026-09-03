@@ -3,7 +3,6 @@
 // Arabic dialog shown before the auction asking if player wants to call Dash Call.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../core/icons/app_icons.dart';
 import '../core/utils/game_layout_metrics.dart';
@@ -46,7 +45,7 @@ class DashCallDialog extends StatelessWidget {
                   children: [
                     Text(
                       'DASH CALL',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: _accent,
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -55,7 +54,7 @@ class DashCallDialog extends StatelessWidget {
                     ),
                     Text(
                       'طلب داش كول',
-                      style: GoogleFonts.cairo(
+                      style: AppFonts.cooper(
                         color: AppTheme.cream,
                         fontSize: layout.isTablet ? 22 : 20,
                         fontWeight: FontWeight.w900,
@@ -71,7 +70,7 @@ class DashCallDialog extends StatelessWidget {
           Text(
             'هل ترغب في إعلان تحقيق (0) أكلات قبل معرفة نوع الحكم؟',
             textAlign: TextAlign.right,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: layout.isTablet ? 14 : 13,
               fontWeight: FontWeight.w600,
@@ -139,7 +138,7 @@ class DashCallDialog extends StatelessWidget {
                   },
                   child: Text(
                     'لا، دخول المزاد',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontWeight: FontWeight.w800,
                       fontSize: layout.isTablet ? 14 : 13,
                     ),
@@ -166,7 +165,7 @@ class DashCallDialog extends StatelessWidget {
                   },
                   child: Text(
                     'نعم، داش كول',
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontWeight: FontWeight.w900,
                       fontSize: layout.isTablet ? 14 : 13,
                     ),
@@ -210,7 +209,7 @@ class _RewardRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.cream.withValues(alpha: 0.88),
               fontSize: compact ? 13 : 12,
               fontWeight: FontWeight.w600,
@@ -219,7 +218,7 @@ class _RewardRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: GoogleFonts.cairo(
+          style: AppFonts.cooper(
             color: valueColor,
             fontSize: compact ? 14 : 13,
             fontWeight: FontWeight.w900,

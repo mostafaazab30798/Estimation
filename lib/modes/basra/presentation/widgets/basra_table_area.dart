@@ -5,7 +5,6 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
@@ -429,7 +428,7 @@ class _BasraTableAreaState extends State<BasraTableArea>
       alignment: Alignment.center,
       child: Text(
         'الأرض',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: Colors.white38,
           fontSize: 11,
           fontWeight: FontWeight.bold,
@@ -609,7 +608,7 @@ class _BasraTableAreaState extends State<BasraTableArea>
       ),
       child: Text(
         'أخذ $count ورقة',
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: AppTheme.goldLight,
           fontSize: 11,
           fontWeight: FontWeight.w800,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:estimation/core/constants.dart';
 import 'package:estimation/core/models/card.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
@@ -574,7 +573,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                 'في انتظار دور الخصم...',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: Colors.white60,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -634,7 +633,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                     previewText,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -663,7 +662,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                           const SizedBox(width: 4),
                           Text(
                             'إلعب الورقة',
-                            style: GoogleFonts.cairo(
+                            style: AppFonts.cooper(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w900,
@@ -697,7 +696,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: Colors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
@@ -720,7 +719,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
         textAlign: TextAlign.center,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: Colors.white,
           fontSize: 11,
           fontWeight: FontWeight.bold,
@@ -781,7 +780,7 @@ class _NinetyNinePlayerHandState extends State<NinetyNinePlayerHand>
       ),
       child: Text(
         card.badgeLabel,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: textColor,
           fontSize: 9.5,
           fontWeight: FontWeight.w900,

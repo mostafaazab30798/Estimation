@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/utils/wallpaper_precache.dart';
@@ -24,7 +23,13 @@ class NinetyNineHomeScreen extends StatefulWidget {
 }
 
 class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
-    with SingleTickerProviderStateMixin, ModeWallpaperPrecacheMixin {
+    with SingleTickerProviderStateMixin {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WallpaperPrecache.warmModeFlow(context);
+  }
+
   static const _red = Color(0xFFEF4444);
   static const _redDark = Color(0xFF991B1B);
   static const _purple = Color(0xFF8E2DE2);
@@ -346,7 +351,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
                   icon: const AppIcon(AppIcons.playArrow, size: 20),
                   label: Text(
                     'ابدأ ($_selectedPlayerCount لاعبين)',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                    style: AppFonts.cooper(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _purple,
@@ -397,7 +402,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
                   icon: const AppIcon(AppIcons.wifiTethering, size: 18),
                   label: Text(
                     'إنشاء الغرفة',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                    style: AppFonts.cooper(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _red,
@@ -437,7 +442,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
               icon: const AppIcon(AppIcons.login, size: 18),
               label: Text(
                 'دخول الغرفة',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+                style: AppFonts.cooper(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF11998E),
@@ -478,7 +483,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
             provider.isSearching
                 ? 'جاري البحث عن غرفة 99...'
                 : 'جاري الاتصال بالغرفة...',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.mintSoft,
               fontWeight: FontWeight.bold,
               fontSize: 15,
@@ -491,7 +496,7 @@ class _NinetyNineHomeScreenState extends State<NinetyNineHomeScreen>
             icon: const AppIcon(AppIcons.close, size: 18),
             label: Text(
               'إلغاء',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              style: AppFonts.cooper(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.errorRed,

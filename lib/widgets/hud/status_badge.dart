@@ -4,7 +4,6 @@
 // status during each game phase. Replaces plain text status hints.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/app_theme.dart';
 import '../../core/models/game_state.dart';
 import '../../core/models/player.dart';
@@ -153,7 +152,7 @@ class StatusBadge extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 label,
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: cfg.color,
                   fontSize: fontSize,
                   fontWeight: FontWeight.w700,

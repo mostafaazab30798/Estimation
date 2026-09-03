@@ -1,7 +1,6 @@
 // lib/widgets/playstyle_radar_view.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/playstyle_models.dart';
 import '../theme/app_theme.dart';
 import 'package:estimation/core/icons/app_icons.dart';
@@ -62,7 +61,7 @@ class PlaystyleRadarView extends StatelessWidget {
         description: 'التأقلم مع توزيع الورق ومواقف اللعب غير المتوقعة',
       ),
       _DimensionItem(
-        titleAr: 'الثقة في كول الترومب',
+        titleAr: 'الثقة في كول القطوع',
         value: metrics.trumpConfidence,
         icon: AppIcons.star,
         color: const Color(0xFFEC4899),
@@ -131,7 +130,7 @@ class PlaystyleRadarView extends StatelessWidget {
               children: [
                 Text(
                   'موثوقية الملف التكتيكي: ${conf.toStringAsFixed(0)}%',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -139,7 +138,7 @@ class PlaystyleRadarView extends StatelessWidget {
                 ),
                 Text(
                   'مبني على تحليل ${metrics.roundsAnalyzed} جولة لعب فعلية • $label',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 11,
                     color: Colors.white70,
                   ),
@@ -155,7 +154,7 @@ class PlaystyleRadarView extends StatelessWidget {
             ),
             child: Text(
               label,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.navyDark,
@@ -189,7 +188,7 @@ class PlaystyleRadarView extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.titleAr,
-                    style: GoogleFonts.cairo(
+                    style: AppFonts.cooper(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.cream,
@@ -198,7 +197,7 @@ class PlaystyleRadarView extends StatelessWidget {
                 ),
                 Text(
                   '${item.value.toStringAsFixed(0)}/100',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                     color: item.color,
@@ -243,7 +242,7 @@ class PlaystyleRadarView extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               item.description,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontSize: 10,
                 color: Colors.white54,
               ),

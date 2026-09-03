@@ -3,7 +3,6 @@
 // Animated speech/reaction bubble widget anchored to player positions on the game table.
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/game_reaction.dart';
 import '../../theme/app_theme.dart';
 
@@ -157,7 +156,7 @@ class _ReactionBubbleWidgetState extends State<ReactionBubbleWidget>
               Flexible(
                 child: Text(
                   widget.reaction.text!,
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.white,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:estimation/core/icons/app_icons.dart';
 import 'package:estimation/core/utils/game_layout_metrics.dart';
@@ -211,8 +210,8 @@ class _BasraRoundScoreOverlayState extends State<BasraRoundScoreOverlay>
 
   Widget _buildLegend(GameLayoutMetrics layout) {
     return Text(
-      'الورق الملتقط + J/A + 2♠ + 10♦ + باصرة + 27+ ورقة',
-      style: GoogleFonts.cairo(
+      'الورق الملتقط + J/A + 2♠ + 10♦ + بصرة + 27+ ورقة',
+      style: AppFonts.cooper(
         color: AppTheme.steelBlue,
         fontSize: layout.isLargeTablet ? 12.5 : 11,
         height: 1.35,
@@ -259,7 +258,7 @@ class _BasraRoundScoreOverlayState extends State<BasraRoundScoreOverlay>
             ),
             child: Text(
               'الجولة التالية',
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
@@ -292,7 +291,7 @@ class _BasraRoundScoreOverlayState extends State<BasraRoundScoreOverlay>
                 const SizedBox(width: 10),
                 Text(
                   'بانتظار المضيف لبدء الجولة التالية',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -320,7 +319,7 @@ class _BasraRoundScoreOverlayState extends State<BasraRoundScoreOverlay>
                 ? 'تبدأ الجولة التالية تلقائياً خلال $_secondsRemaining ث'
                 : 'يبدأ المضيف الجولة التالية خلال $_secondsRemaining ث',
             textAlign: TextAlign.center,
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -362,7 +361,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   'الجولة $roundNumber',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.steelBlue,
                     fontSize: largeScreen ? 14 : 12,
                     fontWeight: FontWeight.w700,
@@ -371,7 +370,7 @@ class _Header extends StatelessWidget {
                 ),
                 Text(
                   'ملخص النقاط',
-                  style: GoogleFonts.cairo(
+                  style: AppFonts.cooper(
                     color: AppTheme.cream,
                     fontSize: largeScreen ? 28 : 22,
                     fontWeight: FontWeight.w900,
@@ -415,7 +414,7 @@ class _NoticeBanner extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.cairo(
+              style: AppFonts.cooper(
                 color: AppTheme.cream,
                 fontSize: 12,
                 height: 1.4,
@@ -486,7 +485,7 @@ class _PlayerScoreRow extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cairo(
+                        style: AppFonts.cooper(
                           color: AppTheme.cream,
                           fontSize: largeScreen ? 17 : 15,
                           fontWeight: FontWeight.w800,
@@ -498,7 +497,7 @@ class _PlayerScoreRow extends StatelessWidget {
               ),
               Text(
                 '+$round',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.playerGreen,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
@@ -507,7 +506,7 @@ class _PlayerScoreRow extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '$total',
-                style: GoogleFonts.cairo(
+                style: AppFonts.cooper(
                   color: AppTheme.gold,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -530,7 +529,7 @@ class _PlayerScoreRow extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '$total / $matchTarget للفوز',
-            style: GoogleFonts.cairo(
+            style: AppFonts.cooper(
               color: AppTheme.steelBlue,
               fontSize: 10.5,
               height: 1.1,
@@ -557,7 +556,7 @@ class _PlayerScoreRow extends StatelessWidget {
       chips.add(_chip('27+ (+${s.majorityPoints})', AppTheme.gold));
     }
     if (s.basraPoints > 0) {
-      chips.add(_chip('باصرة ×${s.basraCount} (+${s.basraPoints})', AppTheme.gold));
+      chips.add(_chip('بصرة ×${s.basraCount} (+${s.basraPoints})', AppTheme.gold));
     }
     if (s.jackPoints > 0) {
       chips.add(_chip('J (+${s.jackPoints})', AppTheme.midBlue));
@@ -587,7 +586,7 @@ class _PlayerScoreRow extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.cairo(
+        style: AppFonts.cooper(
           color: AppTheme.cream,
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
